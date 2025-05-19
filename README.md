@@ -363,7 +363,12 @@ docker-compose exec back python manage.py migrate
 ## UserScript 폴더
 `userscript` 폴더에는 Windows 환경에서 사용할 수 있는 스크립트 파일들이 포함되어 있습니다:
 
-- `실행.bat`: Windows 배치 파일로, 시스템 설정을 자동으로 변경합니다.
-- `shell.ps1`: PowerShell 스크립트로, 네트워크 설정 및 시스템 구성을 자동화합니다.
+- `start.bat`: Windows 배치 파일로, PowerShell 실행 정책을 변경하고 `shell.ps1` 스크립트를 실행합니다.
+- `shell.ps1`: PowerShell 스크립트로, 다음 기능들을 수행합니다:
+  - 시스템 정보 수집 (제조사, 모델, 시리얼번호, OS 정보 등)
+  - 네트워크 어댑터 정보 수집 (MAC 주소, 인터페이스 타입)
+  - 장비 등록 API 호출
+  - 컴퓨터 이름 자동 변경 (사용자명-모델명 형식)
+  - 관리자 권한 확인 및 요청
 
-이 스크립트들은 Windows 클라이언트에서 네트워크 설정을 자동으로 구성하는데 사용됩니다. 
+이 스크립트들은 Windows 클라이언트에서 장비 등록 및 네트워크 설정을 자동으로 구성하는데 사용됩니다. 실행 시 관리자 권한이 필요하며, 실행 후 컴퓨터 재시작이 필요할 수 있습니다. 
