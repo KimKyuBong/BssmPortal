@@ -1,0 +1,48 @@
+# 빌드 결과물
+.next
+out
+
+# 의존성
+node_modules
+.pnp
+.pnp.js
+yarn-debug.log*
+yarn-error.log*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# 개발 환경 관련
+.DS_Store
+*.pem
+npm-debug.log*
+.eslintcache
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 버전 관리 시스템
+.git
+.gitignore
+.github
+.gitlab-ci.yml
+
+# 기타 파일
+*.log
+logs
+**/*.log
+.vscode
+.idea
+.cache
+coverage
+test
+__tests__
+jest.config.*
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+README.md 

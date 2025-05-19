@@ -1,0 +1,54 @@
+db/mysql/*
+old/
+smb/setup/*
+smb/bssmdata/*
+
+__pycache__
+nginx/data/winpe/*
+nginx/data/ubuntu/*
+
+# IDE 관련
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 로그 파일
+*.log
+
+# 환경 설정 파일 (필요한 경우 주석 처리)
+# .env
+# config.ini
+
+# 시스템 파일
+.DS_Store
+Thumbs.db 
+
+*.pid
+
+
+# 환경 변수 파일
+.env
+
+*.log
+*.log.*
+
+kea-dhcp4.conf
+
+# 파이썬 가상환경
+venv/
+
+*.key
+*.crt
+*.csr
+*.pem
+*.pfx
+*.p12
+*.der
+
+tmp/
+
+web
+
+
+smb/

@@ -1,0 +1,223 @@
+services:
+  back:
+    build: ./back
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./back:/app
+    environment:
+      # Django 설정
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      
+      # kea 데이터베이스 설정
+      - KEA_DATABASE_HOST=db
+      - KEA_DATABASE_USER=${KEA_DATABASE_USER}
+      - KEA_DATABASE_PASSWORD=${KEA_DATABASE_PASSWORD}
+      - KEA_DATABASE_NAME=${KEA_DATABASE_NAME}
+      - KEA_DATABASE_PORT=${KEA_DATABASE_PORT}
+
+      # bssm 데이터베이스 설정
+      - BSSM_DATABASE_HOST=db
+      - BSSM_DATABASE_USER=${BSSM_DATABASE_USER}
+      - BSSM_DATABASE_PASSWORD=${BSSM_DATABASE_PASSWORD}
+      - BSSM_DATABASE_NAME=${BSSM_DATABASE_NAME}
+      - BSSM_DATABASE_PORT=${BSSM_DATABASE_PORT}
+      
+      # CORS 설정
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      
+      # JWT 설정
+      - JWT_ACCESS_TOKEN_HOURS=${JWT_ACCESS_TOKEN_HOURS}
+      - JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}
+      - JWT_ALGORITHM=${JWT_ALGORITHM}
+      
+      # KEA DHCP 설정
+      - KEA_SUBNET_ID=${KEA_SUBNET_ID}
+      - KEA_TEACHER_LIFETIME=${KEA_TEACHER_LIFETIME}
+      - KEA_STUDENT_LIFETIME=${KEA_STUDENT_LIFETIME}
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:latest
+    restart: always
+    network_mode: "host"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./front/bssminfo/out:/usr/share/nginx/html/front:ro
+    depends_on:
+      - back
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${KEA_DATABASE_NAME}
+      MYSQL_USER: ${KEA_DATABASE_USER}
+      MYSQL_PASSWORD: ${KEA_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./db/mysql:/var/lib/mysql  
+
+
+  kea:
+    build: 
+      context: ./kea
+      dockerfile: Dockerfile
+    network_mode: "host"
+    volumes:
+      - ./kea/config:/etc/kea
+      - ./kea/logs:/var/log/kea
+    environment:
+      - TZ=Asia/Seoul
+      # KEA 데이터베이스 설정
+      - KEA_DATABASE_HOST=127.0.0.1
+      - KEA_DATABASE_PORT=${KEA_DATABASE_PORT}
+      - KEA_DATABASE_NAME=${KEA_DATABASE_NAME}
+      - KEA_DATABASE_USER=${KEA_DATABASE_USER}
+      - KEA_DATABASE_PASSWORD=${KEA_DATABASE_PASSWORD}
+      
+      # 기존 KEA 네트워크 설정 (호환성 유지)
+      - KEA_INTERFACE=${KEA_INTERFACE}
+      - KEA_NORMAL_GATEWAY=${KEA_NORMAL_GATEWAY}
+      - KEA_NORMAL_SUBNET=${KEA_NORMAL_SUBNET}
+      - KEA_NORMAL_POOL=${KEA_NORMAL_POOL}
+      - KEA_BOOT_GATEWAY=${KEA_BOOT_GATEWAY}
+      - KEA_BOOT_SUBNET=${KEA_BOOT_SUBNET}
+      - KEA_BOOT_POOL=${KEA_BOOT_POOL}
+      - KEA_BOOT_DHCP=${KEA_BOOT_DHCP}
+      - KEA_NORMAL_DHCP=${KEA_NORMAL_DHCP}
+      
+      # 새로 추가된 KEA 네트워크 설정
+      - KEA_INTERFACE2=${KEA_INTERFACE2}
+      
+      # 미인증 교사 네트워크
+      - KEA_NC_TEACHER_GATEWAY=${KEA_NC_TEACHER_GATEWAY}
+      - KEA_NC_TEACHER_SUBNET=${KEA_NC_TEACHER_SUBNET}
+      - KEA_NC_TEACHER_POOL=${KEA_NC_TEACHER_POOL}
+      - KEA_NC_TEACHER_DHCP=${KEA_NC_TEACHER_DHCP}
+      
+      # 미인증 학생 네트워크
+      - KEA_NC_STUDENT_GATEWAY=${KEA_NC_STUDENT_GATEWAY}
+      - KEA_NC_STUDENT_SUBNET=${KEA_NC_STUDENT_SUBNET}
+      - KEA_NC_STUDENT_POOL=${KEA_NC_STUDENT_POOL}
+      - KEA_NC_STUDENT_DHCP=${KEA_NC_STUDENT_DHCP}
+      
+      # 교사 부팅 네트워크
+      - KEA_TEACHER_BOOT_GATEWAY=${KEA_TEACHER_BOOT_GATEWAY}
+      - KEA_TEACHER_BOOT_SUBNET=${KEA_TEACHER_BOOT_SUBNET}
+      - KEA_TEACHER_BOOT_POOL=${KEA_TEACHER_BOOT_POOL}
+      - KEA_TEACHER_BOOT_DHCP=${KEA_TEACHER_BOOT_DHCP}
+      
+      # 학생 부팅 네트워크
+      - KEA_STUDENT_BOOT_GATEWAY=${KEA_STUDENT_BOOT_GATEWAY}
+      - KEA_STUDENT_BOOT_SUBNET=${KEA_STUDENT_BOOT_SUBNET}
+      - KEA_STUDENT_BOOT_POOL=${KEA_STUDENT_BOOT_POOL}
+      - KEA_STUDENT_BOOT_DHCP=${KEA_STUDENT_BOOT_DHCP}
+      
+      # 인증 교사 네트워크
+      - KEA_AUTH_TEACHER_GATEWAY=${KEA_AUTH_TEACHER_GATEWAY}
+      - KEA_AUTH_TEACHER_SUBNET=${KEA_AUTH_TEACHER_SUBNET}
+      - KEA_AUTH_TEACHER_POOL=${KEA_AUTH_TEACHER_POOL}
+      - KEA_AUTH_TEACHER_DHCP=${KEA_AUTH_TEACHER_DHCP}
+      
+      # 인증 학생 네트워크 (망 1)
+      - KEA_AUTH_STUDENT1_GATEWAY=${KEA_AUTH_STUDENT1_GATEWAY}
+      - KEA_AUTH_STUDENT1_SUBNET=${KEA_AUTH_STUDENT1_SUBNET}
+      - KEA_AUTH_STUDENT1_POOL=${KEA_AUTH_STUDENT1_POOL}
+      - KEA_AUTH_STUDENT1_DHCP=${KEA_AUTH_STUDENT1_DHCP}
+      
+      # 인증 학생 네트워크 (망 2)
+      - KEA_AUTH_STUDENT2_GATEWAY=${KEA_AUTH_STUDENT2_GATEWAY}
+      - KEA_AUTH_STUDENT2_SUBNET=${KEA_AUTH_STUDENT2_SUBNET}
+      - KEA_AUTH_STUDENT2_POOL=${KEA_AUTH_STUDENT2_POOL}
+      - KEA_AUTH_STUDENT2_DHCP=${KEA_AUTH_STUDENT2_DHCP}
+      
+      # PXE/iPXE 설정
+      - PXE_TEACHER_SERVER=${PXE_TEACHER_SERVER}
+      - PXE_TEACHER_HTTP_PORT=${PXE_TEACHER_HTTP_PORT}
+      - PXE_STUDENT_SERVER=${PXE_STUDENT_SERVER}
+      - PXE_STUDENT_HTTP_PORT=${PXE_STUDENT_HTTP_PORT}
+      
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - NET_BROADCAST
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  tftp:
+    image: 3x3cut0r/tftpd-hpa
+    network_mode: "host"
+    environment:
+      TZ: Asia/Seoul
+      CREATE: 1
+      VERBOSE: 1
+      VERBOSITY: 4
+      SECURE: 1
+      PERMISSIVE: 1
+      MAXPROC: 4  # 프로세스 수 제한
+      MAPFILE: ""   
+    volumes:
+      - ./tftp/data:/tftpboot
+    restart: unless-stopped
+
+  smb:
+    image: dperson/samba
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      - ./smb/initsetup:/setup
+      - ./smb/setup:/oldsetup
+      - ./smb/bssmdata:/bssmdata
+    environment:
+      USERID: 1000
+      GROUPID: 1000
+      TZ: Asia/Seoul
+      WORKGROUP: "WORKGROUP"
+    restart: unless-stopped
+    command: >
+      -p
+      -S
+      -g "security = user"
+      -g "map to guest = Bad User"
+      -g "server min protocol = SMB2"
+      -g "server max protocol = SMB3"
+      -g "client min protocol = SMB2"
+      -g "client max protocol = SMB3"
+      -g "ntlm auth = yes"
+      -g "unix charset = UTF-8"
+      -g "dos charset = CP932"
+      -g "max connections = 1000"
+      -g "deadtime = 30"
+      -g "keepalive = 60"
+      -g "log level = 3"
+      -g "multiuser = yes"
+      -g "max protocol = SMB3"
+      -g "server multi channel support = yes"
+      -g "directory mask = 0777"
+      -g "create mask = 0777"
+      -u "${SAMBA_USER};${SAMBA_PASSWORD}"
+      -s "setup;/setup;yes;yes;no;${SAMBA_USER}"
+      -s "oldsetup;/oldsetup;yes;yes;no;${SAMBA_USER}"
+      -s "BSSMShare;/bssmdata;yes;no;no;${SAMBA_USER}"
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+
+
+  dns:
+    image: mvance/unbound:latest
+    network_mode: "host"
+    volumes:
+      - ./dns:/opt/unbound/etc/unbound
+    restart: unless-stopped
+
+  

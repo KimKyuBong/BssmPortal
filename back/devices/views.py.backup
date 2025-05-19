@@ -1,0 +1,776 @@
+from django.shortcuts import render
+from rest_framework import viewsets, status
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, BasePermission
+from rest_framework.exceptions import ValidationError
+from .models import Device, DeviceHistory
+from .serializers import DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
+import subprocess
+import re
+import mysql.connector
+from django.conf import settings
+from django.utils import timezone
+import logging
+from users.views import IsSuperUser, IsStaffUser
+
+logger = logging.getLogger(__name__)
+
+# Create your views here.
+
+class DeviceViewSet(viewsets.ModelViewSet):
+    serializer_class = DeviceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return DeviceDetailSerializer
+        return DeviceSerializer
+
+    def get_queryset(self):
+        # 관리자는 모든 장치 조회 가능
+        if self.request.user.is_superuser:
+            return Device.objects.all()
+        # 교사는 모든 장치 조회 가능
+        elif self.request.user.is_staff:
+            return Device.objects.all()
+        # 일반 사용자는 자신의 장치만 조회 가능
+        return Device.objects.filter(user=self.request.user)
+    
+    def get_permissions(self):
+        # 관리자 권한이 필요한 액션 목록 명시적 지정
+        if self.action in ['update', 'partial_update', 'all', 'reassign_ip', 'toggle_active', 'user_history']:
+            return [IsSuperUser()]
+        # 교사 권한이 필요한 액션 목록
+        elif self.action in ['history']:
+            return [IsStaffUser()]
+        return [IsAuthenticated()]
+
+    # KEA 데이터베이스 설정 가져오기 헬퍼 메서드
+    def _get_kea_db_config(self):
+        return {
+            "host": settings.DATABASES['kea']['HOST'],
+            "user": settings.DATABASES['kea']['USER'],
+            "password": settings.DATABASES['kea']['PASSWORD'],
+            "database": settings.DATABASES['kea']['NAME']
+        }
+    
+    # IP 주소를 정수로 변환하는 헬퍼 메서드
+    def _ip_to_int(self, ip_address):
+        ip_parts = ip_address.split('.')
+        return (int(ip_parts[0]) << 24) + (int(ip_parts[1]) << 16) + (int(ip_parts[2]) << 8) + int(ip_parts[3])
+    
+    # MAC 주소 형식 변환 (콜론 제거) 헬퍼 메서드
+    def _mac_without_colons(self, mac_address):
+        return mac_address.replace(':', '')
+    
+    # KEA DHCP 서버에서 사용 중인 IP 주소 가져오기
+    def _get_kea_used_ips(self):
+        kea_used_ips = []
+        try:
+            # KEA 데이터베이스 연결
+            conn = mysql.connector.connect(**self._get_kea_db_config())
+            cursor = conn.cursor(dictionary=True)
+            
+            # hosts 테이블에서 할당된 IP 주소 조회 (subnet_id = 3)
+            query = """
+                SELECT INET_NTOA(ipv4_address) as ip_address
+                FROM hosts
+                WHERE dhcp4_subnet_id = 3
+            """
+            
+            cursor.execute(query)
+            results = cursor.fetchall()
+            
+            for result in results:
+                if result['ip_address']:
+                    kea_used_ips.append(result['ip_address'])
+                    
+            cursor.close()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"KEA 데이터베이스 조회 중 오류 발생: {e}")
+        
+        return kea_used_ips
+    
+    # 사용 가능한 IP 주소 찾기
+    def _find_available_ip(self, exclude_device_id=None):
+        # 사용 중인 IP 주소 가져오기
+        if exclude_device_id:
+            used_ips = list(Device.objects.exclude(id=exclude_device_id).values_list('assigned_ip', flat=True))
+        else:
+            used_ips = list(Device.objects.values_list('assigned_ip', flat=True))
+        
+        # KEA DHCP 서버에서 이미 할당된 IP 주소 가져오기
+        kea_used_ips = self._get_kea_used_ips()
+        
+        # 모든 사용 중인 IP 주소 합치기
+        all_used_ips = set(used_ips + kea_used_ips)
+        logger.info(f"전체 사용 중인 IP 주소 수: {len(all_used_ips)}")
+        
+        # IP 범위 설정 (50 ~ 250)
+        ip_start = 50
+        ip_end = 250
+        base_ip = "10.129.50."
+        
+        # 사용 가능한 IP 찾기
+        for i in range(ip_start, ip_end + 1):
+            candidate_ip = f"{base_ip}{i}"
+            if candidate_ip not in all_used_ips:
+                return candidate_ip
+                
+        logger.error(f"사용 가능한 IP 주소가 없음: 사용 중인 IP 주소 수={len(all_used_ips)}")
+        return None
+    
+    # KEA DHCP 서버에 IP 할당 등록
+    def _register_ip_to_kea(self, mac_address, ip_address, device_name):
+        try:
+            # KEA 데이터베이스 연결
+            conn = mysql.connector.connect(**self._get_kea_db_config())
+            cursor = conn.cursor()
+
+            # MAC 주소 형식 변환 (콜론 제거)
+            mac_without_colons = self._mac_without_colons(mac_address)
+
+            # IP 주소 유효성 검사
+            if not ip_address or not re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip_address):
+                logger.error(f"유효하지 않은 IP 주소 형식: {ip_address}")
+                raise ValidationError({"assigned_ip": "유효하지 않은 IP 주소 형식입니다."})
+
+            # IP 주소를 정수로 변환
+            ip_int = self._ip_to_int(ip_address)
+            
+            logger.info(f"IP 주소 변환: {ip_address} -> {ip_int}")
+            
+            # hosts 테이블에 등록
+            cursor.execute("""
+                INSERT INTO hosts (dhcp_identifier, dhcp_identifier_type, dhcp4_subnet_id, ipv4_address, hostname)
+                VALUES (UNHEX(%s), 0, 3, %s, %s)
+            """, (mac_without_colons, ip_int, device_name))
+            
+            # 생성된 host_id 가져오기
+            host_id = cursor.lastrowid
+            
+            # dhcp4_options 테이블에 옵션 추가
+            # 옵션 3: 라우터(게이트웨이)
+            cursor.execute("""
+                INSERT INTO dhcp4_options (code, value, formatted_value, space, persistent, host_id, scope_id)
+                VALUES (3, UNHEX('0A813201'), '10.129.50.1', 'dhcp4', 1, %s, 3)
+            """, (host_id,))
+            
+            # 옵션 6: DNS 서버
+            cursor.execute("""
+                INSERT INTO dhcp4_options (code, value, formatted_value, space, persistent, host_id, scope_id)
+                VALUES (6, UNHEX('D3B6E902A87E3F01'), '211.182.233.2,168.126.63.1', 'dhcp4', 1, %s, 3)
+            """, (host_id,))
+            
+            # 옵션 54: DHCP 서버 주소
+            cursor.execute("""
+                INSERT INTO dhcp4_options (code, value, formatted_value, space, persistent, host_id, scope_id)
+                VALUES (54, UNHEX('0A8132FD'), '10.129.50.253', 'dhcp4', 1, %s, 3)
+            """, (host_id,))
+            
+            # lease4 테이블에 등록
+            cursor.execute("""
+                INSERT INTO lease4 (address, hwaddr, client_id, valid_lifetime, expire, subnet_id, state, user_context)
+                VALUES (%s, UNHEX(%s), NULL, 8640000, DATE_ADD(NOW(), INTERVAL 100 DAY), 3, 0, '{"state":"DEFAULT"}')
+            """, (ip_int, mac_without_colons))
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+            logger.info(f"KEA DB에 장치 {mac_address} 정보 등록 완료 (host_id: {host_id})")
+            return True
+        except ValidationError as ve:
+            # 유효성 검사 오류는 상위로 전파
+            raise ve
+        except Exception as e:
+            logger.error(f"KEA 데이터베이스 처리 중 오류 발생: {e}")
+            # KEA 오류는 무시하고 계속 진행
+            return False
+    
+    # KEA DHCP 서버에서 IP 할당 제거
+    def _remove_ip_from_kea(self, mac_address, ip_address=None):
+        try:
+            # KEA 데이터베이스 연결
+            conn = mysql.connector.connect(**self._get_kea_db_config())
+            cursor = conn.cursor(dictionary=True)
+
+            # MAC 주소 형식 변환 (콜론 제거)
+            mac_without_colons = self._mac_without_colons(mac_address)
+
+            # 1. hosts 테이블에서 기존 예약 정보 가져오기
+            cursor.execute("""
+                SELECT host_id, INET_NTOA(ipv4_address) as ip_address 
+                FROM hosts 
+                WHERE dhcp_identifier = UNHEX(%s)
+                AND dhcp4_subnet_id = 3
+            """, (mac_without_colons,))
+            result = cursor.fetchone()
+            
+            if result:
+                # 2. DHCP 옵션 삭제
+                cursor.execute("""
+                    DELETE FROM dhcp4_options WHERE host_id = %s
+                """, (result['host_id'],))
+                
+                # 3. 호스트 예약 삭제
+                cursor.execute("""
+                    DELETE FROM hosts WHERE host_id = %s
+                """, (result['host_id'],))
+                
+                # 4. 해당 IP의 모든 lease 삭제 (declined 포함)
+                cursor.execute("""
+                    DELETE FROM lease4 
+                    WHERE address = INET_ATON(%s)
+                """, (result['ip_address'],))
+            
+            # 5. MAC 주소의 모든 lease 삭제
+            cursor.execute("""
+                DELETE FROM lease4 
+                WHERE hwaddr = UNHEX(%s)
+                AND subnet_id = 3
+            """, (mac_without_colons,))
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+            logger.info(f"KEA DB에서 장치 {mac_address} 정보 삭제 완료")
+            return True
+        except Exception as e:
+            logger.error(f"KEA 데이터베이스 처리 중 오류 발생: {e}")
+            return False
+
+    @action(detail=False, methods=['get'])
+    def my(self, request):
+        """내 기기만 조회"""
+        devices = Device.objects.filter(user=request.user)
+        serializer = self.get_serializer(devices, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def all(self, request):
+        """모든 기기 조회 (관리자용)"""
+        if not request.user.is_superuser:
+            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+        devices = Device.objects.all()
+        serializer = self.get_serializer(devices, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        device = serializer.save(user=self.request.user)
+        
+        # IP 주소가 없는 경우 자동 할당
+        if not device.assigned_ip:
+            # 사용 가능한 IP 찾기
+            assigned_ip = self._find_available_ip()
+                
+            if not assigned_ip:
+                raise ValidationError({"assigned_ip": "사용 가능한 IP 주소가 없습니다."})
+                
+            logger.info(f"자동 할당된 IP 주소: {assigned_ip}")
+            
+            # 할당된 IP 주소 저장
+            device.assigned_ip = assigned_ip
+            device.save()
+        
+        # 이력 기록
+        DeviceHistory.objects.create(
+            user=self.request.user,
+            mac_address=device.mac_address,
+            device_name=device.device_name,
+            assigned_ip=device.assigned_ip,
+            action='REGISTER'
+        )
+        
+        # KEA DHCP 서버에 IP 할당 등록
+        self._register_ip_to_kea(device.mac_address, device.assigned_ip, device.device_name)
+
+    def perform_update(self, serializer):
+        old_data = DeviceSerializer(serializer.instance).data
+        device = serializer.save()
+        # 이력 기록
+        DeviceHistory.objects.create(
+            device=device,
+            action='UPDATE',
+            old_value=old_data,
+            new_value=DeviceSerializer(device).data,
+            created_by=self.request.user
+        )
+
+    def perform_destroy(self, instance):
+        """장치 삭제 시 KEA DHCP 서버의 호스트 설정도 함께 삭제"""
+        # 권한 확인: 관리자이거나 자신의 장치만 삭제 가능
+        if not self.request.user.is_superuser and instance.user != self.request.user:
+            raise ValidationError({"detail": "자신의 장치만 삭제할 수 있습니다."})
+            
+        try:
+            # 삭제 이력 기록
+            DeviceHistory.objects.create(
+                user=self.request.user,
+                mac_address=instance.mac_address,
+                device_name=instance.device_name,
+                assigned_ip=instance.assigned_ip,
+                action='UNREGISTER'
+            )
+            
+            # KEA DHCP 서버에서 IP 할당 제거
+            self._remove_ip_from_kea(instance.mac_address, instance.assigned_ip)
+
+            # 장치 삭제
+            instance.delete()
+            logger.info(f"장치 {instance.mac_address} 삭제 완료")
+        except Exception as e:
+            logger.error(f"장치 삭제 중 오류 발생: {e}")
+            raise
+
+    @action(detail=True, methods=['post'])
+    def reassign_ip(self, request, pk=None):
+        device = self.get_object()
+        old_ip = device.assigned_ip
+        
+        # 새로운 IP 할당
+        new_ip = self._find_available_ip(exclude_device_id=device.id)
+        
+        if not new_ip:
+            return Response(
+                {"error": "사용 가능한 IP 주소가 없습니다."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # 기존 IP 할당 제거
+        self._remove_ip_from_kea(device.mac_address)
+        
+        # 새 IP 할당
+        if self._register_ip_to_kea(device.mac_address, new_ip, device.device_name):
+            device.assigned_ip = new_ip
+            device.save()
+            
+            # 이력 기록
+            DeviceHistory.objects.create(
+                user=request.user,
+                mac_address=device.mac_address,
+                device_name=device.device_name,
+                assigned_ip=new_ip,
+                action='REASSIGN_IP',
+                old_value={'ip': old_ip},
+                new_value={'ip': new_ip}
+            )
+            
+            return Response({
+                "message": "IP 재할당 성공",
+                "old_ip": old_ip,
+                "new_ip": new_ip
+            })
+        else:
+            return Response(
+                {"error": "IP 재할당에 실패했습니다."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        device = self.get_object()
+        device.is_active = not device.is_active
+        
+        try:
+            if not device.is_active:  # 비활성화로 변경된 경우
+                # 1. 기존 IP 주소 기록
+                old_ip = device.assigned_ip
+                
+                # 2. 기존 DHCP 할당 제거
+                self._remove_ip_from_kea(device.mac_address)
+                logger.info(f"장치 {device.mac_address}의 DHCP 할당이 제거되었습니다.")
+                
+                # 3. 임시 IP 할당 (인터넷 접속 불가능한 네트워크 대역)
+                temp_ip = f"10.129.50.{device.id % 10 + 1}"  # 임시 IP 생성 (1~10 범위)
+                
+                # 임시 IP 등록 (1시간 유효기간)
+                conn = mysql.connector.connect(**self._get_kea_db_config())
+                cursor = conn.cursor()
+                
+                mac_without_colons = self._mac_without_colons(device.mac_address)
+                ip_int = self._ip_to_int(temp_ip)
+                
+                cursor.execute("""
+                    INSERT INTO hosts (dhcp_identifier, dhcp_identifier_type, dhcp4_subnet_id, ipv4_address, hostname)
+                    VALUES (UNHEX(%s), 0, 3, %s, %s)
+                """, (mac_without_colons, ip_int, device.device_name))
+                
+                host_id = cursor.lastrowid
+                
+                cursor.execute("""
+                    INSERT INTO lease4 (address, hwaddr, client_id, valid_lifetime, expire, subnet_id, state, user_context)
+                    VALUES (%s, UNHEX(%s), NULL, 3600, DATE_ADD(NOW(), INTERVAL 1 HOUR), 3, 0, '{"state":"TEMPORARY"}')
+                """, (ip_int, mac_without_colons))
+                
+                conn.commit()
+                cursor.close()
+                conn.close()
+                
+                logger.info(f"장치 {device.mac_address}에 임시 IP {temp_ip}가 할당되었습니다.")
+                
+                # 4. 장치 정보 업데이트 - 임시 IP로 설정
+                device.assigned_ip = temp_ip
+                
+                # 5. 이력 기록
+                DeviceHistory.objects.create(
+                    user=request.user,
+                    mac_address=device.mac_address,
+                    device_name=device.device_name,
+                    assigned_ip=temp_ip,
+                    action='DEACTIVATE',
+                    old_value={'ip': old_ip, 'is_active': True},
+                    new_value={'ip': temp_ip, 'is_active': False}
+                )
+            else:  # 활성화로 변경된 경우
+                # 1. 임시 IP 할당 제거
+                old_ip = device.assigned_ip
+                self._remove_ip_from_kea(device.mac_address)
+                
+                # 2. 새로운 IP 할당
+                new_ip = self._find_available_ip(exclude_device_id=device.id)
+                    
+                if not new_ip:
+                    logger.error("사용 가능한 IP 주소가 없습니다.")
+                    return Response({"error": "사용 가능한 IP 주소가 없습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+                # 3. 새 IP로 DHCP 할당
+                self._register_ip_to_kea(device.mac_address, new_ip, device.device_name)
+                logger.info(f"장치 {device.mac_address}에 새 IP {new_ip}가 할당되었습니다.")
+                
+                # 4. 장치 정보 업데이트
+                device.assigned_ip = new_ip
+                
+                # 5. 이력 기록
+                DeviceHistory.objects.create(
+                    user=request.user,
+                    mac_address=device.mac_address,
+                    device_name=device.device_name,
+                    assigned_ip=new_ip,
+                    action='ACTIVATE',
+                    old_value={'ip': old_ip, 'is_active': False},
+                    new_value={'ip': new_ip, 'is_active': True}
+                )
+        except Exception as e:
+            # 오류가 발생해도 계속 진행
+            logger.error(f"DHCP 할당 처리 중 오류 발생: {e}")
+        
+        # 변경사항 저장
+        device.save()
+        
+        return Response({
+            'status': 'success',
+            'is_active': device.is_active,
+            'assigned_ip': device.assigned_ip
+        })
+
+    @action(detail=False, methods=['post'])
+    def register_manual(self, request):
+        """MAC 주소 수동 등록"""
+        mac_address = request.data.get('mac_address')
+        device_name = request.data.get('device_name')
+        
+        logger.info(f"장치 등록 요청: MAC={mac_address}, 이름={device_name}, 사용자={request.user.username}")
+        
+        # MAC 주소 형식 검증
+        if not mac_address or not re.match(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$', mac_address):
+            logger.warning(f"유효하지 않은 MAC 주소 형식: {mac_address}")
+            return Response({
+                'success': False,
+                'message': '유효하지 않은 MAC 주소 형식입니다.',
+                'error_code': 'INVALID_MAC_FORMAT'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 장치 이름 검증
+        if not device_name:
+            logger.warning(f"장치 이름이 제공되지 않음: 사용자={request.user.username}")
+            return Response({
+                'success': False,
+                'message': '장치 이름을 입력해주세요.',
+                'error_code': 'EMPTY_DEVICE_NAME'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 이미 등록된 MAC 주소인지 확인
+        if Device.objects.filter(mac_address=mac_address).exists():
+            existing_device = Device.objects.get(mac_address=mac_address)
+            logger.warning(f"중복된 MAC 주소 등록 시도: MAC={mac_address}, 기존 소유자={existing_device.user.username}")
+            return Response({
+                'success': False,
+                'message': '이미 등록된 MAC 주소입니다.',
+                'error_code': 'DUPLICATE_MAC_ADDRESS',
+                'owner': existing_device.user.username
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 사용자 장치 수 제한 확인
+        user_devices = Device.objects.filter(user=request.user).count()
+        if user_devices >= 3:
+            logger.warning(f"장치 등록 제한 초과: 사용자={request.user.username}, 현재 장치 수={user_devices}")
+            return Response({
+                'success': False,
+                'message': '최대 3개의 장치만 등록할 수 있습니다.',
+                'error_code': 'MAX_DEVICES_REACHED',
+                'current_count': user_devices
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 새 IP 주소 할당
+        assigned_ip = self._find_available_ip()
+                
+        if not assigned_ip:
+            logger.error(f"사용 가능한 IP 주소가 없음")
+            return Response({
+                'success': False,
+                'message': '사용 가능한 IP 주소가 없습니다.',
+                'error_code': 'NO_AVAILABLE_IP'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        logger.info(f"할당된 IP 주소: {assigned_ip}")
+            
+        # 장치 등록
+        try:
+            device = Device.objects.create(
+                user=request.user,
+                mac_address=mac_address,
+                assigned_ip=assigned_ip,
+                device_name=device_name
+            )
+            logger.info(f"장치 등록 성공: MAC={mac_address}, IP={assigned_ip}, 사용자={request.user.username}")
+        except Exception as e:
+            logger.error(f"장치 등록 중 오류 발생: {e}")
+            return Response({
+                'success': False,
+                'message': f'장치 등록 중 오류가 발생했습니다: {str(e)}',
+                'error_code': 'DEVICE_CREATION_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # KEA DHCP 서버에 IP 할당 등록
+        self._register_ip_to_kea(mac_address, assigned_ip, device_name)
+        
+        # 장치 등록 이력 기록
+        try:
+            DeviceHistory.objects.create(
+                user=request.user,
+                mac_address=mac_address,
+                device_name=device_name,
+                assigned_ip=assigned_ip,
+                action='REGISTER'
+            )
+            logger.info(f"장치 등록 이력 기록 완료: MAC={mac_address}")
+        except Exception as e:
+            logger.error(f"장치 이력 기록 중 오류 발생: {e}")
+            # 이력 기록 오류는 무시하고 계속 진행
+        
+        return Response({
+            'success': True,
+            'message': '장치가 성공적으로 등록되었습니다.',
+            'device': DeviceSerializer(device).data
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        total_devices = Device.objects.count()
+        active_devices = Device.objects.filter(is_active=True).count()
+        user_devices = Device.objects.filter(user=request.user).count()
+        
+        return Response({
+            'total_devices': total_devices,
+            'active_devices': active_devices,
+            'user_devices': user_devices
+        })
+
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """디바이스 이력 조회"""
+        # 명시적으로 권한 체크 추가
+        if request.user.is_superuser:
+            # 관리자인 경우 모든 이력 조회 가능
+            histories = DeviceHistory.objects.all()
+        elif request.user.is_staff:
+            # 교사인 경우 모든 이력 조회 가능
+            histories = DeviceHistory.objects.all()
+        else:
+            # 일반 사용자인 경우 자신의 디바이스 이력만 조회 가능
+            histories = DeviceHistory.objects.filter(user=request.user)
+        
+        # 정렬 및 페이징 옵션
+        histories = histories.order_by('-created_at')
+        
+        serializer = DeviceHistorySerializer(histories, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def device_history(self, request, pk=None):
+        """특정 디바이스의 이력 조회"""
+        device = self.get_object()
+        histories = DeviceHistory.objects.filter(
+            mac_address=device.mac_address
+        ).order_by('-created_at')
+        
+        serializer = DeviceHistorySerializer(histories, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def user_history(self, request):
+        """사용자별 장치 이력 조회 (관리자용)"""
+        if not request.user.is_superuser:
+            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+            
+        user_id = request.query_params.get('user_id')
+        if user_id:
+            histories = DeviceHistory.objects.filter(user_id=user_id).order_by('-created_at')
+        else:
+            # 사용자 ID가 제공되지 않은 경우 모든 이력 반환
+            histories = DeviceHistory.objects.all().order_by('-created_at')
+            
+        # 페이지네이션 처리
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 20)
+        
+        try:
+            page = int(page)
+            page_size = int(page_size)
+        except ValueError:
+            page = 1
+            page_size = 20
+            
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        # 전체 이력 수
+        total_count = histories.count()
+        
+        # 페이지네이션 적용
+        histories = histories[start:end]
+        
+        serializer = DeviceHistorySerializer(histories, many=True)
+        
+        return Response({
+            'total_count': total_count,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total_count + page_size - 1) // page_size,
+            'results': serializer.data
+        })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_mac(request):
+    """현재 IP 주소의 MAC 주소를 가져옵니다."""
+    try:
+        # 요청 헤더 로깅
+        logger.info("Request headers: %s", request.META)
+        
+        # X-Real-IP 또는 X-Forwarded-For 헤더에서 실제 클라이언트 IP 가져오기
+        client_ip = request.META.get('HTTP_X_REAL_IP') or request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+        if not client_ip:
+            client_ip = request.META.get('REMOTE_ADDR')
+            
+        logger.info("Client IP: %s", client_ip)
+
+        # ARP 테이블에서 MAC 주소 찾기
+        logger.info("Running ARP command for IP: %s", client_ip)
+        result = subprocess.run(['arp', '-n', client_ip], capture_output=True, text=True)
+        logger.info("ARP command output: %s", result.stdout)
+        
+        mac_pattern = r'([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})'
+        match = re.search(mac_pattern, result.stdout)
+        
+        if match:
+            mac_address = match.group().lower().replace('-', ':')
+            logger.info("Found MAC address: %s", mac_address)
+        else:
+            # ARP 테이블에 없으면 ping 후 다시 시도
+            logger.info("MAC not found in ARP table, trying ping...")
+            subprocess.run(['ping', '-c', '1', client_ip], capture_output=True)
+            result = subprocess.run(['arp', '-n', client_ip], capture_output=True, text=True)
+            logger.info("ARP command output after ping: %s", result.stdout)
+            
+            match = re.search(mac_pattern, result.stdout)
+            mac_address = match.group().lower().replace('-', ':') if match else None
+            logger.info("MAC address after ping: %s", mac_address)
+
+        # KEA DHCP 서버에서 MAC 주소 조회 시도
+        if not mac_address:
+            logger.info("Trying to get MAC from KEA DHCP server...")
+            try:
+                # KEA 데이터베이스 연결 설정
+                kea_db_config = {
+                    "host": settings.DATABASES['kea']['HOST'],
+                    "user": settings.DATABASES['kea']['USER'],
+                    "password": settings.DATABASES['kea']['PASSWORD'],
+                    "database": settings.DATABASES['kea']['NAME']
+                }
+
+                # KEA 데이터베이스 연결
+                conn = mysql.connector.connect(**kea_db_config)
+                cursor = conn.cursor(dictionary=True)
+                
+                # lease4 테이블에서 MAC 주소 조회
+                query = """
+                    SELECT HEX(hwaddr) as mac_address
+                    FROM lease4 
+                    WHERE address = INET_ATON(%s)
+                      AND state = 0
+                    ORDER BY expire DESC
+                    LIMIT 1
+                """
+                
+                cursor.execute(query, (client_ip,))
+                result = cursor.fetchone()
+                logger.info("KEA lease4 query result: %s", result)
+                
+                if result and result['mac_address']:
+                    # MAC 주소 형식 변환 (콜론 추가)
+                    mac_address = ':'.join(result['mac_address'][i:i+2].lower() for i in range(0, 12, 2))
+                    logger.info("Found MAC in KEA lease4: %s", mac_address)
+                else:
+                    # hosts 테이블에서 MAC 주소 조회 (백업)
+                    query = """
+                        SELECT HEX(dhcp_identifier) as mac_address
+                        FROM hosts 
+                        WHERE ipv4_address = INET_ATON(%s)
+                          AND dhcp_identifier_type = 0
+                    """
+                    
+                    cursor.execute(query, (client_ip,))
+                    result = cursor.fetchone()
+                    logger.info("KEA hosts query result: %s", result)
+                    
+                    if result and result['mac_address']:
+                        # MAC 주소 형식 변환 (콜론 추가)
+                        mac_address = ':'.join(result['mac_address'][i:i+2].lower() for i in range(0, 12, 2))
+                        logger.info("Found MAC in KEA hosts: %s", mac_address)
+            except Exception as e:
+                logger.error("Error querying KEA database: %s", str(e))
+
+        if mac_address:
+            logger.info("Returning MAC address: %s for IP: %s", mac_address, client_ip)
+            return Response({
+                'success': True,
+                'data': {
+                    'ip_address': client_ip,
+                    'mac_address': mac_address
+                }
+            })
+        else:
+            logger.warning("MAC address not found for IP: %s", client_ip)
+            return Response({
+                'success': False,
+                'message': 'MAC 주소를 찾을 수 없습니다.',
+                'data': {
+                    'ip_address': client_ip,
+                    'mac_address': '00:00:00:00:00:00'
+                }
+            })
+
+    except Exception as e:
+        logger.error("Error in get_current_mac: %s", str(e), exc_info=True)
+        return Response({
+            'success': False,
+            'message': str(e),
+            'data': {
+                'ip_address': client_ip if 'client_ip' in locals() else 'unknown',
+                'mac_address': '00:00:00:00:00:00'
+            }
+        }, status=500)

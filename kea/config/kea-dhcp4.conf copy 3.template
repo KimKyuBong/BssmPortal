@@ -1,0 +1,177 @@
+{
+    "Dhcp4": {
+        "early-global-reservations-lookup": true,
+        "interfaces-config": {
+            "interfaces": ["${KEA_INTERFACE}", "${KEA_INTERFACE2}"],
+            "service-sockets-max-retries": 5
+        },
+        "control-socket": {
+            "socket-type": "unix",
+            "socket-name": "/tmp/kea4-ctrl-socket"
+        },
+        "lease-database": {
+            "type": "mysql",
+            "name": "${KEA_DATABASE_NAME}",
+            "user": "${KEA_DATABASE_USER}",
+            "password": "${KEA_DATABASE_PASSWORD}",
+            "host": "${KEA_DATABASE_HOST}",
+            "port": ${KEA_DATABASE_PORT},
+            "max-reconnect-tries": 10,
+            "reconnect-wait-time": 3000
+        },
+        "hosts-database": {
+            "type": "mysql",
+            "name": "${KEA_DATABASE_NAME}",
+            "user": "${KEA_DATABASE_USER}",
+            "password": "${KEA_DATABASE_PASSWORD}",
+            "host": "${KEA_DATABASE_HOST}",
+            "port": ${KEA_DATABASE_PORT},
+            "max-reconnect-tries": 10,
+            "reconnect-wait-time": 3000
+        },
+        "valid-lifetime": 8640000,
+        "renew-timer": 4320000,
+        "rebind-timer": 7560000,
+        "client-classes": [
+            {
+                "name": "blocked-clients",
+                "test": "hexstring(pkt4.mac, ':') == '00:03:2e:21:10:2c'"
+            },
+            {
+                "name": "ipxe-clients",
+                "test": "not member('blocked-clients') and option[77].hex == 'iPXE'",
+                "option-data": [
+                    {
+                        "name": "boot-file-name",
+                        "data": "http://${PXE_TEACHER_SERVER}:${PXE_TEACHER_HTTP_PORT}/boot.ipxe"
+                    }
+                ]
+            },
+            {
+                "name": "pxe-clients",
+                "test": "not member('blocked-clients') and (option[93].hex == 0x0007 or option[93].hex == 0x0010)",
+                "option-data": [
+                    {
+                        "name": "boot-file-name",
+                        "data": "ipxe.efi"
+                    }
+                ]
+            },
+            {
+                "name": "boot-clients",
+                "test": "member('pxe-clients') or member('ipxe-clients')",
+                "valid-lifetime": 86400,
+                "option-data": [
+                    {
+                        "name": "tftp-server-name",
+                        "data": "${KEA_TEACHER_BOOT_GATEWAY}"
+                    },
+                    {
+                        "name": "routers",
+                        "data": "${KEA_TEACHER_BOOT_GATEWAY}"
+                    },
+                    {
+                        "name": "domain-name-servers",
+                        "data": "${KEA_TEACHER_BOOT_GATEWAY}"
+                    },
+                    {
+                        "name": "dhcp-server-identifier",
+                        "data": "${KEA_TEACHER_BOOT_GATEWAY}"
+                    }
+                ]
+            },
+            {
+                "name": "auth-clients",
+                "test": "not member('blocked-clients') and member('KNOWN')",
+                "valid-lifetime": 8640000
+                
+            },
+            {
+                "name": "unauth-clients",
+                "test": "not member('blocked-clients') and not member('KNOWN')",
+                "valid-lifetime": 300,
+                "option-data": [
+                    {
+                        "name": "routers",
+                        "data": "${KEA_NC_TEACHER_GATEWAY}"
+                    },
+                    {
+                        "name": "domain-name-servers",
+                        "data": "${KEA_NC_TEACHER_DHCP}"
+                    },
+                    {
+                        "name": "dhcp-server-identifier",
+                        "data": "${KEA_NC_TEACHER_DHCP}"
+                    }
+                ]
+            }
+        ],
+        "subnet4": [
+            {
+                "id": 1,
+                "subnet": "${KEA_TEACHER_BOOT_SUBNET}",
+                "interface": "${KEA_INTERFACE}",
+                "client-class": "boot-clients",
+                "pools": [
+                    {
+                        "pool": "${KEA_TEACHER_BOOT_POOL}",
+                        "client-class": "boot-clients"
+                    }
+                ],
+                "option-data": [
+                    {
+                        "name": "routers",
+                        "data": "${KEA_TEACHER_BOOT_GATEWAY}"
+                    },
+                    {
+                        "name": "domain-name-servers",
+                        "data": "${KEA_TEACHER_BOOT_DHCP}"
+                    },
+                    {
+                        "name": "tftp-server-name",
+                        "data": "${KEA_TEACHER_BOOT_DHCP}"
+                    },
+                    {
+                        "name": "dhcp-server-identifier",
+                        "data": "${KEA_TEACHER_BOOT_DHCP}"
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "subnet": "${KEA_NC_TEACHER_SUBNET}",
+                "interface": "${KEA_INTERFACE}",
+                "pools": [
+                    {
+                        "pool": "${KEA_NC_TEACHER_POOL}",
+                        "client-class": "unauth-clients"
+                    }
+                ]
+            }
+        ],
+        "hooks-libraries": [
+            {
+                "library": "/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_lease_cmds.so"
+            },
+            {
+                "library": "/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_mysql_cb.so"
+            }
+        ],
+        "loggers": [
+            {
+                "name": "kea-dhcp4",
+                "output_options": [
+                    {
+                        "output": "/var/log/kea/kea-dhcp4.log",
+                        "pattern": "%D{%Y-%m-%d %H:%M:%S.%q} %-5p [%c] %m\n",
+                        "flush": true,
+                        "maxsize": 10240000,
+                        "maxver": 10
+                    }
+                ],
+                "severity": "INFO",
+                "debuglevel": 0
+            }
+        ]
+    }
+}

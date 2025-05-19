@@ -1,0 +1,45 @@
+#!ipxe
+
+:start
+menu WinPE Boot Menu
+item --key x exit  Exit to Nomal Boot
+item --key w winpe Boot WinPE
+item --key u ubuntu Boot Ubuntu
+item --key r reboot Reboot
+choose --timeout 10000 --default winpe selected || goto cancel
+
+goto ${selected}
+
+:winpe
+kernel http://10.250.1.1:8080/wimboot gui
+initrd -n bootx64.efi http://10.250.1.1:8080/winpe/efi/boot/bootx64.efi bootx64.efi
+initrd -n bcd http://10.250.1.1:8080/winpe/boot/bcd bcd
+initrd -n boot.sdi http://10.250.1.1:8080/winpe/boot/boot.sdi boot.sdi
+initrd -n boot.wim http://10.250.1.1:8080/winpe/sources/boot.wim boot.wim || goto retry
+imgargs wimboot gui
+boot || goto failed
+
+:ubuntu
+kernel http://10.250.1.1:8080/ubuntu/casper/vmlinuz
+initrd http://10.250.1.1:8080/ubuntu/casper/initrd
+imgargs vmlinuz initrd=initrd root=/dev/ram0 ramdisk_size=1500000 ip=dhcp url=http://10.250.1.1:8080/ubuntu/ubuntu.iso
+boot || goto failed
+
+:retry
+echo Boot failed - retrying...
+goto winpe
+
+:failed
+echo Boot failed
+goto start
+
+:reboot
+reboot
+
+:exit
+exit
+
+:cancel
+echo You cancelled the menu
+prompt Press any key to return to the menu...
+goto start

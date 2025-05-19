@@ -1,0 +1,187 @@
+import { api, ApiResponse, Equipment, PaginatedResponse } from './api';
+
+// 엑셀 가져오기 응답 타입 정의
+export interface ImportEquipmentResponse {
+  success: boolean;
+  message: string;
+  createdCount?: number;
+  updatedCount?: number;
+  failedCount?: number;
+  errors?: string[];
+  created_equipment?: string[];
+  total_created?: number;
+  total_errors?: number;
+}
+
+// 모델별 일괄 업데이트 인터페이스
+export interface ModelBatchUpdateData {
+  model_name: string;
+  manufacture_year?: number;
+  purchase_date?: string;
+}
+
+// 장비 서비스 - 장비 관련 API 통신
+const equipmentService = {
+  // 장비 목록 조회
+  async getAllEquipment() {
+    try {
+      const response = await api.get<{count: number, next: string | null, previous: string | null, results: Equipment[]}>('/rentals/equipment/');
+      
+      // 응답 데이터가 올바른 형식인지 확인
+      if (response.success) {
+        if (!response.data || !response.data.results || !Array.isArray(response.data.results)) {
+          console.error('장비 목록 API 응답 데이터가 올바른 형식이 아닙니다:', response.data);
+          return {
+            success: true,
+            data: [] as Equipment[],
+            message: '데이터 형식이 올바르지 않습니다.'
+          };
+        }
+        
+        // results 배열 반환
+        return {
+          success: true,
+          data: response.data.results,
+          message: response.message
+        };
+      }
+      
+      return {
+        success: response.success,
+        data: [] as Equipment[],
+        message: response.message || '장비 목록을 가져오지 못했습니다.'
+      };
+    } catch (error) {
+      console.error('장비 목록 조회 중 오류:', error);
+      return {
+        success: false,
+        data: [] as Equipment[],
+        error: {
+          message: '장비 목록을 조회하는 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
+
+  // 대여 가능한 장비 목록 조회
+  async getAvailableEquipment() {
+    try {
+      const response = await api.get<Equipment[]>('/rentals/equipment/available/');
+      
+      // 응답 데이터가 배열인지 확인
+      if (response.success) {
+        if (!response.data || !Array.isArray(response.data)) {
+          console.error('대여 가능 장비 목록 API 응답 데이터가 배열이 아닙니다:', response.data);
+          return {
+            success: true,
+            data: [] as Equipment[],
+            message: '데이터 형식이 올바르지 않습니다.'
+          };
+        }
+        
+        // 정상적인 배열 데이터
+        return response;
+      }
+      
+      return {
+        success: response.success,
+        data: [] as Equipment[],
+        message: response.message || '대여 가능한 장비 목록을 가져오지 못했습니다.'
+      };
+    } catch (error) {
+      console.error('대여 가능 장비 목록 조회 중 오류:', error);
+      return {
+        success: false,
+        data: [] as Equipment[],
+        error: {
+          message: '대여 가능한 장비 목록을 조회하는 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
+
+  // 장비 상세 정보 조회
+  async getEquipmentDetail(id: number) {
+    return await api.get<Equipment>(`/rentals/equipment/${id}/`);
+  },
+
+  // 장비 정보 생성 (관리자용)
+  async createEquipment(equipmentData: Partial<Equipment>) {
+    return await api.post<Equipment>('/rentals/equipment/', equipmentData);
+  },
+
+  // 장비 정보 수정 (관리자용)
+  async updateEquipment(id: number, equipmentData: Partial<Equipment>) {
+    return await api.put<Equipment>(`/rentals/equipment/${id}/`, equipmentData);
+  },
+
+  // 장비 정보 삭제 (관리자용)
+  async deleteEquipment(id: number) {
+    return await api.delete(`/rentals/equipment/${id}/`);
+  },
+
+  // 장비 목록 엑셀 다운로드 (관리자용)
+  async exportEquipmentToExcel() {
+    const response = await api.get('/rentals/equipment/export_excel/', {
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'equipment_list.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    return { success: true };
+  },
+
+  // 엑셀 파일로 장비 일괄 추가 (관리자용)
+  async importEquipmentFromExcel(file: File) {
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      return {
+        success: false,
+        error: { detail: '엑셀 파일(.xlsx 또는 .xls)만 업로드할 수 있습니다.' }
+      };
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      return await api.post<ImportEquipmentResponse>('/rentals/equipment/import_excel/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } catch (error) {
+      console.error('엑셀 파일 업로드 중 오류:', error);
+      return {
+        success: false,
+        error: { detail: '파일 업로드 중 오류가 발생했습니다.' }
+      };
+    }
+  },
+
+  /**
+   * 모델명으로 장비 일괄 업데이트
+   * @param data 모델별 업데이트 데이터 (모델명, 생산년도, 구매일)
+   * @returns 업데이트 결과
+   */
+  updateByModel: async (data: ModelBatchUpdateData): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.post('/rentals/equipment/update-by-model/', data);
+      return response.data;
+    } catch (error) {
+      console.error("모델별 장비 업데이트 중 오류 발생:", error);
+      return {
+        success: false,
+        message: '모델별 장비 업데이트에 실패했습니다.',
+        data: null
+      };
+    }
+  }
+};
+
+export default equipmentService; 
