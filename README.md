@@ -243,7 +243,7 @@ docker-compose exec back python manage.py createsuperuser
 
 ### 서비스 접속
 
-- 웹 포털: `http://your-domain`
+- 웹 포털: `http://10.250.0.1`(미인증), `http://서버에 할당된 아이피`(인증)
   - 로그인 페이지에서 관리자 계정으로 접속
   - 초기 로그인 시 비밀번호 변경 필요
 
