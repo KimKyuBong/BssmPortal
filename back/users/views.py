@@ -54,7 +54,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         # 관리자 권한이 필요한 액션 목록 확장
-        if self.action in ['create', 'destroy', 'update', 'partial_update', 'list', 'export', 'import_users']:
+        if self.action in ['create', 'destroy', 'update', 'partial_update', 'list', 'export', 'import_users', 'reset']:
             return [IsSuperUser()]
         return [IsAuthenticated()]
     
@@ -356,22 +356,81 @@ class UserViewSet(viewsets.ModelViewSet):
                 'details': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def validate_password(self, password):
+        """비밀번호 유효성 검사"""
+        if not password:
+            return False, "비밀번호를 입력해주세요."
+        if len(password) < 8:
+            return False, "비밀번호는 8자 이상이어야 합니다."
+        return True, None
+
+    def change_user_password(self, user, new_password, is_initial=False):
+        """사용자 비밀번호 변경"""
+        try:
+            with transaction.atomic():
+                user.password = make_password(new_password)
+                user.is_initial_password = is_initial
+                user.save(update_fields=['password', 'is_initial_password'])
+            return True, "비밀번호가 성공적으로 변경되었습니다."
+        except Exception as e:
+            return False, str(e)
+
+    @action(detail=True, methods=['post'])
+    def reset(self, request, pk=None):
+        """
+        관리자용 사용자 비밀번호 초기화 API
+        관리자 권한이 필요합니다.
+        """
+        try:
+            # 사용자 조회
+            user = self.get_object()
+            logger.info(f"[DEBUG] 사용자 비밀번호 리셋 요청: 사용자 ID={pk}, 사용자명={user.username}")
+            logger.info(f"[DEBUG] 리셋 전 사용자 상태: is_initial_password={user.is_initial_password}")
+            
+            # 랜덤 비밀번호 생성 (8자리)
+            new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            
+            # 비밀번호 변경
+            success, message = self.change_user_password(user, new_password, is_initial=True)
+            logger.info(f"[DEBUG] change_user_password 결과: {success}, 메시지: {message}")
+            
+            if not success:
+                return Response({
+                    "success": False,
+                    "message": message
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 초기 비밀번호 상태로 설정
+            logger.info(f"[DEBUG] is_initial_password를 True로 설정")
+            user.is_initial_password = True
+            user.save()
+            
+            logger.info(f"[DEBUG] 리셋 후 사용자 상태: is_initial_password={user.is_initial_password}")
+            
+            return Response({
+                "success": True,
+                "message": "비밀번호가 초기화되었습니다.",
+                "new_password": new_password
+            })
+        except User.DoesNotExist:
+            logger.error(f"[DEBUG] 사용자를 찾을 수 없음: ID={pk}")
+            return Response({
+                "success": False,
+                "message": "사용자를 찾을 수 없습니다."
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"[DEBUG] 비밀번호 리셋 중 오류 발생: {str(e)}")
+            return Response({
+                "success": False,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class PasswordViewSet(viewsets.ViewSet):
     """
     비밀번호 관리를 위한 ViewSet
     비밀번호 변경, 초기 비밀번호 변경, 비밀번호 초기화 등의 기능을 제공합니다.
     """
     permission_classes = [IsAuthenticated]
-    
-    def validate_password(self, password):
-        """비밀번호 유효성 검사"""
-        if not password:
-            return False, "비밀번호가 제공되지 않았습니다."
-        
-        if len(password) < 8:
-            return False, "비밀번호는 8자 이상이어야 합니다."
-            
-        return True, None
     
     def change_user_password(self, user, new_password, is_initial=False):
         """사용자 비밀번호 변경"""
@@ -569,54 +628,4 @@ class PasswordViewSet(viewsets.ViewSet):
             return Response({
                 'success': False,
                 'message': f'비밀번호 변경 중 오류가 발생했습니다: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    @action(detail=True, methods=['post'], permission_classes=[IsSuperUser])
-    def reset(self, request, pk=None):
-        """
-        관리자용 사용자 비밀번호 초기화 API
-        관리자 권한이 필요합니다.
-        """
-        try:
-            # 사용자 조회
-            user = User.objects.get(id=pk)
-            logger.info(f"[DEBUG] 사용자 비밀번호 리셋 요청: 사용자 ID={pk}, 사용자명={user.username}")
-            logger.info(f"[DEBUG] 리셋 전 사용자 상태: is_initial_password={user.is_initial_password}")
-            
-            # 랜덤 비밀번호 생성 (8자리)
-            new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-            
-            # 비밀번호 변경
-            success, message = self.change_user_password(user, new_password, is_initial=True)
-            logger.info(f"[DEBUG] change_user_password 결과: {success}, 메시지: {message}")
-            
-            if not success:
-                return Response({
-                    "success": False,
-                    "message": message
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-            # 초기 비밀번호 상태로 설정
-            logger.info(f"[DEBUG] is_initial_password를 True로 설정")
-            user.is_initial_password = True
-            user.save()
-            
-            logger.info(f"[DEBUG] 리셋 후 사용자 상태: is_initial_password={user.is_initial_password}")
-            
-            return Response({
-                "success": True,
-                "message": "비밀번호가 초기화되었습니다.",
-                "new_password": new_password
-            })
-        except User.DoesNotExist:
-            logger.error(f"[DEBUG] 사용자를 찾을 수 없음: ID={pk}")
-            return Response({
-                "success": False,
-                "message": "사용자를 찾을 수 없습니다."
-            }, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"[DEBUG] 비밀번호 리셋 중 오류 발생: {str(e)}")
-            return Response({
-                "success": False,
-                "message": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

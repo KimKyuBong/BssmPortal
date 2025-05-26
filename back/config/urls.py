@@ -14,12 +14,25 @@ router.register(r'devices', DeviceViewSet, basename='device')
 
 # 관리자 전용 라우터 (관리자 패널용 특수 기능)
 admin_router = DefaultRouter()
-admin_router.register(r'users', UserViewSet)
-admin_router.register(r'devices/history', DeviceHistoryViewSet, basename='device-history')
-# 관리자 라우터에서 Equipment 경로 제거
-# admin_router.register(r'equipment', EquipmentViewSet, basename='admin-equipment')
+admin_router.register(r'users', UserViewSet)  # 관리자용 사용자 관리
+admin_router.register(r'devices', DeviceViewSet, basename='admin-device')  # 관리자용 디바이스 관리
+admin_router.register(r'devices/history', DeviceHistoryViewSet, basename='device-history')  # 디바이스 이력
 admin_router.register(r'rentals', RentalViewSet, basename='admin-rentals')  # 관리자용 전체 대여 목록
-admin_router.register(r'rental-requests', RentalRequestViewSet, basename='admin-rental-requests')
+admin_router.register(r'rental-requests', RentalRequestViewSet, basename='admin-rental-requests')  # 대여 요청 관리
+
+# 관리자 전용 URL 패턴 (라우터로 처리할 수 없는 특수 기능)
+admin_custom_patterns = [
+    # 사용자 관리 특수 기능
+    path('users/<int:pk>/reset-password/', UserViewSet.as_view({'post': 'reset'}), name='reset_password'),
+    
+    # 디바이스 관리 특수 기능
+    path('devices/statistics/', DeviceViewSet.as_view({'get': 'statistics'}), name='device-statistics'),
+    path('devices/<int:pk>/reassign-ip/', DeviceViewSet.as_view({'post': 'reassign_ip'}), name='reassign-ip'),
+    path('devices/<int:pk>/toggle-active/', DeviceViewSet.as_view({'post': 'toggle_active'}), name='toggle-active'),
+    path('devices/blacklist-ip/', DeviceViewSet.as_view({'post': 'blacklist_ip'}), name='blacklist-ip'),
+    path('devices/unblacklist-ip/', DeviceViewSet.as_view({'post': 'unblacklist_ip'}), name='unblacklist-ip'),
+    path('devices/blacklisted-ips/', DeviceViewSet.as_view({'get': 'blacklisted_ips'}), name='blacklisted-ips'),
+]
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -37,6 +50,7 @@ urlpatterns = [
     path('api/system/', include('system.urls')),
     path('api/rentals/', include('rentals.urls')),  # 일반 사용자용 대여 관련 URL
     
-    # 4. 관리자 라우터 URL 패턴 등록
-    path('api/admin/', include(admin_router.urls)),
+    # 4. 관리자 URL 패턴 등록 (통합)
+    path('api/admin/', include(admin_router.urls)),  # 기본 CRUD 작업
+    path('api/admin/', include(admin_custom_patterns)),  # 특수 기능
 ]
