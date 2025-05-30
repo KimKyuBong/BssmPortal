@@ -508,8 +508,7 @@ const adminService = {
    */
   getAllIpAssignments: async (page?: number, search?: string): Promise<ApiResponse<any>> => {
     try {
-      // 백엔드 API 구조에 맞게 URL 수정 - 이력 조회 엔드포인트 사용
-      let url = '/admin/devices/history/';
+      let url = '/admin/ip/history/';
       
       // 쿼리 파라미터 추가
       const params = new URLSearchParams();
@@ -522,23 +521,15 @@ const adminService = {
       console.log('모든 IP 할당 이력 가져오기 요청 URL:', url);
       const response = await api.get(url);
       
-      // 서버 응답을 그대로 반환
-      if (response.success && response.data) {
-        return {
-          success: true,
-          data: response.data
-        };
-      }
-      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('IP 할당 이력 조회 오류:', error);
       return {
         success: false,
         message: '이력 데이터를 가져오는 데 실패했습니다.'
-      };
-    } catch (error) {
-      console.error('IP 할당 이력 조회 중 오류 발생:', error);
-      return {
-        success: false,
-        message: '서버 오류로 IP 할당 이력을 가져오지 못했습니다.'
       };
     }
   },
@@ -793,6 +784,23 @@ const adminService = {
         success: false,
         error: { detail: 'IP 주소를 블랙리스트에서 제거하는 중 오류가 발생했습니다.' },
         message: 'IP 주소를 블랙리스트에서 제거하는 중 오류가 발생했습니다.'
+      };
+    }
+  },
+
+  getAllDevices: async (): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.get('/admin/ip/all/');  // URL 수정
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (e) {
+      console.error('장치 목록 조회 오류:', e);
+      return {
+        success: false,
+        error: { detail: '장치 목록을 불러오는데 실패했습니다.' },
+        message: '장치 목록을 불러오는데 실패했습니다.'
       };
     }
   },

@@ -6,7 +6,7 @@ item --key x exit  Exit to Nomal Boot
 item --key w winpe Boot WinPE
 item --key u ubuntu Boot Ubuntu
 item --key r reboot Reboot
-choose --timeout 10000 --default winpe selected || goto cancel
+choose --timeout 10000 --default exit selected || goto cancel
 
 goto ${selected}
 

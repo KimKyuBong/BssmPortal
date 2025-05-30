@@ -213,10 +213,15 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': True,
         },
         'rentals': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'devices': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': True,

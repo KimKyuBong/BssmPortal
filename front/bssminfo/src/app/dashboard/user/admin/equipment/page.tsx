@@ -52,6 +52,8 @@ import equipmentService, { ImportEquipmentResponse, ModelBatchUpdateData } from 
 import rentalService from '@/services/rental';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
+import { SelectChangeEvent } from '@mui/material';
+import { User } from '@/services/rental';
 
 // API 응답 타입 추가 (파일 상단 적절한 위치에 추가)
 // ImportEquipmentResponse 타입은 이미 equipment.ts에서 임포트하므로 여기서 제거
@@ -133,7 +135,7 @@ export default function EquipmentManagementPage() {
   });
   
   // 사용자 목록 상태
-  const [users, setUsers] = useState<{id: number, username: string}[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   // 모델별 일괄 업데이트 다이얼로그 상태
@@ -295,28 +297,38 @@ export default function EquipmentManagementPage() {
   };
   
   // 장비 추가/수정 제출 핸들러
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     try {
       const submitData = {
         ...formData,
-        model_name: formData.model_name || undefined,
         manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
-        purchase_date: formData.purchase_date || undefined
       };
       
-      if (selectedEquipment) {
-        await equipmentService.updateEquipment(selectedEquipment.id, submitData);
-        showNotification('장비가 성공적으로 수정되었습니다.', 'success');
+      const response = await equipmentService.updateEquipment(selectedEquipment!.id, submitData);
+      if (response.success && response.data) {
+        showNotification('장비 정보가 성공적으로 업데이트되었습니다.', 'success');
+        setOpenDialog(false);
+        
+        // 상태가 AVAILABLE로 변경된 경우 즉시 대여자 정보 초기화
+        if (submitData.status === 'AVAILABLE') {
+          const updatedEquipment = response.data as Equipment;
+          setEquipment(prev => 
+            prev.map(item => 
+              item.id === updatedEquipment.id 
+                ? { ...updatedEquipment, rental: null } as Equipment
+                : item
+            )
+          );
+        }
+        
+        // 전체 목록 새로고침
+        loadEquipment();
       } else {
-        await equipmentService.createEquipment(submitData);
-        showNotification('장비가 성공적으로 추가되었습니다.', 'success');
+        showNotification('장비 정보 업데이트에 실패했습니다.', 'error');
       }
-      setOpenDialog(false);
-      loadEquipment();
     } catch (error) {
-      console.error('장비 추가/수정 중 오류 발생:', error);
-      showNotification('장비 추가/수정 중 오류가 발생했습니다.', 'error');
+      console.error('장비 정보 업데이트 중 오류 발생:', error);
+      showNotification('장비 정보 업데이트 중 오류가 발생했습니다.', 'error');
     }
   };
   
@@ -552,15 +564,16 @@ export default function EquipmentManagementPage() {
   const loadUsers = async () => {
     setLoadingUsers(true);
     try {
-      const result = await rentalService.getUsers();
-      if (result.success && result.data) {
-        setUsers(result.data);
+      const response = await rentalService.getUsers();
+      if (response.success && response.data) {
+        setUsers(response.data);
       } else {
+        console.error('사용자 목록 로드 실패:', response.error);
         showNotification('사용자 목록을 불러오는데 실패했습니다.', 'error');
       }
     } catch (error) {
-      console.error('사용자 목록 로드 중 오류 발생:', error);
-      showNotification('사용자 목록을 불러오는 중 오류가 발생했습니다.', 'error');
+      console.error('사용자 목록 로드 중 오류:', error);
+      showNotification('사용자 목록을 불러오는데 실패했습니다.', 'error');
     } finally {
       setLoadingUsers(false);
     }
@@ -651,8 +664,11 @@ export default function EquipmentManagementPage() {
   };
   
   // 사용자 선택 핸들러
-  const handleUserChange = (_event: any, value: any) => {
-    setRentalFormData({ ...rentalFormData, user: value ? value.id : null });
+  const handleUserChange = (_event: any, value: User | null) => {
+    setRentalFormData({ 
+      ...rentalFormData, 
+      user: value ? value.id : null 
+    });
   };
 
   // 모델별 일괄 업데이트 다이얼로그 열기
@@ -723,6 +739,24 @@ export default function EquipmentManagementPage() {
     } finally {
       setBatchUpdateLoading(false);
     }
+  };
+
+  const handleStatusChange = (e: SelectChangeEvent<string>) => {
+    const newStatus = e.target.value as Equipment['status'];
+    setFormData(prev => {
+      // 상태가 AVAILABLE로 변경될 때 대여자 정보 초기화
+      if (newStatus === 'AVAILABLE' && prev.status !== 'AVAILABLE') {
+        return {
+          ...prev,
+          status: newStatus,
+          rental: null // 대여자 정보 초기화
+        };
+      }
+      return {
+        ...prev,
+        status: newStatus
+      };
+    });
   };
 
   return (
@@ -940,7 +974,12 @@ export default function EquipmentManagementPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {item.rental?.user ? `${item.rental.user.name} (${item.rental.user.username})` : '-'}
+                    {item.status === 'AVAILABLE' 
+                      ? '-'
+                      : item.rental?.user 
+                        ? `${item.rental.user.name} (${item.rental.user.username})`
+                        : '-'
+                    }
                   </TableCell>
                   <TableCell>{item.manufacture_year || '-'}</TableCell>
                   <TableCell>{item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}</TableCell>
@@ -1060,7 +1099,7 @@ export default function EquipmentManagementPage() {
                   <Select
                     name="status"
                     value={formData.status}
-                    onChange={handleFormChange as any}
+                    onChange={handleStatusChange}
                     label="상태"
                   >
                     <MenuItem value="AVAILABLE">대여 가능</MenuItem>
@@ -1172,7 +1211,7 @@ export default function EquipmentManagementPage() {
               <Grid item xs={12}>
                 <Autocomplete
                   options={users}
-                  getOptionLabel={(option) => option.username}
+                  getOptionLabel={(option: User) => `${option.name} (${option.username})`}
                   loading={loadingUsers}
                   onChange={handleUserChange}
                   renderInput={(params) => (

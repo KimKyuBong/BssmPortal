@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import views
+from . import views, auth
 
 # 라우터 설정
 router = DefaultRouter()
@@ -13,6 +13,10 @@ urlpatterns = [
     
     # UserViewSet의 me 액션은 라우터를 통해 등록되지 않으므로 직접 등록
     path('me/', views.UserViewSet.as_view({'get': 'me'}), name='current_user'),
+    
+    # 인증 관련 URL
+    path('login/', auth.login, name='login'),
+    path('refresh/', auth.refresh_token, name='token_refresh'),
 ]
 
 # 관리자용 URL 패턴은 config/urls.py에서 admin_router를 통해 처리됩니다.

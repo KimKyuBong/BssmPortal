@@ -92,6 +92,15 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(data)
 
     @action(detail=False, methods=['get'])
+    def all(self, request):
+        """
+        페이지네이션 없이 전체 사용자 목록을 반환합니다.
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
     def me(self, request):
         """
         현재 로그인한 사용자의 정보를 반환합니다.

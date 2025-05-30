@@ -48,6 +48,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./front/bssminfo/out:/usr/share/nginx/html/front:ro
+      - ./nginx/data:/etc/nginx/data:ro 
     depends_on:
       - back
 

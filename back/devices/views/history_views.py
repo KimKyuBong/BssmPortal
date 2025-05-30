@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 import logging
 # django_filters 모듈 제거 (설치되지 않음)
 # from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 from ..models import DeviceHistory
 from ..serializers import DeviceHistorySerializer
@@ -23,72 +25,37 @@ class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['device_name', 'device_mac', 'details', 'user__username']
     ordering_fields = ['created_at', 'user__username', 'device_name', 'action']
     ordering = ['-created_at']
+    pagination_class = PageNumberPagination
     
     def get_queryset(self):
-        # 관리자만 접근 가능하므로 모든 이력 반환
-        return DeviceHistory.objects.all().order_by('-created_at')
+        # 관리자는 모든 이력 조회 가능
+        if self.request.user.is_superuser:
+            return DeviceHistory.objects.all().order_by('-created_at')
+        # 일반 사용자는 자신의 이력만 조회 가능
+        return DeviceHistory.objects.filter(user=self.request.user).order_by('-created_at')
 
     def list(self, request, *args, **kwargs):
-        """모든 장치 이력 조회 (페이지네이션 및 필터링 지원)"""
-        queryset = self.filter_queryset(self.get_queryset())
+        """IP 할당 이력 목록 조회"""
+        # 검색어가 있는 경우 필터링
+        search = request.query_params.get('search', '')
+        queryset = self.get_queryset()
         
-        # 추가 필터링 (날짜 범위 등) - 수동으로 구현
-        date_from = request.query_params.get('date_from')
-        date_to = request.query_params.get('date_to')
-        username = request.query_params.get('username')
-        action_type = request.query_params.get('action_type')
-        user = request.query_params.get('user')
-        device_name = request.query_params.get('device_name')
-        device_mac = request.query_params.get('device_mac')
-        action = request.query_params.get('action')
-        
-        # 필터링 로직 구현 (이전에 DjangoFilterBackend가 자동으로 처리하던 부분)
-        if date_from:
-            queryset = queryset.filter(created_at__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(created_at__lte=date_to)
-        if username:
-            queryset = queryset.filter(user__username__icontains=username)
-        if action_type:
-            queryset = queryset.filter(action__iexact=action_type)
-        if user:
-            queryset = queryset.filter(user_id=user)
-        if device_name:
-            queryset = queryset.filter(device_name__icontains=device_name)
-        if device_mac:
-            queryset = queryset.filter(device_mac__icontains=device_mac)
-        if action:
-            queryset = queryset.filter(action__iexact=action)
-            
-        # 페이지네이션 처리
-        page = request.query_params.get('page', 1)
-        page_size = request.query_params.get('page_size', 20)
-        
-        try:
-            page = int(page)
-            page_size = int(page_size)
-        except ValueError:
-            page = 1
-            page_size = 20
-            
-        start = (page - 1) * page_size
-        end = start + page_size
-        
-        # 전체 이력 수
-        total_count = queryset.count()
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(mac_address__icontains=search) |
+                Q(device_name__icontains=search) |
+                Q(assigned_ip__icontains=search)
+            )
         
         # 페이지네이션 적용
-        histories = queryset[start:end]
-        
-        serializer = self.get_serializer(histories, many=True)
-        
-        return Response({
-            'total_count': total_count,
-            'page': page,
-            'page_size': page_size,
-            'total_pages': (total_count + page_size - 1) // page_size,
-            'results': serializer.data
-        })
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
     def user(self, request):
@@ -168,4 +135,18 @@ class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             'page_size': page_size,
             'total_pages': (total_count + page_size - 1) // page_size,
             'results': serializer.data
-        }) 
+        })
+
+    @action(detail=False, methods=['get'])
+    def my(self, request):
+        """내 IP 할당 이력만 조회"""
+        queryset = DeviceHistory.objects.filter(user=request.user).order_by('-created_at')
+        
+        # 페이지네이션 적용
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data) 

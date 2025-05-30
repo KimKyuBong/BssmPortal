@@ -7,8 +7,8 @@ import { ExportOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import * as Icons from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { DatePickerProps } from 'antd';
-import rentalService, { RENTAL_REQUEST_STATUS } from '@/services/rental';
-import type { Equipment, Rental, RentalRequest, SimpleUser } from '@/services/api';
+import rentalService, { RENTAL_REQUEST_STATUS, User } from '@/services/rental';
+import type { Equipment, Rental, RentalRequest } from '@/services/api';
 import type { AntdIconProps } from '@ant-design/icons/lib/components/AntdIcon';
 
 const { Option } = Select;
@@ -18,7 +18,7 @@ export default function AdminRentalsPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [requests, setRequests] = useState<RentalRequest[]>([]);
-  const [users, setUsers] = useState<SimpleUser[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();

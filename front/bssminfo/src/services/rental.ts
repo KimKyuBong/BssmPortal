@@ -28,6 +28,19 @@ export interface CreateRentalRequest {
   request_reason?: string;
 }
 
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  last_name: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+  name: string;
+  grade?: number;
+  class?: number;
+  number?: number;
+}
+
 const rentalService = {
   // 사용자용 API
   async getAvailableEquipment(): Promise<ApiResponse<Equipment[]>> {
@@ -162,9 +175,30 @@ const rentalService = {
     }
   },
 
-  async getUsers(): Promise<ApiResponse<SimpleUser[]>> {
-    const response = await api.get('/users/');
-    return response.data;
+  async getUsers(): Promise<ApiResponse<User[]>> {
+    try {
+      const response = await api.get<User[]>('/admin/users/all');
+      if (Array.isArray(response?.data)) {
+        // 데이터를 정렬하여 반환 (ID 기준)
+        const sortedUsers = response.data.sort((a, b) => a.id - b.id);
+        // 각 사용자에 대해 name 필드 추가
+        const usersWithName = sortedUsers.map(user => ({
+          ...user,
+          name: `${user.last_name} (${user.username})`
+        }));
+        return {
+          success: true,
+          data: usersWithName
+        };
+      }
+      throw new Error('사용자 데이터가 올바르지 않습니다.');
+    } catch (error) {
+      console.error('사용자 목록 로드 중 오류 발생:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '사용자 목록을 불러오는데 실패했습니다.'
+      };
+    }
   },
 
   async processRequest(requestId: number, action: 'approve' | 'reject', reason?: string): Promise<ApiResponse<RentalRequest>> {
@@ -371,7 +405,7 @@ const rentalService = {
   // IP 할당 내역 API
   async getUserIpAssignments(): Promise<ApiResponse<any>> {
     try {
-      const url = '/devices/history/my_history/';
+      const url = '/ip/history/my/';  // URL 수정
       const response = await api.get(url);
       return {
         success: true,

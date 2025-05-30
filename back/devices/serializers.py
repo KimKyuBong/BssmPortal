@@ -70,9 +70,11 @@ class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = ['id', 'mac_address', 'device_name', 'assigned_ip', 'is_active', 'created_at', 'last_access', 'user', 'username']
-        read_only_fields = ['user', 'username', 'last_access']
+        read_only_fields = ['user', 'username', 'last_access', 'is_active', 'created_at']
         extra_kwargs = {
             'assigned_ip': {'required': False},  # IP 주소를 선택적으로 설정
+            'mac_address': {'required': True},  # MAC 주소는 필수
+            'device_name': {'required': True},  # 장치 이름은 필수
         }
         
     def get_username(self, obj):

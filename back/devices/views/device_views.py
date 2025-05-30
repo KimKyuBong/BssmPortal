@@ -8,9 +8,11 @@ import re
 import logging
 import subprocess
 import re
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 from ..models import Device, DeviceHistory
-from ..serializers import DeviceSerializer, DeviceDetailSerializer
+from ..serializers import DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
 from ..utils.kea_client import KeaClient
 from ..permissions import IsSuperUser, IsStaffUser, IsOwnerOrStaff
 
@@ -530,4 +532,41 @@ class DeviceViewSet(viewsets.ModelViewSet):
             "count": len(blacklisted_ips),
             "blacklisted_ips": blacklisted_ips
         }) 
+
+    @action(detail=False, methods=['get'], permission_classes=[IsSuperUser])
+    def history(self, request):
+        """IP 할당 이력 조회 (관리자용)"""
+        # 페이지네이션 설정
+        page = request.query_params.get('page', 1)
+        search = request.query_params.get('search', '')
+        
+        # 기본 쿼리셋
+        queryset = DeviceHistory.objects.all().order_by('-created_at')
+        
+        # 검색어가 있는 경우 필터링
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(mac_address__icontains=search) |
+                Q(device_name__icontains=search) |
+                Q(assigned_ip__icontains=search)
+            )
+        
+        # 페이지네이션 적용
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+        
+        # 시리얼라이저로 데이터 변환
+        serializer = DeviceHistorySerializer(paginated_queryset, many=True)
+        
+        # 응답 데이터 구성
+        response_data = {
+            'results': serializer.data,
+            'total_pages': paginator.page.paginator.num_pages,
+            'total_count': paginator.page.paginator.count,
+            'current_page': int(page)
+        }
+        
+        return Response(response_data) 
         

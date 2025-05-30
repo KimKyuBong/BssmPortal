@@ -74,6 +74,27 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAdminOrReadOnly()]
     
+    def update(self, request, *args, **kwargs):
+        """장비 정보 업데이트 시 상태 변경 처리"""
+        instance = self.get_object()
+        old_status = instance.status
+        
+        # 일반적인 업데이트 수행
+        response = super().update(request, *args, **kwargs)
+        
+        # 상태가 AVAILABLE로 변경된 경우
+        if old_status != 'AVAILABLE' and instance.status == 'AVAILABLE':
+            # 현재 대여 중인 대여 정보 찾기
+            active_rental = instance.rentals.filter(status__in=['RENTED', 'OVERDUE']).first()
+            if active_rental:
+                # 대여 정보 반납 처리
+                active_rental.status = 'RETURNED'
+                active_rental.return_date = timezone.now()
+                active_rental.returned_to = request.user if request.user.is_staff else None
+                active_rental.save()
+        
+        return response
+    
     @action(detail=False, methods=['get'])
     def available(self, request):
         """대여 가능한 장비 목록 조회"""
