@@ -695,6 +695,25 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
+            # 중복된 대여 기록 정리
+            duplicate_rentals = Rental.objects.filter(
+                user=rental_request.user,
+                equipment=equipment,
+                status__in=['RENTED', 'OVERDUE']
+            ).order_by('-rental_date')
+            
+            if duplicate_rentals.exists():
+                # 가장 최근 기록을 제외한 나머지 삭제
+                latest_rental = duplicate_rentals.first()
+                duplicate_rentals.exclude(id=latest_rental.id).delete()
+                logger.info(f"중복된 대여 기록 정리 완료: 장비={equipment.id}, 사용자={rental_request.user.id}")
+                
+                # 기존 대여 기록 반납 처리
+                latest_rental.status = 'RETURNED'
+                latest_rental.return_date = timezone.now()
+                latest_rental.returned_to = request.user
+                latest_rental.save()
+            
             # 새 대여 정보 생성
             rental = Rental.objects.create(
                 user=rental_request.user,
@@ -821,6 +840,19 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST
                     )
                     
+                # 중복된 대여 기록 정리
+                duplicate_rentals = Rental.objects.filter(
+                    user=rental_request.user,
+                    equipment=equipment,
+                    status__in=['RENTED', 'OVERDUE']
+                ).order_by('-rental_date')
+                
+                if duplicate_rentals.exists():
+                    # 가장 최근 기록을 제외한 나머지 삭제
+                    latest_rental = duplicate_rentals.first()
+                    duplicate_rentals.exclude(id=latest_rental.id).delete()
+                    logger.info(f"중복된 대여 기록 정리 완료: 장비={equipment.id}, 사용자={rental_request.user.id}")
+                
                 # 새 대여 정보 생성
                 rental = Rental.objects.create(
                     user=rental_request.user,
@@ -840,18 +872,23 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                 equipment.save()
                 
             elif rental_request.request_type == 'RETURN':
-                # 현재 사용자의 해당 장비 대여 정보 검색
-                try:
-                    rental = Rental.objects.get(
-                        user=rental_request.user,
-                        equipment=rental_request.equipment,
-                        status__in=['RENTED', 'OVERDUE']
-                    )
-                except Rental.DoesNotExist:
+                # 중복된 대여 기록 정리 후 가장 최근 대여 정보 검색
+                rentals = Rental.objects.filter(
+                    user=rental_request.user,
+                    equipment=rental_request.equipment,
+                    status__in=['RENTED', 'OVERDUE']
+                ).order_by('-rental_date')
+                
+                if not rentals.exists():
                     return Response(
                         {"detail": "대여 중인 장비를 찾을 수 없습니다."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
+                
+                # 가장 최근 대여 기록만 남기고 나머지 삭제
+                rental = rentals.first()
+                rentals.exclude(id=rental.id).delete()
+                logger.info(f"중복된 대여 기록 정리 완료: 장비={rental_request.equipment.id}, 사용자={rental_request.user.id}")
                     
                 # 대여 정보 업데이트
                 rental.status = 'RETURNED'
@@ -866,6 +903,14 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                 equipment = rental_request.equipment
                 equipment.status = 'AVAILABLE'
                 equipment.save()
+            
+            rental_request.save()
+            serializer = self.get_serializer(rental_request)
+            return Response({
+                "success": True,
+                "data": serializer.data,
+                "message": f"요청이 성공적으로 {action}되었습니다."
+            })
         
         # 거부 처리
         elif action == 'reject':
@@ -876,16 +921,15 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             # 거부 사유가 있으면 저장
             if reason:
                 rental_request.reject_reason = reason
-        
-        # 요청 정보 저장
-        rental_request.save()
-        
-        serializer = self.get_serializer(rental_request)
-        return Response({
-            "success": True,
-            "data": serializer.data,
-            "message": f"요청이 성공적으로 {action}되었습니다."
-        })
+            
+            rental_request.save()
+            
+            serializer = self.get_serializer(rental_request)
+            return Response({
+                "success": True,
+                "data": serializer.data,
+                "message": f"요청이 성공적으로 {action}되었습니다."
+            })
     
     @action(detail=False, methods=['get'], url_path='my')
     def my_requests(self, request):

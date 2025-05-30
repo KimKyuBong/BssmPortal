@@ -101,13 +101,24 @@ export default function RentalRequestsPage() {
       const result = await rentalService.getRentalRequests(currentPage);
       
       if (result.success && result.data) {
-        // 응답 데이터를 배열로 처리
-        const requestData = Array.isArray(result.data) ? result.data : [];
+        // 타입 가드로 분기 처리
+        const isPaginated = (data: any): data is { results: RentalRequest[], count: number } =>
+          Array.isArray(data.results) && typeof data.count === 'number';
+
+        let requestData: RentalRequest[] = [];
+        let totalCount = 0;
+
+        if (isPaginated(result.data)) {
+          requestData = result.data.results;
+          totalCount = result.data.count;
+        } else if (Array.isArray(result.data)) {
+          requestData = result.data;
+          totalCount = result.data.length;
+        }
+
         setRequests(requestData);
-        setTotalCount(requestData.length);
-        setTotalPages(1);
-        
-        // 필터링 적용
+        setTotalCount(totalCount);
+        setTotalPages(Math.ceil(totalCount / rowsPerPage));
         filterRequests();
       } else {
         console.error('요청 데이터를 불러오는데 실패했습니다:', result.message);
