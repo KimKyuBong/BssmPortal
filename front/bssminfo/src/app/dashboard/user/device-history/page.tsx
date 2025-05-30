@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import authService from '@/services/auth';
 import adminService from '@/services/admin';
-import deviceService from '@/services/device';
+import ipService from '@/services/ip';
 import { Laptop, User, Calendar, Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // 기기 이력 타입 정의
@@ -89,7 +89,7 @@ export default function DeviceHistoryPage() {
       
       // 기기 이력 데이터 가져오기 - 페이지네이션 적용
       console.log('기기 이력 요청 매개변수:', { page, pageSize });
-      const historyResponse = await deviceService.getMyDeviceHistory(page, pageSize);
+      const historyResponse = await ipService.getMyDeviceHistory(page, pageSize);
       console.log('기기 이력 응답:', historyResponse);
       
       if (historyResponse.success && historyResponse.data) {

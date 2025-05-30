@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Search, Download, Laptop, Trash2, Power
 } from 'lucide-react';
-import { Device } from '@/services/device';
+import { Device } from '@/services/ip';
 
 interface DeviceManagementProps {
   devices: Device[];

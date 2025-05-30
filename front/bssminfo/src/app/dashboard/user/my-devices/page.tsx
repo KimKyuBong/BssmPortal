@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import authService from '@/services/auth';
-import deviceService from '@/services/device';
-import { Device } from '@/services/device';
+import ipService from '@/services/ip';
+import { Device } from '@/services/ip';
 import Link from 'next/link';
 import { LogOut, User, Search, Plus, Edit, Trash2, Laptop, ArrowLeft } from 'lucide-react';
 
@@ -130,7 +130,7 @@ export default function MyDevicesPage() {
       setRegistering(true);
       
       // 장치 등록 API 호출
-      const response = await deviceService.registerDevice({
+      const response = await ipService.registerIp({
         mac_address: macAddress,
         device_name: deviceName
       });
@@ -140,12 +140,12 @@ export default function MyDevicesPage() {
         setShowModal(false);
         
         // 장치 목록 새로고침
-        const devicesResponse = await deviceService.getMyDevices();
+        const devicesResponse = await ipService.getMyIps();
         if (devicesResponse.success) {
           setDevices(devicesResponse.data || []);
           
           // 통계 업데이트
-          const activeDevices = devicesResponse.data?.filter(d => d.is_active).length || 0;
+          const activeDevices = devicesResponse.data?.filter((d: Device) => d.is_active).length || 0;
           setStats({
             totalDevices: devicesResponse.data?.length || 0,
             activeDevices
@@ -175,12 +175,12 @@ export default function MyDevicesPage() {
         setUser(userResponse.data);
         
         // 교사 본인의 장치 목록 가져오기
-        const devicesResponse = await deviceService.getMyDevices();
+        const devicesResponse = await ipService.getMyIps();
         if (devicesResponse.success) {
           setDevices(devicesResponse.data || []);
           
           // 통계 계산
-          const activeDevices = devicesResponse.data?.filter(d => d.is_active).length || 0;
+          const activeDevices = devicesResponse.data?.filter((d: Device) => d.is_active).length || 0;
           setStats({
             totalDevices: devicesResponse.data?.length || 0,
             activeDevices
@@ -199,7 +199,7 @@ export default function MyDevicesPage() {
   
   const handleToggleDeviceActive = async (deviceId: number, currentStatus: boolean) => {
     try {
-      const response = await deviceService.toggleDeviceActive(deviceId);
+      const response = await ipService.toggleIpActive(deviceId);
       if (response.success) {
         // 장치 목록 업데이트
         setDevices(devices.map(device => 
@@ -240,7 +240,7 @@ export default function MyDevicesPage() {
     if (!confirm('정말로 이 장치를 삭제하시겠습니까?')) return;
     
     try {
-      const response = await deviceService.deleteDevice(deviceId);
+      const response = await ipService.deleteIp(deviceId);
       if (response.success) {
         // 장치 목록 업데이트
         const updatedDevices = devices.filter(device => device.id !== deviceId);
@@ -273,13 +273,13 @@ export default function MyDevicesPage() {
         const device = devices.find(d => d.id === deviceId);
         // 현재 상태와 다른 경우에만 변경
         if (device && device.is_active !== setActive) {
-          return deviceService.toggleDeviceActive(deviceId);
+          return ipService.toggleIpActive(deviceId);
         }
         return Promise.resolve({ success: true }); // 이미 원하는 상태인 경우 변경 없이 성공 처리
       });
       
       const results = await Promise.all(promises);
-      const success = results.every(result => result.success);
+      const success = results.every((result: any) => result.success);
       
       if (success) {
         // 장치 목록 상태 업데이트
@@ -311,9 +311,9 @@ export default function MyDevicesPage() {
   // 장치 일괄 삭제 함수
   const handleBulkDeleteDevices = async (deviceIds: number[]) => {
     try {
-      const promises = deviceIds.map(deviceId => deviceService.deleteDevice(deviceId));
+      const promises = deviceIds.map(deviceId => ipService.deleteIp(deviceId));
       const results = await Promise.all(promises);
-      const success = results.every(result => result.success);
+      const success = results.every((result: any) => result.success);
       
       if (success) {
         // 장치 목록에서 삭제된 장치들 제거
@@ -402,7 +402,7 @@ export default function MyDevicesPage() {
       setMacError(null);
 
       // MAC 주소 조회 요청
-      const response = await deviceService.getCurrentMac();
+      const response = await ipService.getCurrentMac();
       console.log('🔍 서버 응답 전체:', response);
 
       // 응답 성공 확인

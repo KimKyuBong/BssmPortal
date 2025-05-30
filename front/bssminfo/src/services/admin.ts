@@ -7,7 +7,7 @@ import api, {
   ApiResponse,
   SimpleUser 
 } from './api';
-import { Device } from './device';
+import { Device } from './ip';
 
 /**
  * 기기 이력 데이터 타입

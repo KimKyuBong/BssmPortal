@@ -27,7 +27,7 @@ import { Delete as DeleteIcon, Add as AddIcon, Refresh as RefreshIcon, Block as 
 import { BlacklistedIPResponse } from '@/services/admin';
 import adminService from '@/services/admin';
 import DeviceManagement from '@/components/admin/DeviceManagement';
-import useDevices from '@/hooks/useDevices';
+import useIps from '@/hooks/useIps';
 
 export default function IpManagementPage() {
   // 탭 상태
@@ -63,7 +63,7 @@ export default function IpManagementPage() {
     handleBulkDeleteDevices,
     exportToExcel,
     fetchDevices
-  } = useDevices();
+  } = useIps();
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     setSnackbar({

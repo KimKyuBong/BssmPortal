@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import deviceService, { Device } from '@/services/device';
+import ipService, { Device } from '@/services/ip';
 
-export const useDevices = () => {
+export const useIps = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export const useDevices = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await deviceService.getAllDevices();
+      const response = await ipService.getAllIps();
       if (response.success) {
         // 응답 데이터가 배열인지 확인하고 처리
         if (Array.isArray(response.data)) {
@@ -46,7 +46,7 @@ export const useDevices = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await deviceService.deleteDevice(id);
+      const response = await ipService.deleteIp(id);
       if (response.success) {
         setDevices(prev => prev.filter(device => device.id !== id));
         setSelectedDevices(prev => {
@@ -72,7 +72,7 @@ export const useDevices = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await deviceService.toggleDeviceActive(id);
+      const response = await ipService.toggleIpActive(id);
       if (response.success) {
         setDevices(prev => 
           prev.map(device => 
@@ -117,7 +117,7 @@ export const useDevices = () => {
           // 이미 원하는 상태라면 건너뛰기
           if (device.is_active === activate) return true;
           
-          const response = await deviceService.toggleDeviceActive(id);
+          const response = await ipService.toggleIpActive(id);
           return response.success;
         })
       );
@@ -159,7 +159,7 @@ export const useDevices = () => {
 
       const results = await Promise.all(
         selectedIds.map(async id => {
-          const response = await deviceService.deleteDevice(id);
+          const response = await ipService.deleteIp(id);
           return response.success;
         })
       );
@@ -296,4 +296,4 @@ export const useDevices = () => {
   };
 };
 
-export default useDevices; 
+export default useIps; 

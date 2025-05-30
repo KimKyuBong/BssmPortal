@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { User, LogOut, Plus, Search, RefreshCw, Power, Trash2, Edit } from 'lucide-react';
 import authService from '@/services/auth';
-import deviceService from '@/services/device';
-import { Device, CurrentMacResponse } from '@/services/device';
+import ipService from '@/services/ip';
+import { Device, CurrentMacResponse } from '@/services/ip';
 
 export default function DeviceManagementPage() {
   const router = useRouter();
@@ -142,7 +142,7 @@ export default function DeviceManagementPage() {
   const fetchDevices = async () => {
     try {
       setLoading(true);
-      const devicesResponse = await deviceService.getMyDevices();
+      const devicesResponse = await ipService.getMyIps();
       if (devicesResponse.success) {
         setDevices(devicesResponse.data || []);
       } else {
@@ -184,9 +184,9 @@ export default function DeviceManagementPage() {
       let response;
       
       if (isManualRegistration) {
-        response = await deviceService.registerManualDevice(macAddress, deviceName);
+        response = await ipService.registerManualIp(macAddress, deviceName);
       } else {
-        response = await deviceService.registerDevice({ mac_address: macAddress, device_name: deviceName });
+        response = await ipService.registerIp({ mac_address: macAddress, device_name: deviceName });
       }
       
       if (response.success) {
@@ -217,7 +217,7 @@ export default function DeviceManagementPage() {
     if (!confirm('정말로 이 장치를 삭제하시겠습니까?')) return;
     
     try {
-      const response = await deviceService.deleteDevice(deviceId);
+      const response = await ipService.deleteIp(deviceId);
       
       if (response.success) {
         // 장치 목록에서 삭제된 장치 제거
@@ -241,7 +241,7 @@ export default function DeviceManagementPage() {
   // 장치 활성화/비활성화 토글 처리
   const handleToggleDeviceActive = async (deviceId: number, currentStatus: boolean) => {
     try {
-      const response = await deviceService.toggleDeviceActive(deviceId);
+      const response = await ipService.toggleIpActive(deviceId);
       
       if (response.success) {
         // 장치 목록 업데이트
@@ -273,7 +273,7 @@ export default function DeviceManagementPage() {
   // IP 재할당 처리
   const handleReassignIp = async (deviceId: number) => {
     try {
-      const response = await deviceService.reassignIp(deviceId);
+      const response = await ipService.reassignIp(deviceId);
       
       if (response.success && response.data) {
         // 장치 목록 업데이트
@@ -314,7 +314,7 @@ export default function DeviceManagementPage() {
     
     try {
       setUpdating(true);
-      const response = await deviceService.updateDevice(editingDevice.id, editDeviceName);
+      const response = await ipService.updateIp(editingDevice.id, editDeviceName);
       
       if (response.success) {
         // 장치 수정 성공
@@ -354,7 +354,7 @@ export default function DeviceManagementPage() {
   const fetchCurrentMac = async () => {
     try {
       setLoadingCurrentMac(true);
-      const response = await deviceService.getCurrentMac();
+      const response = await ipService.getCurrentMac();
       
       if (response.success && response.data) {
         setCurrentMac(response.data);

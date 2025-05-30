@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import authService from '@/services/auth';
-import deviceService from '@/services/device';
+import ipService from '@/services/ip';
 import rentalService from '@/services/rental';
-import { Device } from '@/services/device';
+import { Device } from '@/services/ip';
 import Link from 'next/link';
 import { User as UserIcon, LogOut, Mail, Key, Calendar, Package, NetworkIcon, Users, Shield, Database, Laptop, Server, HardDrive, Cpu, BarChart } from 'lucide-react';
 import api from '@/services/api';
@@ -85,7 +85,7 @@ export default function UserDashboard() {
         }
         
         // 사용자의 장치 정보 가져오기
-        const devicesResponse = await deviceService.getMyDevices();
+        const devicesResponse = await ipService.getMyIps();
         if (devicesResponse.success) {
           setDevices(devicesResponse.data || []);
         }
