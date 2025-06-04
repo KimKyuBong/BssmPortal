@@ -226,11 +226,11 @@ export const useUsers = () => {
     }
   }, []);
 
-  const resetPassword = async (id: number): Promise<{ success: boolean; password: string | null }> => {
+  const resetPassword = async (id: number, newPassword?: string): Promise<{ success: boolean; password: string | null }> => {
     setLoading(true);
     setError(null);
     try {
-      const response = await adminService.resetUserPassword(id);
+      const response = await adminService.resetUserPassword(id, newPassword);
       if (response.success) {
         const resetData = response.data as PasswordResetResponse;
         return { 

@@ -396,8 +396,20 @@ class UserViewSet(viewsets.ModelViewSet):
             logger.info(f"[DEBUG] 사용자 비밀번호 리셋 요청: 사용자 ID={pk}, 사용자명={user.username}")
             logger.info(f"[DEBUG] 리셋 전 사용자 상태: is_initial_password={user.is_initial_password}")
             
-            # 랜덤 비밀번호 생성 (8자리)
-            new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            # 요청에서 새 비밀번호 확인
+            new_password = request.data.get('new_password')
+            
+            # 새 비밀번호가 제공되지 않은 경우 랜덤 비밀번호 생성
+            if not new_password:
+                new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            else:
+                # 제공된 비밀번호 유효성 검사
+                is_valid, error_msg = self.validate_password(new_password)
+                if not is_valid:
+                    return Response({
+                        "success": False,
+                        "message": error_msg
+                    }, status=status.HTTP_400_BAD_REQUEST)
             
             # 비밀번호 변경
             success, message = self.change_user_password(user, new_password, is_initial=True)
@@ -440,6 +452,14 @@ class PasswordViewSet(viewsets.ViewSet):
     비밀번호 변경, 초기 비밀번호 변경, 비밀번호 초기화 등의 기능을 제공합니다.
     """
     permission_classes = [IsAuthenticated]
+    
+    def validate_password(self, password):
+        """비밀번호 유효성 검사"""
+        if not password:
+            return False, "비밀번호를 입력해주세요."
+        if len(password) < 8:
+            return False, "비밀번호는 8자 이상이어야 합니다."
+        return True, None
     
     def change_user_password(self, user, new_password, is_initial=False):
         """사용자 비밀번호 변경"""

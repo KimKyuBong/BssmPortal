@@ -241,10 +241,11 @@ const adminService = {
   /**
    * 사용자 비밀번호 초기화
    * @param id 사용자 ID
+   * @param newPassword 새로운 비밀번호 (선택사항)
    * @returns 초기화 결과
    */
-  resetUserPassword: async (id: number) => {
-    return api.post(`/admin/users/${id}/reset-password/`, {});
+  resetUserPassword: async (id: number, newPassword?: string) => {
+    return api.post(`/admin/users/${id}/reset-password/`, newPassword ? { new_password: newPassword } : {});
   },
 
   /**

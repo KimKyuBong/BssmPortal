@@ -67,9 +67,49 @@ const rentalService = {
           message: '응답 데이터가 없습니다.'
         };
       }
+
+      // 응답 데이터 처리
+      let rentalData: Rental[];
+      if (Array.isArray(response.data)) {
+        rentalData = response.data;
+      } else if ('results' in response.data) {
+        rentalData = response.data.results;
+      } else {
+        rentalData = [];
+      }
+
+      // equipment_detail 정보를 equipment에 매핑
+      rentalData = rentalData.map(rental => {
+        const equipmentDetail = (rental as any).equipment_detail;
+        if (equipmentDetail) {
+          return {
+            ...rental,
+            equipment: {
+              id: equipmentDetail.id,
+              name: equipmentDetail.name,
+              manufacturer: equipmentDetail.manufacturer || '',
+              model_name: equipmentDetail.model_name || '',
+              serial_number: equipmentDetail.serial_number || '',
+              equipment_type: equipmentDetail.equipment_type || '',
+              equipment_type_display: equipmentDetail.equipment_type_display || '',
+              purchase_date: equipmentDetail.purchase_date || '',
+              manufacture_year: equipmentDetail.manufacture_year || undefined,
+              acquisition_date: equipmentDetail.acquisition_date || '',
+              description: equipmentDetail.description || '',
+              image: equipmentDetail.image || '',
+              status: equipmentDetail.status || 'AVAILABLE',
+              status_display: equipmentDetail.status_display || '',
+              created_at: equipmentDetail.created_at || '',
+              mac_addresses: equipmentDetail.mac_addresses || []
+            }
+          };
+        }
+        return rental;
+      });
+
       return {
         success: true,
-        data: response.data
+        data: Array.isArray(response.data) ? rentalData : { ...response.data, results: rentalData }
       };
     } catch (error) {
       console.error('Error fetching my rentals:', error);
@@ -217,10 +257,11 @@ const rentalService = {
     return this.processRequest(requestId, 'reject', reason);
   },
 
-  async createRental(equipmentId: number, returnDate: string): Promise<ApiResponse<Rental>> {
-    const response = await api.post('/rentals/', {
+  async createRental(equipmentId: number, returnDate: string, userId: number): Promise<ApiResponse<Rental>> {
+    const response = await api.post('/rentals/items/', {
       equipment: equipmentId,
-      return_date: returnDate
+      user: userId,
+      due_date: returnDate
     });
     return response.data;
   },

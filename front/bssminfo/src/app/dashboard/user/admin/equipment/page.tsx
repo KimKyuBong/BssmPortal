@@ -355,33 +355,9 @@ export default function EquipmentManagementPage() {
   };
   
   // 장비 목록을 엑셀로 내보내기
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
-      // 내보낼 데이터 준비
-      const exportData = filteredEquipment.map(item => ({
-        '장비명': item.name,
-        '제조사': item.manufacturer || '',
-        '모델명': item.model_name || '',
-        '장비 유형': item.equipment_type_display,
-        '시리얼 번호': item.serial_number,
-        '설명': item.description || '',
-        '상태': item.status_display,
-        '생산년도': item.manufacture_year || '',
-        '구매일': item.purchase_date ? dayjs(item.purchase_date).format('YYYY-MM-DD') : '',
-        '취득일': dayjs(item.acquisition_date).format('YYYY-MM-DD'),
-        '생성일': dayjs(item.created_at).format('YYYY-MM-DD')
-      }));
-
-      // 워크시트 생성
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // 워크북 생성
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, '장비 목록');
-      
-      // 엑셀 파일로 저장
-      XLSX.writeFile(workbook, `장비_목록_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
+      await equipmentService.exportEquipmentToExcel();
       showNotification('장비 목록이 엑셀 파일로 저장되었습니다.', 'success');
     } catch (error) {
       console.error('엑셀 내보내기 오류:', error);
@@ -598,10 +574,10 @@ export default function EquipmentManagementPage() {
   
   // 직접 대여 제출 핸들러
   const handleRentalSubmit = async () => {
-    if (!rentalFormData.equipment || !rentalFormData.due_date) {
+    if (!rentalFormData.equipment || !rentalFormData.due_date || !rentalFormData.user) {
       setNotification({
         open: true,
-        message: '장비와 반납 예정일을 모두 선택해주세요.',
+        message: '장비, 대여자, 반납 예정일을 모두 선택해주세요.',
         severity: 'warning'
       });
       return;
@@ -611,10 +587,11 @@ export default function EquipmentManagementPage() {
     try {
       const result = await rentalService.createRental(
         rentalFormData.equipment,
-        rentalFormData.due_date.format('YYYY-MM-DD')
+        rentalFormData.due_date.format('YYYY-MM-DD'),
+        rentalFormData.user
       );
 
-      if (result.success) {
+      if (result.success || result.data) {
         setNotification({
           open: true,
           message: '대여가 성공적으로 처리되었습니다.',
@@ -628,7 +605,17 @@ export default function EquipmentManagementPage() {
           due_date: dayjs().add(7, 'day'),
           notes: ''
         });
-        loadEquipment();
+        
+        // 장비 목록을 강제로 새로고침
+        await loadEquipment();
+        
+        // 필터링된 장비 목록도 업데이트
+        const updatedEquipment = await equipmentService.getAllEquipment();
+        if (updatedEquipment.success && updatedEquipment.data) {
+          const equipmentData = Array.isArray(updatedEquipment.data) ? updatedEquipment.data : [];
+          setEquipment(equipmentData);
+          setFilteredEquipment(equipmentData);
+        }
       } else {
         const errorMessage = typeof result.error === 'string' 
           ? result.error 
@@ -640,6 +627,7 @@ export default function EquipmentManagementPage() {
         });
       }
     } catch (error) {
+      console.error('대여 처리 중 오류:', error);
       setNotification({
         open: true,
         message: '대여 처리 중 오류가 발생했습니다.',

@@ -1,19 +1,19 @@
-# ê´€ë¦¬ì ê¶Œí•œ í™•ì¸ ë° ìš”ì²­
+# °ü¸®ÀÚ ±ÇÇÑ È®ÀÎ ¹× ¿äÃ»
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {  
     $arguments = "& '" + $myinvocation.mycommand.definition + "' -NoExit"
     Start-Process powershell -Verb runAs -ArgumentList $arguments
     Break
 }
 
-# ì—ëŸ¬ ì²˜ë¦¬ í•¨ìˆ˜
+# ¿¡·¯ Ã³¸® ÇÔ¼ö
 function Write-Error {
     param (
         [string]$Message
     )
-    Write-Host "ì—ëŸ¬: $Message" -ForegroundColor Red
+    Write-Host "¿¡·¯: $Message" -ForegroundColor Red
 }
 
-# ì‹œìŠ¤í…œ ì •ë³´ ì¶œë ¥ í•¨ìˆ˜
+# ½Ã½ºÅÛ Á¤º¸ Ãâ·Â ÇÔ¼ö
 function Write-SystemInfo {
     param (
         [string]$Title,
@@ -23,7 +23,7 @@ function Write-SystemInfo {
     Write-Host "$Value" -ForegroundColor White
 }
 
-# ì‹œìŠ¤í…œ ì •ë³´ ìˆ˜ì§‘ í•¨ìˆ˜
+# ½Ã½ºÅÛ Á¤º¸ ¼öÁı ÇÔ¼ö
 function Get-SystemInfo {
     try {
         $computerSystem = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
@@ -31,31 +31,31 @@ function Get-SystemInfo {
         $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
         $processor = Get-CimInstance Win32_Processor -ErrorAction Stop
         
-        # ì‹œë¦¬ì–¼ë²ˆí˜¸ ê°€ì ¸ì˜¤ê¸° (ê°€ìƒ ì¥ì¹˜ ëŒ€ì‘)
+        # ½Ã¸®¾ó¹øÈ£ °¡Á®¿À±â (°¡»ó ÀåÄ¡ ´ëÀÀ)
         $serialNumber = $bios.SerialNumber
         if ([string]::IsNullOrEmpty($serialNumber) -or $serialNumber -eq "To be filled by O.E.M.") {
-            # ê°€ìƒ ì¥ì¹˜ì˜ ê²½ìš° ë‹¤ë¥¸ ë°©ë²•ìœ¼ë¡œ ì‹œë¦¬ì–¼ë²ˆí˜¸ ê°€ì ¸ì˜¤ê¸°
+            # °¡»ó ÀåÄ¡ÀÇ °æ¿ì ´Ù¸¥ ¹æ¹ıÀ¸·Î ½Ã¸®¾ó¹øÈ£ °¡Á®¿À±â
             $baseboard = Get-CimInstance Win32_BaseBoard
             if ($baseboard -and -not [string]::IsNullOrEmpty($baseboard.SerialNumber)) {
                 $serialNumber = $baseboard.SerialNumber
             } else {
-                # ë§ˆì§€ë§‰ ìˆ˜ë‹¨ìœ¼ë¡œ í”„ë¡œì„¸ì„œ ID ì‚¬ìš©
+                # ¸¶Áö¸· ¼ö´ÜÀ¸·Î ÇÁ·Î¼¼¼­ ID »ç¿ë
                 $processorId = $processor.ProcessorId
                 if (-not [string]::IsNullOrEmpty($processorId)) {
                     $serialNumber = $processorId
                 } else {
-                    # ëª¨ë“  ë°©ë²•ì´ ì‹¤íŒ¨í•œ ê²½ìš° ì„ì‹œ ID ìƒì„±
+                    # ¸ğµç ¹æ¹ıÀÌ ½ÇÆĞÇÑ °æ¿ì ÀÓ½Ã ID »ı¼º
                     $serialNumber = "VM-" + (Get-Date -Format "yyyyMMddHHmmss")
                 }
             }
         }
         
-        # MAC ì£¼ì†Œ ìˆ˜ì§‘
+        # MAC ÁÖ¼Ò ¼öÁı
         $macAddresses = @()
         $adapters = Get-CimInstance Win32_NetworkAdapter | 
             Where-Object { $_.PhysicalAdapter -eq $true -and $_.MACAddress -ne $null }
         
-        $networkInfo = "`n[ë„¤íŠ¸ì›Œí¬ ì •ë³´]`n"
+        $networkInfo = "`n[³×Æ®¿öÅ© Á¤º¸]`n"
         foreach ($adapter in $adapters) {
             $interfaceType = if ($adapter.Name -like "*Wireless*" -or $adapter.Name -like "*Wi-Fi*") {
                 "WIFI"
@@ -69,42 +69,42 @@ function Get-SystemInfo {
                 equipment = $null
             }
 
-            # ë„¤íŠ¸ì›Œí¬ ì„¤ì • ì •ë³´
+            # ³×Æ®¿öÅ© ¼³Á¤ Á¤º¸
             $config = Get-CimInstance Win32_NetworkAdapterConfiguration | 
                 Where-Object { $_.Index -eq $adapter.DeviceID }
             
             $ipInfo = if ($config.IPAddress) {
-                "IP: $($config.IPAddress[0]), ì„œë¸Œë„·: $($config.IPSubnet[0]), ê¸°ë³¸ê²Œì´íŠ¸ì›¨ì´: $($config.DefaultIPGateway[0])"
+                "IP: $($config.IPAddress[0]), ¼­ºê³İ: $($config.IPSubnet[0]), ±âº»°ÔÀÌÆ®¿şÀÌ: $($config.DefaultIPGateway[0])"
             } else {
-                "IP ì„¤ì • ì—†ìŒ"
+                "IP ¼³Á¤ ¾øÀ½"
             }
 
-            $networkInfo += "ì´ë¦„: $($adapter.Name)`n"
+            $networkInfo += "ÀÌ¸§: $($adapter.Name)`n"
             $networkInfo += "MAC: $($adapter.MACAddress) ($interfaceType)`n"
             $networkInfo += "$ipInfo`n`n"
         }
 
-        # ì‹œìŠ¤í…œ ì „ì²´ ì •ë³´
+        # ½Ã½ºÅÛ ÀüÃ¼ Á¤º¸
         $description = @"
-[ì‹œìŠ¤í…œ ì •ë³´]
-ì œì¡°ì‚¬: $($computerSystem.Manufacturer)
-ëª¨ë¸: $($computerSystem.Model)
-ì‹œë¦¬ì–¼ë²ˆí˜¸: $serialNumber
-ìš´ì˜ì²´ì œ: $($os.Caption) ($($os.Version))
-í”„ë¡œì„¸ì„œ: $($processor.Name)
-ì½”ì–´/ìŠ¤ë ˆë“œ: $($processor.NumberOfCores) ì½”ì–´, $($processor.NumberOfLogicalProcessors) ìŠ¤ë ˆë“œ
-ë©”ëª¨ë¦¬: $([math]::Round($computerSystem.TotalPhysicalMemory / 1GB, 2)) GB
+[½Ã½ºÅÛ Á¤º¸]
+Á¦Á¶»ç: $($computerSystem.Manufacturer)
+¸ğµ¨: $($computerSystem.Model)
+½Ã¸®¾ó¹øÈ£: $serialNumber
+¿î¿µÃ¼Á¦: $($os.Caption) ($($os.Version))
+ÇÁ·Î¼¼¼­: $($processor.Name)
+ÄÚ¾î/½º·¹µå: $($processor.NumberOfCores) ÄÚ¾î, $($processor.NumberOfLogicalProcessors) ½º·¹µå
+¸Ş¸ğ¸®: $([math]::Round($computerSystem.TotalPhysicalMemory / 1GB, 2)) GB
 
 $networkInfo
 "@
 
-        # í˜„ì¬ ë‚ ì§œ
+        # ÇöÀç ³¯Â¥
         $currentDate = Get-Date -Format "yyyy-MM-dd"
 
-        # API ìš”ì²­ ë°ì´í„° ì¤€ë¹„
+        # API ¿äÃ» µ¥ÀÌÅÍ ÁØºñ
         $body = @{
             mac_addresses = $macAddresses
-            name = "ë…¸íŠ¸ë¶ ì»´í“¨í„°"
+            name = "³ëÆ®ºÏ ÄÄÇ»ÅÍ"
             manufacturer = $computerSystem.Manufacturer
             model_name = $computerSystem.Model
             equipment_type = "LAPTOP"
@@ -114,62 +114,62 @@ $networkInfo
             acquisition_date = $currentDate
         }
 
-        # JSON ë³€í™˜ ë° ì¸ì½”ë”© ì²˜ë¦¬
+        # JSON º¯È¯ ¹× ÀÎÄÚµù Ã³¸®
         $jsonBody = $body | ConvertTo-Json -Depth 10 -Compress
         $utf8Bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonBody)
         $utf8Body = [System.Text.Encoding]::UTF8.GetString($utf8Bytes)
 
-        # PowerShell ì¶œë ¥ ì¸ì½”ë”©ì„ EUC-KRë¡œ ì„¤ì •
+        # PowerShell Ãâ·Â ÀÎÄÚµùÀ» EUC-KR·Î ¼³Á¤
         [Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding("euc-kr")
 
         try {
-            # ì›¹ ìš”ì²­ ì„¤ì •
+            # À¥ ¿äÃ» ¼³Á¤
             $webRequest = [System.Net.WebRequest]::Create("http://10.129.55.253/api/rentals/equipment/register/")
             $webRequest.Method = "POST"
             $webRequest.ContentType = "application/json; charset=utf-8"
             $webRequest.ContentLength = $utf8Bytes.Length
             
-            # ìš”ì²­ ë°ì´í„° ì „ì†¡
+            # ¿äÃ» µ¥ÀÌÅÍ Àü¼Û
             $requestStream = $webRequest.GetRequestStream()
             $requestStream.Write($utf8Bytes, 0, $utf8Bytes.Length)
             $requestStream.Close()
             
-            # ì‘ë‹µ ë°›ê¸°
+            # ÀÀ´ä ¹Ş±â
             $response = $webRequest.GetResponse()
             $responseStream = $response.GetResponseStream()
             $streamReader = [System.IO.StreamReader]::new($responseStream, [System.Text.Encoding]::UTF8)
             $responseText = $streamReader.ReadToEnd()
             
-            # ì‘ë‹µ ë°ì´í„° íŒŒì‹±
+            # ÀÀ´ä µ¥ÀÌÅÍ ÆÄ½Ì
             try {
                 $responseData = $responseText | ConvertFrom-Json
-                Write-Host "ì¥ë¹„ ë“±ë¡ì´ ì„±ê³µì ìœ¼ë¡œ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤." -ForegroundColor Green
+                Write-Host "Àåºñ µî·ÏÀÌ ¼º°øÀûÀ¸·Î ¿Ï·áµÇ¾ú½À´Ï´Ù." -ForegroundColor Green
 
-                # ì¥ë¹„ ì •ë³´ í™•ì¸
+                # Àåºñ Á¤º¸ È®ÀÎ
                 if ($responseData.rental_info -and $responseData.rental_info.user) {
                     $userInfo = $responseData.rental_info.user
                     $username = $userInfo.username
                     
-                    # ì»´í“¨í„° ì´ë¦„ ë³€ê²½ (íŠ¹ìˆ˜ë¬¸ì ì œê±°)
-                    $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9ê°€-í£]', ''
+                    # ÄÄÇ»ÅÍ ÀÌ¸§ º¯°æ (»ç¿ëÀÚ ÀÌ¸§ + ¸ğµ¨¸í)
+                    $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9°¡-ÆR]', ''
                     $newComputerName = "$username-$modelName"
                     $newComputerName = $newComputerName.Substring(0, [Math]::Min($newComputerName.Length, 15))
                     
                     Rename-Computer -NewName $newComputerName -Force
-                    Write-Host "ì»´í“¨í„° ì´ë¦„ì´ '$newComputerName'ë¡œ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤." -ForegroundColor Green
-                    Write-Host "ë³€ê²½ì‚¬í•­ì„ ì ìš©í•˜ê¸° ìœ„í•´ ì»´í“¨í„°ë¥¼ ì¬ì‹œì‘í•´ì•¼ í•©ë‹ˆë‹¤." -ForegroundColor Yellow
+                    Write-Host "ÄÄÇ»ÅÍ ÀÌ¸§ÀÌ '$newComputerName'·Î º¯°æµÇ¾ú½À´Ï´Ù." -ForegroundColor Green
+                    Write-Host "º¯°æ»çÇ×À» Àû¿ëÇÏ±â À§ÇØ ÄÄÇ»ÅÍ¸¦ Àç½ÃÀÛÇØ¾ß ÇÕ´Ï´Ù." -ForegroundColor Yellow
                 }
             } catch {
-                Write-Error "ì‘ë‹µ ë°ì´í„° íŒŒì‹± ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: $_"
+                Write-Error "ÀÀ´ä µ¥ÀÌÅÍ ÆÄ½Ì Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: $_"
             }
             
-            # ë¦¬ì†ŒìŠ¤ ì •ë¦¬
+            # ¸®¼Ò½º Á¤¸®
             $streamReader.Close()
             $responseStream.Close()
             $response.Close()
             
         } catch [System.Net.WebException] {
-            # ì›¹ ì˜ˆì™¸ ì²˜ë¦¬
+            # À¥ ¿¹¿Ü Ã³¸®
             if ($_.Exception.Response) {
                 $errorStream = $_.Exception.Response.GetResponseStream()
                 $streamReader = [System.IO.StreamReader]::new($errorStream, [System.Text.Encoding]::UTF8)
@@ -181,150 +181,150 @@ $networkInfo
                         $userInfo = $errorData.existing_equipment.rental.user
                         $username = $userInfo.username
                         
-                        Write-Host "ì´ ì»´í“¨í„°ëŠ” ì´ë¯¸ ë“±ë¡ë˜ì–´ ìˆìŠµë‹ˆë‹¤." -ForegroundColor Yellow
-                        Write-Host "ë“±ë¡ëœ ì‚¬ìš©ì: $username" -ForegroundColor Cyan
+                        Write-Host "ÀÌ ÄÄÇ»ÅÍ´Â ÀÌ¹Ì µî·ÏµÇ¾î ÀÖ½À´Ï´Ù." -ForegroundColor Yellow
+                        Write-Host "µî·ÏµÈ »ç¿ëÀÚ: $username" -ForegroundColor Cyan
                         
-                        # ì»´í“¨í„° ì´ë¦„ ë³€ê²½ (íŠ¹ìˆ˜ë¬¸ì ì œê±°)
-                        $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9ê°€-í£]', ''
+                        # ÄÄÇ»ÅÍ ÀÌ¸§ º¯°æ (»ç¿ëÀÚ ÀÌ¸§ + ¸ğµ¨¸í)
+                        $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9°¡-ÆR]', ''
                         $newComputerName = "$username-$modelName"
                         $newComputerName = $newComputerName.Substring(0, [Math]::Min($newComputerName.Length, 15))
                         
                         Rename-Computer -NewName $newComputerName -Force
-                        Write-Host "ì»´í“¨í„° ì´ë¦„ì´ '$newComputerName'ë¡œ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤." -ForegroundColor Green
-                        Write-Host "ë³€ê²½ì‚¬í•­ì„ ì ìš©í•˜ê¸° ìœ„í•´ ì»´í“¨í„°ë¥¼ ì¬ì‹œì‘í•´ì•¼ í•©ë‹ˆë‹¤." -ForegroundColor Yellow
+                        Write-Host "ÄÄÇ»ÅÍ ÀÌ¸§ÀÌ '$newComputerName'·Î º¯°æµÇ¾ú½À´Ï´Ù." -ForegroundColor Green
+                        Write-Host "º¯°æ»çÇ×À» Àû¿ëÇÏ±â À§ÇØ ÄÄÇ»ÅÍ¸¦ Àç½ÃÀÛÇØ¾ß ÇÕ´Ï´Ù." -ForegroundColor Yellow
                     } else {
-                        # 400 ì—ëŸ¬ì—ì„œë„ ì‚¬ìš©ì ì •ë³´ê°€ ìˆëŠ” ê²½ìš° ì²˜ë¦¬
+                        # 400 ¿¡·¯¿¡¼­µµ »ç¿ëÀÚ Á¤º¸°¡ ÀÖ´Â °æ¿ì Ã³¸®
                         if ($errorData.user) {
                             $username = $errorData.user.username
                             
-                            Write-Host "ì´ ì»´í“¨í„°ëŠ” ì´ë¯¸ ë“±ë¡ë˜ì–´ ìˆìŠµë‹ˆë‹¤." -ForegroundColor Yellow
-                            Write-Host "ë“±ë¡ëœ ì‚¬ìš©ì: $username" -ForegroundColor Cyan
+                            Write-Host "ÀÌ ÄÄÇ»ÅÍ´Â ÀÌ¹Ì µî·ÏµÇ¾î ÀÖ½À´Ï´Ù." -ForegroundColor Yellow
+                            Write-Host "µî·ÏµÈ »ç¿ëÀÚ: $username" -ForegroundColor Cyan
                             
-                            # ì»´í“¨í„° ì´ë¦„ ë³€ê²½ (íŠ¹ìˆ˜ë¬¸ì ì œê±°)
-                            $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9ê°€-í£]', ''
+                            # ÄÄÇ»ÅÍ ÀÌ¸§ º¯°æ (»ç¿ëÀÚ ÀÌ¸§ + ¸ğµ¨¸í)
+                            $modelName = $computerSystem.Model -replace '[^a-zA-Z0-9°¡-ÆR]', ''
                             $newComputerName = "$username-$modelName"
                             $newComputerName = $newComputerName.Substring(0, [Math]::Min($newComputerName.Length, 15))
                             
                             Rename-Computer -NewName $newComputerName -Force
-                            Write-Host "ì»´í“¨í„° ì´ë¦„ì´ '$newComputerName'ë¡œ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤." -ForegroundColor Green
-                            Write-Host "ë³€ê²½ì‚¬í•­ì„ ì ìš©í•˜ê¸° ìœ„í•´ ì»´í“¨í„°ë¥¼ ì¬ì‹œì‘í•´ì•¼ í•©ë‹ˆë‹¤." -ForegroundColor Yellow
+                            Write-Host "ÄÄÇ»ÅÍ ÀÌ¸§ÀÌ '$newComputerName'·Î º¯°æµÇ¾ú½À´Ï´Ù." -ForegroundColor Green
+                            Write-Host "º¯°æ»çÇ×À» Àû¿ëÇÏ±â À§ÇØ ÄÄÇ»ÅÍ¸¦ Àç½ÃÀÛÇØ¾ß ÇÕ´Ï´Ù." -ForegroundColor Yellow
                         } else {
-                            Write-Error "ì´ë¯¸ ë“±ë¡ëœ ì»´í“¨í„°ì´ì§€ë§Œ ì‚¬ìš©ì ì •ë³´ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤."
+                            Write-Error "ÀÌ¹Ì µî·ÏµÈ ÄÄÇ»ÅÍÀÌÁö¸¸ »ç¿ëÀÚ Á¤º¸¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù."
                         }
                     }
                 } catch {
-                    Write-Error "ì‘ë‹µ ë°ì´í„° ì²˜ë¦¬ ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: $_"
+                    Write-Error "ÀÀ´ä µ¥ÀÌÅÍ Ã³¸® Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: $_"
                 }
                 
-                # ë¦¬ì†ŒìŠ¤ ì •ë¦¬
+                # ¸®¼Ò½º Á¤¸®
                 $streamReader.Close()
                 $errorStream.Close()
             }
         } catch {
-            Write-Error "ì¥ë¹„ ë“±ë¡ ì¤‘ ì˜ˆìƒì¹˜ ëª»í•œ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: $_"
+            Write-Error "Àåºñ µî·Ï Áß ¿¹»óÄ¡ ¸øÇÑ ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: $_"
         }
 
     } catch {
-        Write-Error "ì‹œìŠ¤í…œ ì •ë³´ ìˆ˜ì§‘ ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: $_"
-        Write-Host "ì˜¤ë¥˜ ìƒì„¸: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Error "½Ã½ºÅÛ Á¤º¸ ¼öÁı Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: $_"
+        Write-Host "¿À·ù »ó¼¼: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
-# ìŠ¤í¬ë¦½íŠ¸ ì‹¤í–‰
+# ½ºÅ©¸³Æ® ½ÇÇà
 Get-SystemInfo
 
-# ìƒì„¸ ì‹œìŠ¤í…œ ì •ë³´ ì¶œë ¥
+# »ó¼¼ ½Ã½ºÅÛ Á¤º¸ Ãâ·Â
 try {
-    Write-Host "`n=== ì‹œìŠ¤í…œ ì •ë³´ ===" -ForegroundColor Yellow
+    Write-Host "`n=== ½Ã½ºÅÛ Á¤º¸ ===" -ForegroundColor Yellow
 
-    # ê¸°ë³¸ ì‹œìŠ¤í…œ ì •ë³´ ìˆ˜ì§‘
+    # ±âº» ½Ã½ºÅÛ Á¤º¸ ¼öÁı
     $computerSystem = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
     $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop
     $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
     $processor = Get-CimInstance Win32_Processor -ErrorAction Stop
 
-    Write-SystemInfo "ì œì¡°ì‚¬" $computerSystem.Manufacturer
-    Write-SystemInfo "ëª¨ë¸" $computerSystem.Model
-    Write-SystemInfo "ì‹œë¦¬ì–¼ë²ˆí˜¸" $bios.SerialNumber
-    Write-SystemInfo "ìš´ì˜ì²´ì œ" $os.Caption
-    Write-SystemInfo "OS ë²„ì „" $os.Version
-    Write-SystemInfo "í”„ë¡œì„¸ì„œ" $processor.Name
-    Write-SystemInfo "í”„ë¡œì„¸ì„œ ì½”ì–´ ìˆ˜" "$($processor.NumberOfCores) ì½”ì–´"
-    Write-SystemInfo "í”„ë¡œì„¸ì„œ ìŠ¤ë ˆë“œ ìˆ˜" "$($processor.NumberOfLogicalProcessors) ìŠ¤ë ˆë“œ"
+    Write-SystemInfo "Á¦Á¶»ç" $computerSystem.Manufacturer
+    Write-SystemInfo "¸ğµ¨" $computerSystem.Model
+    Write-SystemInfo "½Ã¸®¾ó¹øÈ£" $bios.SerialNumber
+    Write-SystemInfo "¿î¿µÃ¼Á¦" $os.Caption
+    Write-SystemInfo "OS ¹öÀü" $os.Version
+    Write-SystemInfo "ÇÁ·Î¼¼¼­" $processor.Name
+    Write-SystemInfo "ÇÁ·Î¼¼¼­ ÄÚ¾î ¼ö" "$($processor.NumberOfCores) ÄÚ¾î"
+    Write-SystemInfo "ÇÁ·Î¼¼¼­ ½º·¹µå ¼ö" "$($processor.NumberOfLogicalProcessors) ½º·¹µå"
 
-    # ë©”ëª¨ë¦¬ ì •ë³´ (GB ë‹¨ìœ„ë¡œ ë³€í™˜)
+    # ¸Ş¸ğ¸® Á¤º¸ (GB ´ÜÀ§·Î º¯È¯)
     $totalMemoryGB = [math]::Round($computerSystem.TotalPhysicalMemory / 1GB, 2)
-    Write-SystemInfo "ì „ì²´ ë©”ëª¨ë¦¬" "$totalMemoryGB GB"
+    Write-SystemInfo "ÀüÃ¼ ¸Ş¸ğ¸®" "$totalMemoryGB GB"
 
-    Write-Host "`n=== ë„¤íŠ¸ì›Œí¬ ì–´ëŒ‘í„° ì •ë³´ ===" -ForegroundColor Yellow
+    Write-Host "`n=== ³×Æ®¿öÅ© ¾î´ğÅÍ Á¤º¸ ===" -ForegroundColor Yellow
 
-    # ë„¤íŠ¸ì›Œí¬ ì–´ëŒ‘í„° ì •ë³´ ìˆ˜ì§‘
+    # ³×Æ®¿öÅ© ¾î´ğÅÍ Á¤º¸ ¼öÁı
     $adapters = Get-CimInstance Win32_NetworkAdapter | 
         Where-Object { $_.PhysicalAdapter -eq $true -and $_.MACAddress -ne $null }
 
     if ($adapters) {
         foreach ($adapter in $adapters) {
-            Write-Host "`në„¤íŠ¸ì›Œí¬ ì–´ëŒ‘í„° #$($adapter.DeviceID)" -ForegroundColor Green
-            Write-SystemInfo "ì–´ëŒ‘í„° ì´ë¦„" $adapter.Name
-            Write-SystemInfo "ë„¤íŠ¸ì›Œí¬ ìƒíƒœ" $(if ($adapter.NetEnabled) { "í™œì„±í™”" } else { "ë¹„í™œì„±í™”" })
-            Write-SystemInfo "MAC ì£¼ì†Œ" $adapter.MACAddress
+            Write-Host "`n³×Æ®¿öÅ© ¾î´ğÅÍ #$($adapter.DeviceID)" -ForegroundColor Green
+            Write-SystemInfo "¾î´ğÅÍ ÀÌ¸§" $adapter.Name
+            Write-SystemInfo "³×Æ®¿öÅ© »óÅÂ" $(if ($adapter.NetEnabled) { "È°¼ºÈ­" } else { "ºñÈ°¼ºÈ­" })
+            Write-SystemInfo "MAC ÁÖ¼Ò" $adapter.MACAddress
             
-            # í•´ë‹¹ ì–´ëŒ‘í„°ì˜ IP ì„¤ì • ì •ë³´
+            # ÇØ´ç ¾î´ğÅÍÀÇ IP ¼³Á¤ Á¤º¸
             $config = Get-CimInstance Win32_NetworkAdapterConfiguration | 
                 Where-Object { $_.Index -eq $adapter.DeviceID }
             
             if ($config.IPAddress) {
-                Write-SystemInfo "IP ì£¼ì†Œ" $($config.IPAddress[0])
-                Write-SystemInfo "ì„œë¸Œë„· ë§ˆìŠ¤í¬" $($config.IPSubnet[0])
-                Write-SystemInfo "ê¸°ë³¸ ê²Œì´íŠ¸ì›¨ì´" $($config.DefaultIPGateway[0])
+                Write-SystemInfo "IP ÁÖ¼Ò" $($config.IPAddress[0])
+                Write-SystemInfo "¼­ºê³İ ¸¶½ºÅ©" $($config.IPSubnet[0])
+                Write-SystemInfo "±âº» °ÔÀÌÆ®¿şÀÌ" $($config.DefaultIPGateway[0])
             }
         }
     } else {
-        Write-Error "ë„¤íŠ¸ì›Œí¬ ì–´ëŒ‘í„°ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤."
+        Write-Error "³×Æ®¿öÅ© ¾î´ğÅÍ¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù."
     }
 
-    Write-Host "`n=== ë””ìŠ¤í¬ ì •ë³´ ===" -ForegroundColor Yellow
+    Write-Host "`n=== µğ½ºÅ© Á¤º¸ ===" -ForegroundColor Yellow
 
-    # ë””ìŠ¤í¬ ì •ë³´ ìˆ˜ì§‘
+    # µğ½ºÅ© Á¤º¸ ¼öÁı
     $disks = Get-CimInstance Win32_DiskDrive
 
     if ($disks) {
         foreach ($disk in $disks) {
             $sizeGB = [math]::Round($disk.Size / 1GB, 2)
-            Write-Host "`në””ìŠ¤í¬: $($disk.DeviceID)" -ForegroundColor Green
-            Write-SystemInfo "ëª¨ë¸" $disk.Model
-            Write-SystemInfo "í¬ê¸°" "$sizeGB GB"
-            Write-SystemInfo "ì¸í„°í˜ì´ìŠ¤íƒ€ì…" $disk.InterfaceType
-            Write-SystemInfo "ì‹œë¦¬ì–¼ë²ˆí˜¸" $disk.SerialNumber
+            Write-Host "`nµğ½ºÅ©: $($disk.DeviceID)" -ForegroundColor Green
+            Write-SystemInfo "¸ğµ¨" $disk.Model
+            Write-SystemInfo "Å©±â" "$sizeGB GB"
+            Write-SystemInfo "ÀÎÅÍÆäÀÌ½ºÅ¸ÀÔ" $disk.InterfaceType
+            Write-SystemInfo "½Ã¸®¾ó¹øÈ£" $disk.SerialNumber
         }
     } else {
-        Write-Error "ë””ìŠ¤í¬ ì •ë³´ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤."
+        Write-Error "µğ½ºÅ© Á¤º¸¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù."
     }
 
-    # ê·¸ë˜í”½ ì¹´ë“œ ì •ë³´
-    Write-Host "`n=== ê·¸ë˜í”½ ì¹´ë“œ ì •ë³´ ===" -ForegroundColor Yellow
+    # ±×·¡ÇÈ Ä«µå Á¤º¸
+    Write-Host "`n=== ±×·¡ÇÈ Ä«µå Á¤º¸ ===" -ForegroundColor Yellow
     $gpus = Get-CimInstance Win32_VideoController
 
     if ($gpus) {
         foreach ($gpu in $gpus) {
-            Write-Host "`nê·¸ë˜í”½ ì¹´ë“œ" -ForegroundColor Green
-            Write-SystemInfo "ëª¨ë¸" $gpu.Name
-            Write-SystemInfo "ë©”ëª¨ë¦¬" "$([math]::Round($gpu.AdapterRAM / 1GB, 2)) GB"
-            Write-SystemInfo "ë“œë¼ì´ë²„ ë²„ì „" $gpu.DriverVersion
+            Write-Host "`n±×·¡ÇÈ Ä«µå" -ForegroundColor Green
+            Write-SystemInfo "¸ğµ¨" $gpu.Name
+            Write-SystemInfo "¸Ş¸ğ¸®" "$([math]::Round($gpu.AdapterRAM / 1GB, 2)) GB"
+            Write-SystemInfo "µå¶óÀÌ¹ö ¹öÀü" $gpu.DriverVersion
         }
     } else {
-        Write-Error "ê·¸ë˜í”½ ì¹´ë“œ ì •ë³´ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤."
+        Write-Error "±×·¡ÇÈ Ä«µå Á¤º¸¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù."
     }
 
 } catch {
-    Write-Error "ì‹œìŠ¤í…œ ì •ë³´ë¥¼ ìˆ˜ì§‘í•˜ëŠ” ì¤‘ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤: $_"
-    Write-Host "ì˜¤ë¥˜ ìƒì„¸: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Error "½Ã½ºÅÛ Á¤º¸¸¦ ¼öÁıÇÏ´Â Áß ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù: $_"
+    Write-Host "¿À·ù »ó¼¼: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-# ìŠ¤í¬ë¦½íŠ¸ ì¢…ë£Œ
-Write-Host "`nì‹œìŠ¤í…œ ì •ë³´ ìˆ˜ì§‘ì´ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤." -ForegroundColor Green
-Write-Host "`nì°½ì„ ë‹«ìœ¼ë ¤ë©´ Enter í‚¤ë¥¼ ëˆ„ë¥´ì„¸ìš”..." -ForegroundColor Yellow
+# ½ºÅ©¸³Æ® Á¾·á
+Write-Host "`n½Ã½ºÅÛ Á¤º¸ ¼öÁıÀÌ ¿Ï·áµÇ¾ú½À´Ï´Ù." -ForegroundColor Green
+Write-Host "`nÃ¢À» ´İÀ¸·Á¸é Enter Å°¸¦ ´©¸£¼¼¿ä..." -ForegroundColor Yellow
 $null = Read-Host
 
-# ì»´í“¨í„° ì¬ì‹œì‘
+# ÄÄÇ»ÅÍ Àç½ÃÀÛ
 Restart-Computer -Force

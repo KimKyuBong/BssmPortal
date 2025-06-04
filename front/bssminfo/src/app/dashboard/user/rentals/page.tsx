@@ -477,13 +477,13 @@ export default function RentalsPage() {
                   <TableBody>
                     {rentals.map((rental) => (
                       <TableRow key={rental.id}>
-                        <TableCell>{rental.equipment.name}</TableCell>
-                        <TableCell>{rental.equipment.manufacturer}</TableCell>
-                        <TableCell>{rental.equipment.model_name}</TableCell>
-                        <TableCell>{rental.equipment.serial_number}</TableCell>
-                        <TableCell>{rental.equipment.equipment_type_display}</TableCell>
-                        <TableCell>{rental.equipment.manufacture_year || '-'}</TableCell>
-                        <TableCell>{rental.equipment.purchase_date ? dayjs(rental.equipment.purchase_date).format('YYYY-MM-DD') : '-'}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.name || rental.equipment.name}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.manufacturer || rental.equipment.manufacturer}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.model_name || rental.equipment.model_name}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.serial_number || rental.equipment.serial_number}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.equipment_type_display || rental.equipment.equipment_type_display}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.manufacture_year || rental.equipment.manufacture_year || '-'}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.purchase_date ? dayjs((rental as any).equipment_detail.purchase_date).format('YYYY-MM-DD') : rental.equipment.purchase_date ? dayjs(rental.equipment.purchase_date).format('YYYY-MM-DD') : '-'}</TableCell>
                         <TableCell>{dayjs(rental.rental_date).format('YYYY-MM-DD')}</TableCell>
                         <TableCell>{dayjs(rental.due_date).format('YYYY-MM-DD')}</TableCell>
                         <TableCell>{rental.return_date ? dayjs(rental.return_date).format('YYYY-MM-DD') : '-'}</TableCell>

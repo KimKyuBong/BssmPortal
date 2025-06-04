@@ -7,6 +7,7 @@ import { User as AdminUser, CreateUserRequest } from '@/services/admin';
 import adminService from '@/services/admin';
 import CreateUserModal from './CreateUserModal';
 import TemplateModal from './TemplateModal';
+import ResetPasswordModal from './ResetPasswordModal';
 
 interface UserManagementProps {
   users: AdminUser[];
@@ -63,6 +64,8 @@ export default function UserManagement({
 }: UserManagementProps) {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -181,6 +184,26 @@ export default function UserManagement({
         showFeedback('success', result.message);
       } else {
         showFeedback('error', result.message);
+      }
+    }
+  };
+
+  // 비밀번호 초기화 핸들러
+  const handleResetPasswordClick = (userId: number) => {
+    setSelectedUserId(userId);
+    setShowResetPasswordModal(true);
+  };
+
+  // 비밀번호 초기화 모달 제출 핸들러
+  const handleResetPasswordSubmit = async (newPassword: string) => {
+    if (selectedUserId) {
+      const result = await onResetPassword(selectedUserId);
+      if (result.success) {
+        const password = result.password || newPassword;
+        showFeedback('success', `비밀번호가 성공적으로 초기화되었습니다. 새 비밀번호: ${password}`);
+        setShowResetPasswordModal(false);
+      } else {
+        showFeedback('error', result.message || '비밀번호 초기화 중 오류가 발생했습니다.');
       }
     }
   };
@@ -404,7 +427,7 @@ export default function UserManagement({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onResetPassword(user.id);
+                        handleResetPasswordClick(user.id);
                       }}
                       className="mr-2 px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
                     >
@@ -534,6 +557,13 @@ export default function UserManagement({
         onDownload={async (count) => {
           await onDownloadTemplate(count);
         }}
+      />
+
+      {/* 비밀번호 초기화 모달 */}
+      <ResetPasswordModal
+        isOpen={showResetPasswordModal}
+        onClose={() => setShowResetPasswordModal(false)}
+        onSubmit={handleResetPasswordSubmit}
       />
     </div>
   );

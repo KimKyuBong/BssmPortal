@@ -92,8 +92,16 @@ class EquipmentLiteSerializer(serializers.ModelSerializer):
 
 
 class RentalSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    equipment = EquipmentSerializer(read_only=True)
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        required=True
+    )
+    user_detail = UserSerializer(source='user', read_only=True)
+    equipment = serializers.PrimaryKeyRelatedField(
+        queryset=Equipment.objects.all(),
+        required=True
+    )
+    equipment_detail = EquipmentSerializer(source='equipment', read_only=True)
     approved_by = UserSerializer(read_only=True)
     returned_to = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -101,11 +109,12 @@ class RentalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rental
         fields = [
-            'id', 'user', 'equipment', 'rental_date', 'due_date', 'return_date',
+            'id', 'user', 'user_detail', 'equipment', 'equipment_detail', 
+            'rental_date', 'due_date', 'return_date',
             'status', 'status_display', 'notes', 'approved_by', 'returned_to',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['user', 'approved_by', 'returned_to', 'created_at', 'updated_at']
+        read_only_fields = ['approved_by', 'returned_to', 'created_at', 'updated_at']
 
 
 class RentalRequestSerializer(serializers.ModelSerializer):

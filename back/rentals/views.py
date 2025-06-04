@@ -6,7 +6,8 @@ from django.utils import timezone
 from django.db.models import Q
 from django.http import HttpResponse
 import csv
-import xlwt
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment
 import pandas as pd
 from io import BytesIO
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -110,38 +111,76 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             
         equipment_list = Equipment.objects.all()
         
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('장비 목록')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "장비 목록"
         
-        row_num = 0
-        font_style = xlwt.XFStyle()
-        font_style.font.bold = True
+        # 헤더 스타일 설정
+        header_font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center')
         
-        columns = ['ID', '장비명', '종류', '일련번호', '상태', '취득일']
+        # 컬럼 헤더 설정
+        columns = ['ID', '장비명', '모델명', '종류', '일련번호', '상태', '대여자', '대여자 아이디', '취득일']
+        for col_num, column_title in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_num, value=column_title)
+            cell.font = header_font
+            cell.alignment = header_alignment
         
-        for col_num, column_title in enumerate(columns):
-            ws.write(row_num, col_num, column_title, font_style)
+        # 데이터 입력
+        for row_num, equipment in enumerate(equipment_list, 2):
+            ws.cell(row=row_num, column=1, value=equipment.id)
+            ws.cell(row=row_num, column=2, value=equipment.name)
+            ws.cell(row=row_num, column=3, value=equipment.model_name or '-')
+            ws.cell(row=row_num, column=4, value=equipment.get_equipment_type_display())
+            ws.cell(row=row_num, column=5, value=equipment.serial_number)
+            ws.cell(row=row_num, column=6, value=equipment.get_status_display())
             
-        font_style = xlwt.XFStyle()
+            # 현재 대여 중인 사용자 정보
+            current_rental = equipment.rentals.filter(status__in=['RENTED', 'OVERDUE']).first()
+            if current_rental and current_rental.user:
+                # 대여자 이름이 None이거나 빈 문자열인 경우 처리
+                last_name = str(current_rental.user.last_name or '').strip()
+                first_name = str(current_rental.user.first_name or '').strip()
+                
+                # 이름이 모두 비어있는 경우 사용자 아이디 사용
+                if not last_name and not first_name:
+                    full_name = current_rental.user.username
+                else:
+                    # 성과 이름이 있는 경우에만 공백 추가
+                    full_name = f"{last_name} {first_name}".strip()
+                
+                ws.cell(row=row_num, column=7, value=full_name)
+                ws.cell(row=row_num, column=8, value=current_rental.user.username)
+            else:
+                ws.cell(row=row_num, column=7, value="-")
+                ws.cell(row=row_num, column=8, value="-")
+                
+            ws.cell(row=row_num, column=9, value=str(equipment.acquisition_date))
         
-        for equipment in equipment_list:
-            row_num += 1
-            ws.write(row_num, 0, equipment.id, font_style)
-            ws.write(row_num, 1, equipment.name, font_style)
-            ws.write(row_num, 2, equipment.get_equipment_type_display(), font_style)
-            ws.write(row_num, 3, equipment.serial_number, font_style)
-            ws.write(row_num, 4, equipment.get_status_display(), font_style)
-            ws.write(row_num, 5, str(equipment.acquisition_date), font_style)
+        # 컬럼 너비 자동 조정
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column_letter].width = adjusted_width
         
+        # 파일 저장
         output = BytesIO()
         wb.save(output)
         output.seek(0)
         
         response = HttpResponse(
-            output.read(),
-            content_type='application/vnd.ms-excel'
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename="equipment_list.xls"'
+        response['Content-Disposition'] = 'attachment; filename="equipment_list.xlsx"'
+        response['Content-Length'] = len(output.getvalue())
         
         return response
 
@@ -460,10 +499,26 @@ class RentalViewSet(viewsets.ModelViewSet):
     """
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['equipment__name', 'equipment__serial_number', 'user__username']
     ordering_fields = ['rental_date', 'due_date', 'return_date', 'status']
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+    
+    def get_permissions(self):
+        """
+        액션별로 권한 설정:
+        - 관리자는 모든 권한
+        - 일반 사용자는 자신의 대여 정보만 접근 가능
+        """
+        logger = logging.getLogger('rentals')
+        logger.debug(f"get_permissions 호출됨: action={self.action}, method={self.request.method}")
+        
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            logger.debug("관리자 권한 필요")
+            return [permissions.IsAdminUser()]
+        logger.debug("인증된 사용자 권한")
+        return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
         user = self.request.user
@@ -471,6 +526,49 @@ class RentalViewSet(viewsets.ModelViewSet):
         if user.is_staff:
             return Rental.objects.all()
         return Rental.objects.filter(user=user)
+    
+    def create(self, request, *args, **kwargs):
+        """대여 정보 생성"""
+        logger = logging.getLogger('rentals')
+        logger.debug(f"create 메서드 호출됨: {request.data}")
+        
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.error(f"유효성 검사 오류: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 장비 상태 체크
+        equipment = serializer.validated_data.get('equipment')
+        if equipment.status != 'AVAILABLE':
+            logger.warning(f"대여 불가능한 장비: {equipment.id}, 상태: {equipment.status}")
+            return Response(
+                {"detail": f"대여할 수 없는 장비입니다. 현재 상태: {equipment.get_status_display()}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # 장비 상태 업데이트
+            equipment.status = 'RENTED'
+            equipment.save()
+            
+            # 대여 정보 생성
+            rental = serializer.save(
+                user=serializer.validated_data.get('user', request.user),
+                approved_by=request.user,
+                status='RENTED',
+                rental_date=timezone.now()
+            )
+            
+            logger.info(f"대여 정보 생성 성공: {rental.id}")
+            
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            logger.exception(f"대여 정보 생성 중 오류 발생: {str(e)}")
+            return Response(
+                {"detail": f"대여 정보 생성 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     def perform_create(self, serializer):
         """대여 정보 생성 시 현재 사용자 및 승인자 정보 추가"""
@@ -546,39 +644,55 @@ class RentalViewSet(viewsets.ModelViewSet):
             
         rental_list = Rental.objects.all()
         
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('대여 내역')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "대여 내역"
         
-        row_num = 0
-        font_style = xlwt.XFStyle()
-        font_style.font.bold = True
+        # 헤더 스타일 설정
+        header_font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center')
         
-        columns = ['ID', '사용자', '장비명', '대여일', '반납예정일', '반납일', '상태']
+        # 컬럼 헤더 설정
+        columns = ['ID', '대여자 아이디', '대여자 이름', '장비명', '대여일', '반납예정일', '반납일', '상태']
+        for col_num, column_title in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_num, value=column_title)
+            cell.font = header_font
+            cell.alignment = header_alignment
         
-        for col_num, column_title in enumerate(columns):
-            ws.write(row_num, col_num, column_title, font_style)
-            
-        font_style = xlwt.XFStyle()
+        # 데이터 입력
+        for row_num, rental in enumerate(rental_list, 2):
+            ws.cell(row=row_num, column=1, value=rental.id)
+            ws.cell(row=row_num, column=2, value=rental.user.username)
+            ws.cell(row=row_num, column=3, value=f"{rental.user.last_name}{rental.user.first_name}")
+            ws.cell(row=row_num, column=4, value=rental.equipment.name)
+            ws.cell(row=row_num, column=5, value=str(rental.rental_date))
+            ws.cell(row=row_num, column=6, value=str(rental.due_date))
+            ws.cell(row=row_num, column=7, value=str(rental.return_date) if rental.return_date else "미반납")
+            ws.cell(row=row_num, column=8, value=rental.get_status_display())
         
-        for rental in rental_list:
-            row_num += 1
-            ws.write(row_num, 0, rental.id, font_style)
-            ws.write(row_num, 1, rental.user.username, font_style)
-            ws.write(row_num, 2, rental.equipment.name, font_style)
-            ws.write(row_num, 3, str(rental.rental_date), font_style)
-            ws.write(row_num, 4, str(rental.due_date), font_style)
-            ws.write(row_num, 5, str(rental.return_date) if rental.return_date else "미반납", font_style)
-            ws.write(row_num, 6, rental.get_status_display(), font_style)
+        # 컬럼 너비 자동 조정
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column_letter].width = adjusted_width
         
+        # 파일 저장
         output = BytesIO()
         wb.save(output)
         output.seek(0)
         
         response = HttpResponse(
             output.read(),
-            content_type='application/vnd.ms-excel'
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename="rental_list.xls"'
+        response['Content-Disposition'] = 'attachment; filename="rental_list.xlsx"'
         
         return response
 
@@ -1025,40 +1139,55 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             
         request_list = RentalRequest.objects.all()
         
-        wb = xlwt.Workbook(encoding='utf-8')
-        ws = wb.add_sheet('대여/반납 요청 내역')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "대여/반납 요청 내역"
         
-        row_num = 0
-        font_style = xlwt.XFStyle()
-        font_style.font.bold = True
+        # 헤더 스타일 설정
+        header_font = Font(bold=True)
+        header_alignment = Alignment(horizontal='center')
         
+        # 컬럼 헤더 설정
         columns = ['ID', '사용자', '요청 유형', '장비명', '요청일', '상태', '처리자', '처리일']
+        for col_num, column_title in enumerate(columns, 1):
+            cell = ws.cell(row=1, column=col_num, value=column_title)
+            cell.font = header_font
+            cell.alignment = header_alignment
         
-        for col_num, column_title in enumerate(columns):
-            ws.write(row_num, col_num, column_title, font_style)
-            
-        font_style = xlwt.XFStyle()
+        # 데이터 입력
+        for row_num, req in enumerate(request_list, 2):
+            ws.cell(row=row_num, column=1, value=req.id)
+            ws.cell(row=row_num, column=2, value=req.user.username)
+            ws.cell(row=row_num, column=3, value=req.get_request_type_display())
+            ws.cell(row=row_num, column=4, value=req.equipment.name)
+            ws.cell(row=row_num, column=5, value=str(req.requested_date))
+            ws.cell(row=row_num, column=6, value=req.get_status_display())
+            ws.cell(row=row_num, column=7, value=req.processed_by.username if req.processed_by else "미처리")
+            ws.cell(row=row_num, column=8, value=str(req.processed_at) if req.processed_at else "미처리")
         
-        for req in request_list:
-            row_num += 1
-            ws.write(row_num, 0, req.id, font_style)
-            ws.write(row_num, 1, req.user.username, font_style)
-            ws.write(row_num, 2, req.get_request_type_display(), font_style)
-            ws.write(row_num, 3, req.equipment.name, font_style)
-            ws.write(row_num, 4, str(req.requested_date), font_style)
-            ws.write(row_num, 5, req.get_status_display(), font_style)
-            ws.write(row_num, 6, req.processed_by.username if req.processed_by else "미처리", font_style)
-            ws.write(row_num, 7, str(req.processed_at) if req.processed_at else "미처리", font_style)
+        # 컬럼 너비 자동 조정
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = (max_length + 2)
+            ws.column_dimensions[column_letter].width = adjusted_width
         
+        # 파일 저장
         output = BytesIO()
         wb.save(output)
         output.seek(0)
         
         response = HttpResponse(
             output.read(),
-            content_type='application/vnd.ms-excel'
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = 'attachment; filename="rental_requests.xls"'
+        response['Content-Disposition'] = 'attachment; filename="rental_requests.xlsx"'
         
         return response
 
