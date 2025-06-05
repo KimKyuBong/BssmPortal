@@ -15,7 +15,7 @@ nginx/data/ubuntu/*
 
 # 로그 파일
 *.log
-
+*.csv
 # 환경 설정 파일 (필요한 경우 주석 처리)
 # .env
 # config.ini

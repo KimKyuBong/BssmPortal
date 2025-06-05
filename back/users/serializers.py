@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, Class, Student
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
@@ -32,4 +32,17 @@ class UserCreateSerializer(serializers.ModelSerializer):
             user.last_name = last_name
             user.save(update_fields=['last_name'])
         
-        return user 
+        return user
+
+class ClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Class
+        fields = ['id', 'grade', 'class_number']
+
+class StudentSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Student
+        fields = ['id', 'user', 'username', 'user_name', 'current_class'] 

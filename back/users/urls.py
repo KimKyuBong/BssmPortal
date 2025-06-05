@@ -1,10 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views, auth
+from .views import UserViewSet, ClassViewSet, StudentViewSet
 
 # 라우터 설정
 router = DefaultRouter()
 router.register(r'password', views.PasswordViewSet, basename='password')
+router.register(r'users', UserViewSet)
+router.register(r'classes', ClassViewSet)
+router.register(r'students', StudentViewSet)
 
 # 일반 사용자용 URL 패턴
 urlpatterns = [

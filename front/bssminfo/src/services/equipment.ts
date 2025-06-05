@@ -112,7 +112,36 @@ const equipmentService = {
 
   // 장비 정보 수정 (관리자용)
   async updateEquipment(id: number, equipmentData: Partial<Equipment>) {
-    return await api.put<Equipment>(`/rentals/equipment/${id}/`, equipmentData);
+    try {
+      // 상태가 AVAILABLE로 변경될 때는 필수 필드만 전송
+      if (equipmentData.status === 'AVAILABLE') {
+        const minimalData = {
+          status: 'AVAILABLE',
+          rental: null,
+          name: equipmentData.name,
+          equipment_type: equipmentData.equipment_type,
+          serial_number: equipmentData.serial_number,
+          acquisition_date: equipmentData.acquisition_date
+        };
+        return await api.put<Equipment>(`/rentals/equipment/${id}/`, minimalData, {
+          headers: {
+            'Referer': `${window.location.origin}/dashboard/user/admin/equipment/`
+          }
+        });
+      }
+      return await api.put<Equipment>(`/rentals/equipment/${id}/`, equipmentData, {
+        headers: {
+          'Referer': `${window.location.origin}/dashboard/user/admin/equipment/`
+        }
+      });
+    } catch (error) {
+      console.error('장비 정보 수정 중 오류:', error);
+      return {
+        success: false,
+        error: { detail: '장비 정보 수정 중 오류가 발생했습니다.' },
+        message: '장비 정보 수정 중 오류가 발생했습니다.'
+      };
+    }
   },
 
   // 장비 정보 삭제 (관리자용)

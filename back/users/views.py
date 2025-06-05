@@ -1,10 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
-from .models import User
-from .serializers import UserSerializer, UserCreateSerializer
+from .models import User, Class, Student
+from .serializers import UserSerializer, UserCreateSerializer, ClassSerializer, StudentSerializer
 import bcrypt
 import pandas as pd
 import io
@@ -658,3 +658,45 @@ class PasswordViewSet(viewsets.ViewSet):
                 'success': False,
                 'message': f'비밀번호 변경 중 오류가 발생했습니다: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ClassViewSet(viewsets.ModelViewSet):
+    queryset = Class.objects.all()
+    serializer_class = ClassSerializer
+    permission_classes = [IsStaffUser]
+
+    def get_queryset(self):
+        return Class.objects.all().order_by('grade', 'class_number')
+
+class StudentViewSet(viewsets.ModelViewSet):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+    permission_classes = [IsStaffUser]
+
+    def get_queryset(self):
+        queryset = Student.objects.all()
+        
+        # 학반으로 필터링
+        grade = self.request.query_params.get('grade')
+        class_number = self.request.query_params.get('class_number')
+        if grade and class_number:
+            queryset = queryset.filter(
+                current_class__grade=grade,
+                current_class__class_number=class_number
+            )
+        
+        return queryset
+
+    @action(detail=True, methods=['post'])
+    def change_class(self, request, pk=None):
+        student = self.get_object()
+        class_id = request.data.get('class_id')
+        
+        new_class = get_object_or_404(Class, id=class_id)
+        
+        # 학반 변경
+        student.current_class = new_class
+        student.save()
+        
+        return Response({
+            'message': '학반이 변경되었습니다.'
+        })

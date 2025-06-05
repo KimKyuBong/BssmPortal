@@ -30,3 +30,53 @@ class User(AbstractUser):
     
     class Meta:
         db_table = 'users'
+
+class Class(models.Model):
+    GRADE_CHOICES = [
+        (1, '1학년'),
+        (2, '2학년'),
+        (3, '3학년'),
+    ]
+    
+    CLASS_CHOICES = [
+        (1, '1반'),
+        (2, '2반'),
+        (3, '3반'),
+        (4, '4반'),
+    ]
+    
+    grade = models.IntegerField('학년', choices=GRADE_CHOICES)
+    class_number = models.IntegerField('반', choices=CLASS_CHOICES)
+    created_at = models.DateTimeField('생성일', auto_now_add=True)
+    updated_at = models.DateTimeField('수정일', auto_now=True)
+
+    class Meta:
+        db_table = 'classes'
+        unique_together = ('grade', 'class_number')
+        ordering = ['grade', 'class_number']
+
+    def __str__(self):
+        return f"{self.grade}학년 {self.class_number}반"
+
+    @classmethod
+    def initialize_classes(cls):
+        """모든 학반을 자동으로 생성하는 메서드"""
+        for grade in range(1, 4):  # 1~3학년
+            for class_num in range(1, 5):  # 1~4반
+                cls.objects.get_or_create(
+                    grade=grade,
+                    class_number=class_num
+                )
+
+class Student(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_info')
+    current_class = models.ForeignKey(Class, on_delete=models.SET_NULL, null=True, related_name='students')
+    created_at = models.DateTimeField('생성일', auto_now_add=True)
+    updated_at = models.DateTimeField('수정일', auto_now=True)
+
+    class Meta:
+        db_table = 'students'
+        ordering = ['current_class']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()}"

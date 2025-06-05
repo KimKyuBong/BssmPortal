@@ -309,22 +309,24 @@ export default function EquipmentManagementPage() {
         showNotification('장비 정보가 성공적으로 업데이트되었습니다.', 'success');
         setOpenDialog(false);
         
-        // 상태가 AVAILABLE로 변경된 경우 즉시 대여자 정보 초기화
-        if (submitData.status === 'AVAILABLE') {
-          const updatedEquipment = response.data as Equipment;
-          setEquipment(prev => 
-            prev.map(item => 
-              item.id === updatedEquipment.id 
-                ? { ...updatedEquipment, rental: null } as Equipment
-                : item
-            )
-          );
-        }
+        // 기존 장비 목록에서 해당 장비만 업데이트
+        setEquipment(prev => 
+          prev.map(item => 
+            item.id === response.data!.id ? response.data! : item
+          )
+        );
         
-        // 전체 목록 새로고침
-        loadEquipment();
+        // 필터링된 목록도 업데이트
+        setFilteredEquipment(prev => 
+          prev.map(item => 
+            item.id === response.data!.id ? response.data! : item
+          )
+        );
       } else {
-        showNotification('장비 정보 업데이트에 실패했습니다.', 'error');
+        const errorMessage = typeof response.error === 'string' 
+          ? response.error 
+          : response.error?.detail || '장비 정보 업데이트에 실패했습니다.';
+        showNotification(errorMessage, 'error');
       }
     } catch (error) {
       console.error('장비 정보 업데이트 중 오류 발생:', error);
@@ -342,7 +344,10 @@ export default function EquipmentManagementPage() {
       if (result.success) {
         showNotification('장비가 성공적으로 삭제되었습니다.', 'success');
         setOpenDeleteDialog(false);
-        loadEquipment();
+        
+        // 삭제된 장비를 목록에서 제거
+        setEquipment(prev => prev.filter(item => item.id !== equipmentToDelete));
+        setFilteredEquipment(prev => prev.filter(item => item.id !== equipmentToDelete));
       } else {
         showNotification(`장비 삭제 중 오류가 발생했습니다: ${result.error}`, 'error');
       }
@@ -591,7 +596,7 @@ export default function EquipmentManagementPage() {
         rentalFormData.user
       );
 
-      if (result.success || result.data) {
+      if (result.success && result.data) {
         setNotification({
           open: true,
           message: '대여가 성공적으로 처리되었습니다.',
@@ -606,16 +611,19 @@ export default function EquipmentManagementPage() {
           notes: ''
         });
         
-        // 장비 목록을 강제로 새로고침
-        await loadEquipment();
+        // API 응답에서 받은 데이터로 상태 업데이트
+        setEquipment(prev => 
+          prev.map(item => 
+            item.id === result.data!.equipment.id ? result.data!.equipment : item
+          )
+        );
         
-        // 필터링된 장비 목록도 업데이트
-        const updatedEquipment = await equipmentService.getAllEquipment();
-        if (updatedEquipment.success && updatedEquipment.data) {
-          const equipmentData = Array.isArray(updatedEquipment.data) ? updatedEquipment.data : [];
-          setEquipment(equipmentData);
-          setFilteredEquipment(equipmentData);
-        }
+        // 필터링된 목록도 업데이트
+        setFilteredEquipment(prev => 
+          prev.map(item => 
+            item.id === result.data!.equipment.id ? result.data!.equipment : item
+          )
+        );
       } else {
         const errorMessage = typeof result.error === 'string' 
           ? result.error 
@@ -708,15 +716,16 @@ export default function EquipmentManagementPage() {
     setBatchUpdateLoading(true);
     try {
       const result = await equipmentService.updateByModel(batchUpdateData);
-      if (result.success) {
-        const updatedCount = result.data?.updated_count || 0;
+      if (result.success && result.data) {
+        const updatedCount = result.data.updated_count || 0;
         showNotification(`${updatedCount}개의 장비가 성공적으로 업데이트되었습니다.`, 'success');
         setOpenBatchUpdateDialog(false);
-        loadEquipment(); // 업데이트 후 목록 새로고침
         
         // 업데이트된 장비 목록이 있으면 해당 모델을 검색어로 설정하여 필터링
         if (updatedCount > 0) {
           setSearchQuery(batchUpdateData.model_name);
+          // 전체 목록 새로고침 (일괄 업데이트의 경우 개별 업데이트가 어려우므로)
+          loadEquipment();
         }
       } else {
         showNotification(result.message || '모델별 일괄 업데이트에 실패했습니다.', 'error');
