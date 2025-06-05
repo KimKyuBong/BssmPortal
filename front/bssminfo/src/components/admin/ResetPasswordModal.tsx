@@ -61,7 +61,7 @@ export default function ResetPasswordModal({ isOpen, onClose, onSubmit, username
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
                   required
                 />
                 <button

@@ -405,7 +405,7 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             # 비밀번호 변경
             user.set_password(new_password)
-            user.is_initial_password = True  # 초기 비밀번호로 설정
+            user.is_initial_password = True  # 초기 비밀번호 상태로 설정
             user.save()
             
             return Response({

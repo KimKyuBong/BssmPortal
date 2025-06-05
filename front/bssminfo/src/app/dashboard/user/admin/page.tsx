@@ -180,7 +180,10 @@ export default function AdminPage() {
     if (!selectedUser) return;
     
     try {
-      await handleResetPassword(selectedUser.id, password);
+      // 학생인 경우 실제 user ID를 사용
+      const student = students.find(s => s.id === selectedUser.id);
+      const userId = student ? student.user : selectedUser.id;
+      await handleResetPassword(userId, password);
       setIsResetModalOpen(false);
       setSelectedUser(null);
     } catch (error) {
@@ -386,7 +389,7 @@ export default function AdminPage() {
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-900 mb-2">학반 선택</label>
               <select
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md text-gray-900"
                 value={selectedClass || 0}
                 onChange={(e) => handleClassChange(Number(e.target.value))}
               >
