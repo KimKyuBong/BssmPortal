@@ -22,7 +22,7 @@ admin_router.register(r'rental-requests', RentalRequestViewSet, basename='admin-
 # 관리자 전용 URL 패턴 (라우터로 처리할 수 없는 특수 기능)
 admin_custom_patterns = [
     # 사용자 관리 특수 기능
-    path('users/<int:pk>/reset-password/', UserViewSet.as_view({'post': 'reset'}), name='reset_password'),
+    path('users/<int:pk>/reset-password/', UserViewSet.as_view({'post': 'reset_password'}), name='reset_password'),
     
     # IP 관리 특수 기능
     path('ip/statistics/', DeviceViewSet.as_view({'get': 'statistics'}), name='ip-statistics'),

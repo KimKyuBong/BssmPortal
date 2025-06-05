@@ -54,7 +54,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         # 관리자 권한이 필요한 액션 목록 확장
-        if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset']:
+        if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset_password']:
             return [IsSuperUser()]
         return [IsStaffUser()]
     
