@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Search, Download, UserPlus, X, Key, Trash2, User,
   ChevronLeft, ChevronRight, AlertCircle, CheckCircle
@@ -67,7 +67,7 @@ export default function UserManagement({
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
@@ -196,15 +196,18 @@ export default function UserManagement({
 
   // 비밀번호 초기화 모달 제출 핸들러
   const handleResetPasswordSubmit = async (newPassword: string) => {
-    if (selectedUserId) {
-      const result = await onResetPassword(selectedUserId);
-      if (result.success) {
-        const password = result.password || newPassword;
-        showFeedback('success', `비밀번호가 성공적으로 초기화되었습니다. 새 비밀번호: ${password}`);
-        setShowResetPasswordModal(false);
-      } else {
-        showFeedback('error', result.message || '비밀번호 초기화 중 오류가 발생했습니다.');
+    if (!selectedUserId) return;
+    
+    try {
+      await onResetPassword(selectedUserId);
+      setShowResetPasswordModal(false);
+      setSelectedUserId(null);
+      showFeedback('success', '비밀번호가 성공적으로 초기화되었습니다.');
+      if (fetchUsers) {
+        await fetchUsers();
       }
+    } catch (error) {
+      showFeedback('error', '비밀번호 초기화 중 오류가 발생했습니다.');
     }
   };
 
@@ -562,8 +565,12 @@ export default function UserManagement({
       {/* 비밀번호 초기화 모달 */}
       <ResetPasswordModal
         isOpen={showResetPasswordModal}
-        onClose={() => setShowResetPasswordModal(false)}
+        onClose={() => {
+          setShowResetPasswordModal(false);
+          setSelectedUserId(null);
+        }}
         onSubmit={handleResetPasswordSubmit}
+        username={selectedUserId ? users.find(u => u.id === selectedUserId)?.username || '' : ''}
       />
     </div>
   );

@@ -43,7 +43,7 @@ class IsStaffUser(BasePermission):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsSuperUser]
+    permission_classes = [IsStaffUser]
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'last_name']
 
@@ -54,15 +54,22 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         # 관리자 권한이 필요한 액션 목록 확장
-        if self.action in ['create', 'destroy', 'update', 'partial_update', 'list', 'export', 'import_users', 'reset']:
+        if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset']:
             return [IsSuperUser()]
-        return [IsAuthenticated()]
+        return [IsStaffUser()]
     
     def get_queryset(self):
-        # 관리자가 아닌 경우 자신의 정보만 볼 수 있도록 제한
-        if not self.request.user.is_superuser:
-            return User.objects.filter(id=self.request.user.id)
-        return User.objects.all()
+        queryset = User.objects.all()
+        
+        # 교사 목록 조회 시 필터링
+        is_staff = self.request.query_params.get('is_staff')
+        
+        if is_staff == 'true':
+            queryset = queryset.filter(is_staff=True)
+        elif is_staff == 'false':
+            queryset = queryset.filter(is_staff=False)
+        
+        return queryset
 
     def list(self, request, *args, **kwargs):
         """사용자 목록 조회 시 기본적으로 마스킹된 사용자명 반환"""
@@ -385,65 +392,31 @@ class UserViewSet(viewsets.ModelViewSet):
             return False, str(e)
 
     @action(detail=True, methods=['post'])
-    def reset(self, request, pk=None):
-        """
-        관리자용 사용자 비밀번호 초기화 API
-        관리자 권한이 필요합니다.
-        """
+    def reset_password(self, request, pk=None):
+        user = self.get_object()
+        new_password = request.data.get('new_password')
+        
+        if not new_password:
+            return Response({
+                'success': False,
+                'message': '새 비밀번호가 필요합니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
         try:
-            # 사용자 조회
-            user = self.get_object()
-            logger.info(f"[DEBUG] 사용자 비밀번호 리셋 요청: 사용자 ID={pk}, 사용자명={user.username}")
-            logger.info(f"[DEBUG] 리셋 전 사용자 상태: is_initial_password={user.is_initial_password}")
-            
-            # 요청에서 새 비밀번호 확인
-            new_password = request.data.get('new_password')
-            
-            # 새 비밀번호가 제공되지 않은 경우 랜덤 비밀번호 생성
-            if not new_password:
-                new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-            else:
-                # 제공된 비밀번호 유효성 검사
-                is_valid, error_msg = self.validate_password(new_password)
-                if not is_valid:
-                    return Response({
-                        "success": False,
-                        "message": error_msg
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            
             # 비밀번호 변경
-            success, message = self.change_user_password(user, new_password, is_initial=True)
-            logger.info(f"[DEBUG] change_user_password 결과: {success}, 메시지: {message}")
-            
-            if not success:
-                return Response({
-                    "success": False,
-                    "message": message
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
-            # 초기 비밀번호 상태로 설정
-            logger.info(f"[DEBUG] is_initial_password를 True로 설정")
-            user.is_initial_password = True
+            user.set_password(new_password)
+            user.is_initial_password = True  # 초기 비밀번호로 설정
             user.save()
             
-            logger.info(f"[DEBUG] 리셋 후 사용자 상태: is_initial_password={user.is_initial_password}")
-            
             return Response({
-                "success": True,
-                "message": "비밀번호가 초기화되었습니다.",
-                "new_password": new_password
+                'success': True,
+                'message': '비밀번호가 성공적으로 초기화되었습니다.',
+                'new_password': new_password
             })
-        except User.DoesNotExist:
-            logger.error(f"[DEBUG] 사용자를 찾을 수 없음: ID={pk}")
-            return Response({
-                "success": False,
-                "message": "사용자를 찾을 수 없습니다."
-            }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            logger.error(f"[DEBUG] 비밀번호 리셋 중 오류 발생: {str(e)}")
             return Response({
-                "success": False,
-                "message": str(e)
+                'success': False,
+                'message': f'비밀번호 초기화 중 오류가 발생했습니다: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PasswordViewSet(viewsets.ViewSet):
@@ -676,13 +649,9 @@ class StudentViewSet(viewsets.ModelViewSet):
         queryset = Student.objects.all()
         
         # 학반으로 필터링
-        grade = self.request.query_params.get('grade')
-        class_number = self.request.query_params.get('class_number')
-        if grade and class_number:
-            queryset = queryset.filter(
-                current_class__grade=grade,
-                current_class__class_number=class_number
-            )
+        class_id = self.request.query_params.get('class')
+        if class_id and class_id != '0':  # class=0이면 전체 학생 목록 반환
+            queryset = queryset.filter(current_class_id=class_id)
         
         return queryset
 
