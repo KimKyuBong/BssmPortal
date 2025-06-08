@@ -19,6 +19,7 @@ from django.db import transaction
 import logging
 from rest_framework import filters
 from django.contrib.auth import get_user_model
+from rest_framework.pagination import PageNumberPagination
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,8 @@ class UserViewSet(viewsets.ModelViewSet):
         # 관리자 권한이 필요한 액션 목록
         if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset_password']:
             return [IsSuperUser()]
-        return [IsStaffUser()]  # 나머지 액션은 교사 이상의 권한 필요
+        # 나머지 모든 액션은 인증된 사용자에게 허용
+        return [IsAuthenticated()]
     
     def get_queryset(self):
         queryset = User.objects.all()
@@ -107,7 +109,7 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
         """
         현재 로그인한 사용자의 정보를 반환합니다.
@@ -670,10 +672,16 @@ class ClassViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Class.objects.all().order_by('grade', 'class_number')
 
+class StudentPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
     permission_classes = [IsStaffUser]
+    pagination_class = StudentPagination
 
     def get_queryset(self):
         queryset = Student.objects.all()
@@ -684,6 +692,17 @@ class StudentViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(current_class_id=class_id)
         
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     @action(detail=True, methods=['post'])
     def change_class(self, request, pk=None):
