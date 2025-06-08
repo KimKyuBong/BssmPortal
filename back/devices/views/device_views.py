@@ -78,20 +78,18 @@ class DeviceViewSet(viewsets.ModelViewSet):
         device = serializer.save(user=self.request.user)
         if not device.assigned_ip:
             try:
-                # 학생 여부에 따라 적절한 IP 범위 선택
-                if self.request.user.is_student:
-                    available_ip = get_available_ip('student')
-                else:
-                    available_ip = get_available_ip('teacher')
+                # 교사 여부에 따라 적절한 IP 범위 선택
+                is_teacher = self.request.user.is_staff
+                available_ip = KeaClient.find_available_ip(is_student=not is_teacher)
                 
                 if available_ip:
                     device.assigned_ip = available_ip
                     device.save()
-                    logger.info(f"장치에 IP 자동 할당: 장치={device.name}, IP={available_ip}")
+                    logger.info(f"장치에 IP 자동 할당: 장치={device.device_name}, IP={available_ip}")
                 else:
-                    logger.warning(f"사용 가능한 IP가 없음: 장치={device.name}")
+                    logger.warning(f"사용 가능한 IP가 없음: 장치={device.device_name}")
             except Exception as e:
-                logger.error(f"IP 할당 중 오류 발생: 장치={device.name}, 오류={str(e)}")
+                logger.error(f"IP 할당 중 오류 발생: 장치={device.device_name}, 오류={str(e)}")
                 raise ValidationError({
                     'detail': 'IP 할당 중 오류가 발생했습니다.',
                     'error_code': 'IP_ASSIGNMENT_ERROR'
