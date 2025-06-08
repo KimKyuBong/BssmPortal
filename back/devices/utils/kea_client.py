@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 class KeaClient:
     """KEA DHCP 서버와 통신하는 클라이언트 클래스"""
     
+    # 대역 설정
+    STUDENT_BANDS = ["10.129.57.", "10.129.58.", "10.129.59."]  # 학생 대역 리스트
+    TEACHER_BANDS = ["10.129.50."]  # 교사 대역 리스트
+    
     @staticmethod
     def get_kea_db_config():
         """KEA 데이터베이스 설정 가져오기"""
@@ -85,26 +89,29 @@ class KeaClient:
             ip_start = 20
             ip_end = 250
             
-            # 학생용 대역: 10.129.57.0/24와 10.129.59.0/24
-            base_ips = ["10.129.57.", "10.129.59."]
+            # 학생용 대역 리스트 사용
+            base_ips = cls.STUDENT_BANDS
             
-            # 두 대역을 번갈아가며 사용 가능한 IP 찾기
+            # 대역을 번갈아가며 사용 가능한 IP 찾기
             for base_ip in base_ips:
                 for i in range(ip_start, ip_end + 1):
                     candidate_ip = f"{base_ip}{i}"
                     if candidate_ip not in all_used_ips:
                         return candidate_ip
         else:
-            # 교사용 IP 범위 설정 (50 ~ 250)
-            ip_start = 50
+            # 교사 계정용 IP 범위 설정 (20 ~ 250)
+            ip_start = 20
             ip_end = 250
-            base_ip = "10.129.50."
             
-            # 사용 가능한 IP 찾기
-            for i in range(ip_start, ip_end + 1):
-                candidate_ip = f"{base_ip}{i}"
-                if candidate_ip not in all_used_ips:
-                    return candidate_ip
+            # 교사용 대역 리스트 사용
+            base_ips = cls.TEACHER_BANDS
+            
+            # 대역을 번갈아가며 사용 가능한 IP 찾기
+            for base_ip in base_ips:
+                for i in range(ip_start, ip_end + 1):
+                    candidate_ip = f"{base_ip}{i}"
+                    if candidate_ip not in all_used_ips:
+                        return candidate_ip
                     
         logger.error(f"사용 가능한 IP 주소가 없음: 사용 중인 IP 주소 수={len(all_used_ips)}")
         return None
@@ -141,7 +148,9 @@ class KeaClient:
             logger.info(f"IP 주소 변환: {ip_address} -> {ip_int}")
             
             # 서브넷 ID 결정 (학생인지 교사인지에 따라)
-            subnet_id = 4 if ip_address.startswith(("10.129.57.", "10.129.59.")) else 3
+            is_student_ip = any(ip_address.startswith(band) for band in cls.STUDENT_BANDS)
+            is_teacher_ip = any(ip_address.startswith(band) for band in cls.TEACHER_BANDS)
+            subnet_id = 4 if is_student_ip else (3 if is_teacher_ip else 3)  # 기본값은 3
             logger.info(f"IP {ip_address}에 서브넷 ID {subnet_id} 할당")
             
             # hosts 테이블에 등록 (별도 트랜잭션으로 처리)
@@ -177,21 +186,23 @@ class KeaClient:
                     cursor = conn.cursor()
                     
                     # 옵션 3: 라우터(게이트웨이) - IP 대역에 따라 다르게 설정
-                    if ip_address.startswith("10.129.57."):
-                        # 10.129.57.x 대역의 게이트웨이는 10.129.57.1
-                        router_hex = "0A813901"  # 10.129.57.1의 16진수 표현
-                        router_ip = "10.129.57.1"
-                        logger.info(f"10.129.57.x 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
-                    elif ip_address.startswith("10.129.59."):
-                        # 10.129.59.x 대역의 게이트웨이는 10.129.59.1
-                        router_hex = "0A813B01"  # 10.129.59.1의 16진수 표현
-                        router_ip = "10.129.59.1"
-                        logger.info(f"10.129.59.x 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
+                    if any(ip_address.startswith(band) for band in cls.STUDENT_BANDS):
+                        # 학생 대역의 게이트웨이는 해당 대역의 .1 주소
+                        ip_parts = ip_address.split('.')
+                        router_hex = f"0A81{int(ip_parts[2]):02x}01"  # 16진수로 변환
+                        router_ip = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.1"
+                        logger.info(f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.x 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
+                    elif any(ip_address.startswith(band) for band in cls.TEACHER_BANDS):
+                        # 교사 대역의 게이트웨이는 해당 대역의 .1 주소
+                        ip_parts = ip_address.split('.')
+                        router_hex = f"0A81{int(ip_parts[2]):02x}01"  # 16진수로 변환
+                        router_ip = f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.1"
+                        logger.info(f"{ip_parts[0]}.{ip_parts[1]}.{ip_parts[2]}.x 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
                     else:
-                        # 10.129.50.x 대역 및 기타 대역의 게이트웨이는 10.129.50.1
+                        # 기타 대역의 게이트웨이는 10.129.50.1
                         router_hex = "0A813201"  # 10.129.50.1의 16진수 표현
                         router_ip = "10.129.50.1"
-                        logger.info(f"10.129.50.x 또는 기타 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
+                        logger.info(f"기타 대역 IP {ip_address}에 게이트웨이 {router_ip} 설정")
                         
                     cursor.execute("""
                         INSERT INTO dhcp4_options (code, value, formatted_value, space, persistent, host_id, scope_id)
@@ -205,18 +216,23 @@ class KeaClient:
                     """, (host_id,))
                     
                     # IP 주소에 따라 다른 DHCP 서버 주소 설정
-                    # 학생 대역(10.129.57.x 또는 10.129.59.x)인 경우 10.129.55.253을 DHCP 서버로 설정
-                    # 교사 대역(10.129.50.x) 또는 기타 대역인 경우 10.129.50.253을 DHCP 서버로 설정
-                    if ip_address.startswith("10.129.57.") or ip_address.startswith("10.129.59."):
+                    is_student_ip = any(ip_address.startswith(band) for band in cls.STUDENT_BANDS)
+                    is_teacher_ip = any(ip_address.startswith(band) for band in cls.TEACHER_BANDS)
+                    if is_student_ip:
                         # 학생용 DHCP 서버 주소 (10.129.55.253)
                         dhcp_server_hex = "0A8137FD"  # 10.129.55.253의 16진수 표현
                         dhcp_server_ip = "10.129.55.253"
                         logger.info(f"학생 대역 IP {ip_address}에 대해 DHCP 서버 {dhcp_server_ip} 설정")
-                    else:
+                    elif is_teacher_ip:
                         # 교사용 DHCP 서버 주소 (10.129.50.253)
                         dhcp_server_hex = "0A8132FD"  # 10.129.50.253의 16진수 표현
                         dhcp_server_ip = "10.129.50.253"
                         logger.info(f"교사 대역 IP {ip_address}에 대해 DHCP 서버 {dhcp_server_ip} 설정")
+                    else:
+                        # 기타 대역의 DHCP 서버 주소 (10.129.50.253)
+                        dhcp_server_hex = "0A8132FD"  # 10.129.50.253의 16진수 표현
+                        dhcp_server_ip = "10.129.50.253"
+                        logger.info(f"기타 대역 IP {ip_address}에 대해 DHCP 서버 {dhcp_server_ip} 설정")
                     
                     # 옵션 54: DHCP 서버 주소
                     cursor.execute("""
