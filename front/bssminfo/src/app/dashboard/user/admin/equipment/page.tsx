@@ -302,6 +302,7 @@ export default function EquipmentManagementPage() {
       const submitData = {
         ...formData,
         manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
+        purchase_date: formData.purchase_date ? dayjs(formData.purchase_date).format('YYYY-MM-DDTHH:mm:ssZ') : undefined
       };
       
       const response = await equipmentService.updateEquipment(selectedEquipment!.id, submitData);
@@ -1018,7 +1019,7 @@ export default function EquipmentManagementPage() {
           </TableBody>
         </Table>
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
+          rowsPerPageOptions={[10, 25, 50, 100, 500]}
           component="div"
           count={filteredEquipment.length}
           rowsPerPage={rowsPerPage}

@@ -37,8 +37,8 @@ export const userService = {
   },
 
   // 학반별 학생 목록 조회
-  getStudentsByClass: async (classId: number, page: number = 1) => {
-    const response = await api.get(`/users/students/?class=${classId}&page=${page}`);
+  getStudentsByClass: async (classId: number, page: number = 1, pageSize: number = 100) => {
+    const response = await api.get(`/users/students/?class=${classId}&page=${page}&page_size=${pageSize}`);
     return response.data;
   },
 

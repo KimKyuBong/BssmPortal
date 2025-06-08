@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon } from 'lucide-react';
+import { User as UserIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import UserManagement from '@/components/admin/UserManagement';
 import { useUsers } from '@/hooks/useUsers';
 import authService from '@/services/auth';
@@ -39,8 +39,6 @@ export default function AdminPage() {
   const [selectedStudents, setSelectedStudents] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
-  const [prevPageUrl, setPrevPageUrl] = useState<string | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ id: number; username: string } | null>(null);
 
@@ -108,17 +106,23 @@ export default function AdminPage() {
     setSelectedClass(classId);
     setCurrentPage(1);
     try {
-      const response = await userService.getStudentsByClass(classId);
-      setStudents(response.results);
-      setTotalPages(Math.ceil(response.count / 100)); // 페이지당 100명 기준
-      setNextPageUrl(response.next);
-      setPrevPageUrl(response.previous);
+      if (classId === 0) {
+        // 전체 학생 목록은 페이지네이션 없이 한 번에 불러오기
+        const response = await userService.getStudentsByClass(classId, 1, 1000); // 큰 숫자로 설정하여 모든 학생을 한 번에 가져옴
+        setStudents(response.results);
+        setTotalPages(1); // 전체 목록에서는 페이지네이션 비활성화
+      } else {
+        // 학반별 보기에서는 페이지네이션 적용
+        const response = await userService.getStudentsByClass(classId, 1);
+        setStudents(response.results);
+        setTotalPages(Math.ceil(response.count / response.results.length));
+      }
     } catch (error) {
       console.error('학생 목록 조회 실패:', error);
     }
   };
 
-  // 학생 탭에서 기본적으로 전체 학생 목록을 학반 순으로 정렬하여 가져옵니다.
+  // 학생 탭에서 기본적으로 전체 학생 목록을 가져옵니다.
   useEffect(() => {
     handleClassChange(0);
   }, []);
@@ -185,12 +189,12 @@ export default function AdminPage() {
   };
 
   const handlePageChange = async (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    
     try {
       const response = await userService.getStudentsByClass(selectedClass || 0, page);
       setStudents(response.results);
       setCurrentPage(page);
-      setNextPageUrl(response.next);
-      setPrevPageUrl(response.previous);
     } catch (error) {
       console.error('페이지 변경 실패:', error);
     }
@@ -213,6 +217,23 @@ export default function AdminPage() {
       setSelectedUser(null);
     } catch (error) {
       console.error('비밀번호 초기화 실패:', error);
+    }
+  };
+
+  // 학반 이동 함수
+  const moveToNextClass = () => {
+    if (!selectedClass) return;
+    const currentClassIndex = classes.findIndex(c => c.id === selectedClass);
+    if (currentClassIndex < classes.length - 1) {
+      handleClassChange(classes[currentClassIndex + 1].id);
+    }
+  };
+
+  const moveToPrevClass = () => {
+    if (!selectedClass) return;
+    const currentClassIndex = classes.findIndex(c => c.id === selectedClass);
+    if (currentClassIndex > 0) {
+      handleClassChange(classes[currentClassIndex - 1].id);
     }
   };
 
@@ -408,136 +429,155 @@ export default function AdminPage() {
           </Tab.Panel>
           <Tab.Panel>
             {selectedStudents.length > 0 && (
-              <div className="mb-4 flex space-x-4">
+              <div className="mb-4 flex flex-wrap gap-2">
                 <button
                   onClick={() => handleBulkStudentAction('reset')}
-                  className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700"
+                  className="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 flex-1 sm:flex-none"
                 >
                   선택한 학생 비밀번호 초기화
                 </button>
                 <button
                   onClick={() => handleBulkStudentAction('delete')}
-                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex-1 sm:flex-none"
                 >
                   선택한 학생 삭제
                 </button>
               </div>
             )}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-900 mb-2">학반 선택</label>
-              <select
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md text-gray-900"
-                value={selectedClass || 0}
-                onChange={(e) => handleClassChange(Number(e.target.value))}
-              >
-                <option value="0">전체</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.grade}학년 {cls.class_number}반
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={moveToPrevClass}
+                  disabled={!selectedClass || classes.findIndex(c => c.id === selectedClass) === 0}
+                  className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <select
+                  className="flex-1 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md text-gray-900"
+                  value={selectedClass || 0}
+                  onChange={(e) => handleClassChange(Number(e.target.value))}
+                >
+                  <option value="0">전체</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.grade}학년 {cls.class_number}반
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={moveToNextClass}
+                  disabled={!selectedClass || classes.findIndex(c => c.id === selectedClass) === classes.length - 1}
+                  className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </div>
             </div>
             <div className="bg-white shadow rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        checked={selectedStudents.length === students.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedStudents(students.map(s => s.id));
-                          } else {
-                            setSelectedStudents([]);
-                          }
-                        }}
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      이름
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      아이디
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      IP 대여 수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      IP 대여 수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      학반
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {students.map((student) => {
-                    const studentClass = classes.find(c => c.id === student.current_class);
-                    return (
-                      <tr key={student.id} className={student.rental_count === 0 ? 'bg-pink-50' : ''}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            checked={selectedStudents.includes(student.id)}
-                            onChange={() => handleStudentSelection(student.id)}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{student.user_name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.username}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.ip_count || 0}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.rental_count || 0}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {studentClass ? `${studentClass.grade}학년 ${studentClass.class_number}반` : '-'}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <button
-                            onClick={() => handleResetPasswordClick(student.id, student.username)}
-                            className="text-yellow-600 hover:text-yellow-900 mr-4"
-                          >
-                            비밀번호 초기화
-                          </button>
-                          <button
-                            onClick={() => {
-                              const currentStudent = students.find(s => s.id === student.id);
-                              if (currentStudent) {
-                                handleDeleteUser(currentStudent.user);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            삭제
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={selectedStudents.length === students.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedStudents(students.map(s => s.id));
+                            } else {
+                              setSelectedStudents([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        이름
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        아이디
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        IP 대여 수
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        IP 대여 수
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        학반
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        작업
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {students.map((student) => {
+                      const studentClass = classes.find(c => c.id === student.current_class);
+                      return (
+                        <tr key={student.id} className={student.rental_count === 0 ? 'bg-pink-50' : ''}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={selectedStudents.includes(student.id)}
+                              onChange={() => handleStudentSelection(student.id)}
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{student.user_name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{student.username}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{student.ip_count || 0}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{student.rental_count || 0}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {studentClass ? `${studentClass.grade}학년 ${studentClass.class_number}반` : '-'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <button
+                                onClick={() => handleResetPasswordClick(student.id, student.username)}
+                                className="text-yellow-600 hover:text-yellow-900 px-3 py-1 rounded-md border border-yellow-600 hover:bg-yellow-50"
+                              >
+                                비밀번호 초기화
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const currentStudent = students.find(s => s.id === student.id);
+                                  if (currentStudent) {
+                                    handleDeleteUser(currentStudent.user);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-900 px-3 py-1 rounded-md border border-red-600 hover:bg-red-50"
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            {students.length > 0 && (
+            {selectedClass !== 0 && students.length > 0 && (
               <div className="mt-4 flex justify-center space-x-2">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={!useUsersPrevPageUrl}
+                  disabled={currentPage <= 1}
                   className={`px-4 py-2 rounded-md ${
-                    useUsersPrevPageUrl
+                    currentPage > 1
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
@@ -549,9 +589,9 @@ export default function AdminPage() {
                 </span>
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={!useUsersNextPageUrl}
+                  disabled={currentPage >= totalPages}
                   className={`px-4 py-2 rounded-md ${
-                    useUsersNextPageUrl
+                    currentPage < totalPages
                       ? 'bg-blue-600 text-white hover:bg-blue-700'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}

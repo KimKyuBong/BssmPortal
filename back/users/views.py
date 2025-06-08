@@ -673,9 +673,9 @@ class ClassViewSet(viewsets.ModelViewSet):
         return Class.objects.all().order_by('grade', 'class_number')
 
 class StudentPagination(PageNumberPagination):
-    page_size = 100
+    page_size = 500
     page_size_query_param = 'page_size'
-    max_page_size = 100
+    max_page_size = 500
 
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()

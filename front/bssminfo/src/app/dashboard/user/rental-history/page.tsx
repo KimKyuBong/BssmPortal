@@ -15,11 +15,12 @@ export default function RentalHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const fetchUserAndRentals = async () => {
       try {
-        // 사용자 정보 가져오기
         const userResponse = await authService.getCurrentUser();
         if (!userResponse.success || !userResponse.data) {
           router.push('/login');
@@ -27,9 +28,7 @@ export default function RentalHistoryPage() {
         }
         
         setUser(userResponse.data);
-        
-        // API를 통해 사용자의 대여 내역을 가져옵니다
-        await fetchRentalHistory();
+        await fetchRentalHistory(1);
       } catch (err) {
         setError('데이터를 불러오는 중 오류가 발생했습니다.');
         console.error('Rental history error:', err);
@@ -41,23 +40,17 @@ export default function RentalHistoryPage() {
     fetchUserAndRentals();
   }, [router]);
   
-  // 대여 내역 조회
-  const fetchRentalHistory = async () => {
+  const fetchRentalHistory = async (page: number) => {
     try {
-      const rentalsResponse = await rentalService.getMyRentalHistory();
+      const rentalsResponse = await rentalService.getMyRentalHistory(page);
       if (rentalsResponse.success && rentalsResponse.data) {
-        // 배열인 경우
-        if (Array.isArray(rentalsResponse.data)) {
-          setRentalHistory(rentalsResponse.data);
-        } 
-        // 페이지네이션 객체인 경우
-        else if (rentalsResponse.data && typeof rentalsResponse.data === 'object' && 'results' in rentalsResponse.data) {
-          setRentalHistory((rentalsResponse.data as { results: Rental[] }).results);
-        }
-        // 다른 구조의 응답인 경우
-        else {
-          console.warn('예상치 못한 응답 형식:', rentalsResponse.data);
-          setRentalHistory([]);
+        const data = rentalsResponse.data;
+        if (Array.isArray(data)) {
+          setRentalHistory(data);
+          setTotalPages(1);
+        } else if ('results' in data) {
+          setRentalHistory(data.results);
+          setTotalPages(Math.ceil(data.count / data.results.length));
         }
       }
     } catch (error) {
@@ -65,14 +58,18 @@ export default function RentalHistoryPage() {
       message.error('대여 내역을 불러오는 중 오류가 발생했습니다.');
     }
   };
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    fetchRentalHistory(page);
+  };
   
-  // 검색 필터링 함수
   const filteredRentalHistory = rentalHistory.filter(rental => 
     rental.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     rental.equipment?.equipment_type_display?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  // 날짜 포맷팅 함수
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -85,7 +82,6 @@ export default function RentalHistoryPage() {
     });
   };
   
-  // 대여 상태에 따른 스타일 클래스 반환
   const getRentalStatusClass = (status: string) => {
     switch (status) {
       case RENTAL_STATUS.RENTED:
@@ -120,7 +116,6 @@ export default function RentalHistoryPage() {
         </div>
       )}
       
-      {/* 검색 바 */}
       <div className="mb-6">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -136,7 +131,6 @@ export default function RentalHistoryPage() {
         </div>
       </div>
       
-      {/* 내역이 없는 경우 */}
       {filteredRentalHistory.length === 0 && (
         <div className="text-center py-8">
           <Info className="h-12 w-12 text-gray-400 mx-auto mb-3" />
@@ -147,7 +141,6 @@ export default function RentalHistoryPage() {
         </div>
       )}
       
-      {/* 대여 내역 테이블 */}
       {filteredRentalHistory.length > 0 && (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border rounded-lg">
@@ -178,6 +171,36 @@ export default function RentalHistoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex justify-center space-x-2">
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className={`px-4 py-2 rounded-md ${
+              currentPage > 1
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            이전
+          </button>
+          <span className="px-4 py-2 text-gray-700">
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className={`px-4 py-2 rounded-md ${
+              currentPage < totalPages
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            다음
+          </button>
         </div>
       )}
     </div>

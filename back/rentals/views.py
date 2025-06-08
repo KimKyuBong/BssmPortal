@@ -14,6 +14,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import get_user_model, login
 from rest_framework.permissions import AllowAny
 import logging
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
 from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer
@@ -49,6 +50,12 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return False
 
 
+class EquipmentPagination(PageNumberPagination):
+    page_size = 500
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
+
 class EquipmentViewSet(viewsets.ModelViewSet):
     """
     장비 관리 API
@@ -60,6 +67,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'serial_number', 'description']
     ordering_fields = ['name', 'equipment_type', 'status', 'acquisition_date']
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    pagination_class = EquipmentPagination
     
     def get_queryset(self):
         return Equipment.objects.prefetch_related('rentals').all()
@@ -76,25 +84,41 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         return [IsAdminOrReadOnly()]
     
     def update(self, request, *args, **kwargs):
-        """장비 정보 업데이트 시 상태 변경 처리"""
-        instance = self.get_object()
-        old_status = instance.status
+        import logging
+        logger = logging.getLogger(__name__)
         
-        # 일반적인 업데이트 수행
-        response = super().update(request, *args, **kwargs)
-        
-        # 상태가 AVAILABLE로 변경된 경우
-        if old_status != 'AVAILABLE' and instance.status == 'AVAILABLE':
-            # 현재 대여 중인 대여 정보 찾기
-            active_rental = instance.rentals.filter(status__in=['RENTED', 'OVERDUE']).first()
-            if active_rental:
-                # 대여 정보 반납 처리
-                active_rental.status = 'RETURNED'
-                active_rental.return_date = timezone.now()
-                active_rental.returned_to = request.user if request.user.is_staff else None
-                active_rental.save()
-        
-        return response
+        try:
+            logger.info(f"장비 업데이트 요청 - ID: {kwargs.get('pk')}")
+            logger.info(f"요청 데이터: {request.data}")
+            
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            
+            if not serializer.is_valid():
+                logger.error(f"유효성 검사 실패: {serializer.errors}")
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            self.perform_update(serializer)
+            
+            # 장비 상태가 'AVAILABLE'로 변경된 경우, 관련 대여 기록 업데이트
+            if serializer.validated_data.get('status') == 'AVAILABLE':
+                active_rentals = Rental.objects.filter(
+                    equipment=instance,
+                    status='RENTED'
+                )
+                if active_rentals.exists():
+                    active_rentals.update(status='RETURNED')
+                    logger.info(f"장비 상태 변경으로 인한 대여 기록 업데이트 - 장비 ID: {instance.id}")
+            
+            logger.info(f"장비 업데이트 성공 - ID: {instance.id}")
+            return Response(serializer.data)
+            
+        except Exception as e:
+            logger.error(f"장비 업데이트 중 예외 발생: {str(e)}")
+            return Response(
+                {'error': f'장비 업데이트 중 오류가 발생했습니다: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
     @action(detail=False, methods=['get'])
     def available(self, request):
