@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet, IsSuperUser, PasswordViewSet
-from devices.views import DeviceViewSet, DeviceHistoryViewSet
+from devices.views import DeviceViewSet, DeviceHistoryViewSet, get_ip_rentals, get_device_rentals
 from rentals.views import EquipmentViewSet, RentalViewSet, RentalRequestViewSet
 from users import auth, views as user_views
 
@@ -31,6 +31,10 @@ admin_custom_patterns = [
     path('ip/blacklist/', DeviceViewSet.as_view({'post': 'blacklist_ip'}), name='blacklist-ip'),
     path('ip/unblacklist/', DeviceViewSet.as_view({'post': 'unblacklist_ip'}), name='unblacklist-ip'),
     path('ip/blacklisted/', DeviceViewSet.as_view({'get': 'blacklisted_ips'}), name='blacklisted-ips'),
+    
+    # 대여 관리 특수 기능
+    path('ip-rentals/', get_ip_rentals, name='ip-rentals'),
+    path('device-rentals/', get_device_rentals, name='device-rentals'),
 ]
 
 urlpatterns = [

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { User as UserIcon, ChevronLeft, ChevronRight, Settings, Laptop, Package, X } from 'lucide-react';
 import UserManagement from '@/components/admin/UserManagement';
 import { useUsers } from '@/hooks/useUsers';
 import authService from '@/services/auth';
@@ -12,6 +12,8 @@ import { userService, type User, type Student, type Class } from '@/services/use
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
 import EditUserModal from '@/components/admin/EditUserModal';
 import { User as AdminUser } from '@/services/admin';
+import { Card, CardContent, Typography, Grid, CircularProgress, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Modal, IconButton } from '@mui/material';
+import adminService from '@/services/admin';
 
 // User 타입 확장
 interface ExtendedUser extends User {
@@ -41,6 +43,25 @@ interface ExtendedStudent extends Student {
   rental_count: number;
 }
 
+interface RentalStats {
+  total_devices: number;
+  total_users: number;
+  total_equipment: number;
+  student_ip_rentals: number;
+  device_rentals: number;
+}
+
+interface RentalDetail {
+  id: number;
+  device_name: string;
+  mac_address: string;
+  assigned_ip: string;
+  username: string;
+  created_at: string;
+  last_access: string;
+  is_active: boolean;
+}
+
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -61,6 +82,14 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<{ id: number; username: string } | null>(null);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<ExtendedUser | ExtendedStudent | null>(null);
+  const [stats, setStats] = useState<RentalStats | null>(null);
+  const [showIpRentals, setShowIpRentals] = useState(false);
+  const [showDeviceRentals, setShowDeviceRentals] = useState(false);
+  const [ipRentals, setIpRentals] = useState<RentalDetail[]>([]);
+  const [deviceRentals, setDeviceRentals] = useState<RentalDetail[]>([]);
+  const [loadingRentals, setLoadingRentals] = useState(false);
+  const [rentalDetails, setRentalDetails] = useState<RentalDetail[]>([]);
+  const [modalType, setModalType] = useState<'ip' | 'device' | null>(null);
 
   const {
     handleCreateUser,
@@ -279,6 +308,99 @@ export default function AdminPage() {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await adminService.getRentalStats();
+      if (response.success && response.data) {
+        setStats(response.data);
+      } else {
+        console.error('통계를 불러오는데 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('통계를 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIpRentals = async () => {
+    try {
+      setLoadingRentals(true);
+      const response = await adminService.getIpRentals();
+      if (response.success && response.data) {
+        setIpRentals(response.data);
+      } else {
+        setIpRentals([]);
+      }
+    } catch (err) {
+      console.error('IP 대여 내역 조회 실패:', err);
+      setIpRentals([]);
+    } finally {
+      setLoadingRentals(false);
+    }
+  };
+
+  const fetchDeviceRentals = async () => {
+    try {
+      setLoadingRentals(true);
+      const response = await adminService.getDeviceRentals();
+      if (response.success && response.data) {
+        setDeviceRentals(response.data);
+      } else {
+        setDeviceRentals([]);
+      }
+    } catch (err) {
+      console.error('장비 대여 내역 조회 실패:', err);
+      setDeviceRentals([]);
+    } finally {
+      setLoadingRentals(false);
+    }
+  };
+
+  const handleShowIpRentals = () => {
+    setShowIpRentals(true);
+    fetchIpRentals();
+  };
+
+  const handleShowDeviceRentals = () => {
+    setShowDeviceRentals(true);
+    fetchDeviceRentals();
+  };
+
+  const handleRentalClick = async (user: ExtendedUser | ExtendedStudent, type: 'ip' | 'device') => {
+    setSelectedUser({ id: user.id, username: user.username });
+    setModalType(type);
+    setLoadingRentals(true);
+    setIpRentals([]);
+    setDeviceRentals([]);
+
+    try {
+      const response = type === 'ip' 
+        ? await adminService.getIpRentals(user.id)
+        : await adminService.getDeviceRentals(user.id);
+
+      if (response.success && response.data) {
+        if (type === 'ip') {
+          setIpRentals(response.data);
+        } else {
+          setDeviceRentals(response.data);
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching ${type} rentals:`, err);
+    } finally {
+      setLoadingRentals(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUser(null);
+    setModalType(null);
+    setIpRentals([]);
+    setDeviceRentals([]);
+  };
+
   if (authChecking || loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -435,10 +557,20 @@ export default function AdminPage() {
                         <div className="text-sm text-gray-900">{teacher.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{teacher.ip_count || 0}</div>
+                        <div 
+                          className="text-sm text-gray-900 cursor-pointer hover:text-blue-600"
+                          onClick={() => handleRentalClick(teacher, 'ip')}
+                        >
+                          {teacher.ip_count || 0}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{teacher.rental_count || 0}</div>
+                        <div 
+                          className="text-sm text-gray-900 cursor-pointer hover:text-blue-600"
+                          onClick={() => handleRentalClick(teacher, 'device')}
+                        >
+                          {teacher.rental_count || 0}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
@@ -591,10 +723,20 @@ export default function AdminPage() {
                             <div className="text-sm text-gray-900">{student.username}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{student.ip_count || 0}</div>
+                            <div 
+                              className="text-sm text-gray-900 cursor-pointer hover:text-blue-600"
+                              onClick={() => handleRentalClick(student, 'ip')}
+                            >
+                              {student.ip_count || 0}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{student.rental_count || 0}</div>
+                            <div 
+                              className="text-sm text-gray-900 cursor-pointer hover:text-blue-600"
+                              onClick={() => handleRentalClick(student, 'device')}
+                            >
+                              {student.rental_count || 0}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
@@ -707,6 +849,239 @@ export default function AdminPage() {
           onSubmit={handleResetPasswordConfirm}
           username={selectedUser.username}
         />
+      )}
+
+      <Typography variant="h4" gutterBottom sx={{ color: 'text.primary', fontWeight: 'bold', mt: 4 }}>
+        사용자 관리 대시보드
+      </Typography>
+
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={handleShowIpRentals}>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Typography variant="h6" color="textSecondary" gutterBottom>
+                    학생 IP 대여 현황
+                  </Typography>
+                  <Typography variant="h4" component="div" className="text-blue-600">
+                    {stats?.student_ip_rentals || 0}
+                  </Typography>
+                </div>
+                <Laptop className="h-12 w-12 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={handleShowDeviceRentals}>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Typography variant="h6" color="textSecondary" gutterBottom>
+                    장비 대여 현황
+                  </Typography>
+                  <Typography variant="h4" component="div" className="text-green-600">
+                    {stats?.device_rentals || 0}
+                  </Typography>
+                </div>
+                <Package className="h-12 w-12 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* IP 대여 상세정보 모달 */}
+      {showIpRentals && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">IP 대여 상세 내역</h2>
+                <button
+                  onClick={() => setShowIpRentals(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {loadingRentals ? (
+                <div className="flex justify-center items-center h-40">
+                  <CircularProgress />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {ipRentals.map((rental) => (
+                    <div key={rental.id} className="border rounded-lg p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">기기 정보</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.device_name || '이름 없음'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">MAC 주소</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.mac_address || '-'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">IP 주소</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.assigned_ip || '-'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">소유자</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.username || '미할당'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">대여 시작일</h3>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {rental.created_at ? new Date(rental.created_at).toLocaleString() : '기록 없음'}
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">마지막 접속</h3>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {rental.last_access ? new Date(rental.last_access).toLocaleString() : '기록 없음'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {ipRentals.length === 0 && (
+                    <div className="text-center text-gray-500 py-4">
+                      대여 내역이 없습니다.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 장비 대여 상세정보 모달 */}
+      {showDeviceRentals && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">장비 대여 상세 내역</h2>
+                <button
+                  onClick={() => setShowDeviceRentals(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {loadingRentals ? (
+                <div className="flex justify-center items-center h-40">
+                  <CircularProgress />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {deviceRentals.map((rental) => (
+                    <div key={rental.id} className="border rounded-lg p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">장비 정보</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.device_name || '이름 없음'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">MAC 주소</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.mac_address || '-'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">IP 주소</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.assigned_ip || '-'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">소유자</h3>
+                          <p className="mt-1 text-sm text-gray-900">{rental.username || '미할당'}</p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">대여 시작일</h3>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {rental.created_at ? new Date(rental.created_at).toLocaleString() : '기록 없음'}
+                          </p>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-500">마지막 접속</h3>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {rental.last_access ? new Date(rental.last_access).toLocaleString() : '기록 없음'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {deviceRentals.length === 0 && (
+                    <div className="text-center text-gray-500 py-4">
+                      대여 내역이 없습니다.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 대여 상세정보 모달 */}
+      {selectedUser && modalType && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <Typography variant="h6">
+                  {selectedUser.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
+                </Typography>
+                <IconButton onClick={handleCloseModal}>
+                  <X className="h-5 w-5" />
+                </IconButton>
+              </div>
+
+              {loadingRentals ? (
+                <Box display="flex" justifyContent="center" p={3}>
+                  <CircularProgress />
+                </Box>
+              ) : (modalType === 'ip' ? ipRentals : deviceRentals).length === 0 ? (
+                <Typography className="text-center p-4">
+                  대여 내역이 없습니다.
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>장비명</TableCell>
+                        <TableCell>MAC 주소</TableCell>
+                        <TableCell>IP 주소</TableCell>
+                        <TableCell>대여일</TableCell>
+                        <TableCell>마지막 접속</TableCell>
+                        <TableCell>상태</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(modalType === 'ip' ? ipRentals : deviceRentals).map((rental) => (
+                        <TableRow key={rental.id}>
+                          <TableCell>{rental.device_name}</TableCell>
+                          <TableCell>{rental.mac_address}</TableCell>
+                          <TableCell>{rental.assigned_ip}</TableCell>
+                          <TableCell>{new Date(rental.created_at).toLocaleString()}</TableCell>
+                          <TableCell>{new Date(rental.last_access).toLocaleString()}</TableCell>
+                          <TableCell>{rental.is_active ? '활성' : '비활성'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

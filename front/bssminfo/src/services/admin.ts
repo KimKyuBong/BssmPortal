@@ -132,6 +132,65 @@ export interface BlacklistedIPResponse {
 }
 
 /**
+ * 대여 통계 인터페이스
+ */
+interface RentalStats {
+  total_devices: number;
+  total_users: number;
+  total_equipment: number;
+  student_ip_rentals: number;
+  device_rentals: number;
+}
+
+/**
+ * IP 대여 상세 내역 인터페이스
+ */
+interface RentalDetail {
+  id: number;
+  user: number;
+  user_detail: {
+    id: number;
+    username: string;
+    email: string | null;
+    first_name: string | null;
+    last_name: string;
+    is_staff: boolean;
+    name: string;
+  };
+  equipment: number;
+  equipment_detail: {
+    id: number;
+    name: string;
+    manufacturer: string;
+    model_name: string;
+    serial_number: string;
+    equipment_type: string;
+    equipment_type_display: string;
+    status: string;
+    status_display: string;
+    created_at: string;
+  };
+  rental_date: string;
+  due_date: string;
+  return_date: string | null;
+  returned_to: number | null;
+  status: string;
+  status_display: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  approved_by: {
+    id: number;
+    username: string;
+    email: string | null;
+    first_name: string | null;
+    last_name: string;
+    is_staff: boolean;
+    name: string;
+  };
+}
+
+/**
  * API 에러 처리 함수
  */
 const handleApiError = (error: any): ApiResponse<any> => {
@@ -864,6 +923,52 @@ const adminService = {
         success: true,
         data: response.data
       };
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  /**
+   * 대여 통계 조회
+   * @returns 대여 통계 데이터
+   */
+  getRentalStats: async (): Promise<ApiResponse<RentalStats>> => {
+    try {
+      const response = await api.get('/admin/rental-stats/');
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  /**
+   * IP 대여 내역 조회
+   * @param userId 사용자 ID (선택)
+   * @returns IP 대여 내역
+   */
+  getIpRentals: async (userId?: number) => {
+    try {
+      const url = userId ? `/admin/ip-rentals/?user_id=${userId}` : '/admin/ip-rentals/';
+      const response = await api.get<RentalDetail[]>(url);
+      return response;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  /**
+   * 장비 대여 내역 조회
+   * @param userId 사용자 ID (선택)
+   * @returns 장비 대여 내역
+   */
+  getDeviceRentals: async (userId?: number) => {
+    try {
+      const url = userId ? `/admin/device-rentals/?user_id=${userId}` : '/admin/device-rentals/';
+      const response = await api.get<RentalDetail[]>(url);
+      return response;
     } catch (error) {
       return handleApiError(error);
     }

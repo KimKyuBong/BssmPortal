@@ -1,8 +1,8 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import ValidationError
 import re
 import logging
@@ -10,9 +10,16 @@ import subprocess
 import re
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
+from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import datetime, timedelta
 
 from ..models import Device, DeviceHistory
-from ..serializers import DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
+from rentals.models import Equipment, Rental
+from rentals.serializers import EquipmentSerializer, RentalSerializer
+from ..serializers import (
+    DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
+)
 from ..utils.kea_client import KeaClient
 from ..permissions import IsSuperUser, IsStaffUser, IsOwnerOrStaff
 
@@ -579,5 +586,120 @@ class DeviceViewSet(viewsets.ModelViewSet):
             'current_page': int(page)
         }
         
-        return Response(response_data) 
+        return Response(response_data)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def user_rentals(self, request):
+        """사용자의 IP 대여 내역 조회"""
+        try:
+            # 사용자의 장치 목록 조회
+            devices = Device.objects.filter(user=request.user)
+            
+            # 장치 이력 조회
+            history = DeviceHistory.objects.filter(
+                user=request.user
+            ).order_by('-created_at')
+
+            return Response({
+                'success': True,
+                'devices': DeviceSerializer(devices, many=True).data,
+                'history': DeviceHistorySerializer(history, many=True).data
+            })
+
+        except Exception as e:
+            logger.error(f"사용자 대여 내역 조회 중 오류 발생: {e}")
+            return Response({
+                'success': False,
+                'message': '대여 내역 조회 중 오류가 발생했습니다.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def user_equipment_rentals(self, request):
+        """사용자의 기기 대여 내역 조회"""
+        try:
+            # 대여 내역 조회를 위해 rentals 앱의 Rental 모델 import
+            from rentals.models import Rental
+            
+            # 사용자의 대여 내역 조회
+            rentals = Rental.objects.filter(
+                user=request.user
+            ).order_by('-created_at')
+
+            # 대여 내역 시리얼라이저 import
+            from rentals.serializers import RentalSerializer
+
+            return Response({
+                'success': True,
+                'rentals': RentalSerializer(rentals, many=True).data
+            })
+
+        except Exception as e:
+            logger.error(f"사용자 기기 대여 내역 조회 중 오류 발생: {e}")
+            return Response({
+                'success': False,
+                'message': '대여 내역 조회 중 오류가 발생했습니다.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_rental_stats(request):
+    """대여 통계를 반환합니다."""
+    try:
+        total_devices = Device.objects.count()
+        total_users = User.objects.count()
+        total_equipment = Equipment.objects.count()
+        student_ip_rentals = Device.objects.filter(user__is_staff=False).count()
+        device_rentals = Device.objects.filter(user__is_staff=True).count()
+
+        return Response({
+            'total_devices': total_devices,
+            'total_users': total_users,
+            'total_equipment': total_equipment,
+            'student_ip_rentals': student_ip_rentals,
+            'device_rentals': device_rentals
+        })
+    except Exception as e:
+        logger.error(f"대여 통계 조회 중 오류 발생: {str(e)}")
+        return Response(
+            {'detail': '대여 통계를 조회하는 중 오류가 발생했습니다.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_ip_rentals(request):
+    """IP 대여 내역 조회"""
+    user_id = request.query_params.get('user_id')
+    if user_id:
+        devices = Device.objects.filter(user_id=user_id)
+    else:
+        devices = Device.objects.all()
+    
+    rentals = []
+    for device in devices:
+        rentals.append({
+            'id': device.id,
+            'device_name': device.device_name,
+            'mac_address': device.mac_address,
+            'assigned_ip': device.assigned_ip,
+            'username': device.user.username,
+            'created_at': device.created_at,
+            'last_access': device.last_access,
+            'is_active': device.is_active
+        })
+    
+    return Response(rentals)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_device_rentals(request):
+    """장비 대여 내역 조회"""
+    user_id = request.query_params.get('user_id')
+    if user_id:
+        rentals = Rental.objects.filter(user_id=user_id)
+    else:
+        rentals = Rental.objects.all()
+    
+    serializer = RentalSerializer(rentals, many=True)
+    return Response(serializer.data) 
         

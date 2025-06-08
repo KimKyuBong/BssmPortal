@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
-  Search, Download, Laptop, Trash2, Power
+  Search, Download, Laptop, Trash2, Power, X
 } from 'lucide-react';
 import { Device } from '@/services/ip';
 
@@ -37,6 +37,16 @@ export default function DeviceManagement({
   onBulkDelete,
   onExportToExcel
 }: DeviceManagementProps) {
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+
+  const handleDeviceClick = (device: Device, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      onSelectDevice(device.id, e);
+    } else {
+      setSelectedDevice(device);
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg p-6">
       <div className="flex justify-end items-center mb-6">
@@ -144,7 +154,7 @@ export default function DeviceManagement({
                 <tr 
                   key={device.id} 
                   className={`${isSelected ? 'bg-blue-200 border-l-4 border-blue-500' : ''} hover:bg-gray-100 cursor-pointer`}
-                  onClick={(e) => onSelectDevice(device.id, e)}
+                  onClick={(e) => handleDeviceClick(device, e)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -217,6 +227,97 @@ export default function DeviceManagement({
           </tbody>
         </table>
       </div>
+
+      {/* 장치 상세정보 모달 */}
+      {selectedDevice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">장치 상세 정보</h2>
+                <button
+                  onClick={() => setSelectedDevice(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">기기 정보</h3>
+                    <p className="mt-1 text-sm text-gray-900">{selectedDevice.device_name || '이름 없음'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">장치 ID</h3>
+                    <p className="mt-1 text-sm text-gray-900">{selectedDevice.id}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">MAC 주소</h3>
+                    <p className="mt-1 text-sm text-gray-900">{selectedDevice.mac_address || '-'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">IP 주소</h3>
+                    <p className="mt-1 text-sm text-gray-900">{selectedDevice.assigned_ip || '-'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">소유자</h3>
+                    <p className="mt-1 text-sm text-gray-900">{selectedDevice.username || '미할당'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">상태</h3>
+                    <p className={`mt-1 text-sm ${
+                      selectedDevice.is_active ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {selectedDevice.is_active ? '활성' : '비활성'}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">마지막 접속</h3>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedDevice.last_access ? new Date(selectedDevice.last_access).toLocaleString() : '기록 없음'}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">생성일</h3>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedDevice.created_at ? new Date(selectedDevice.created_at).toLocaleString() : '기록 없음'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 mt-6">
+                  <button
+                    onClick={() => {
+                      onToggleActive(selectedDevice.id);
+                      setSelectedDevice(null);
+                    }}
+                    className={`px-4 py-2 rounded-md text-sm font-medium ${
+                      selectedDevice.is_active 
+                        ? 'bg-red-50 text-red-700 hover:bg-red-100' 
+                        : 'bg-green-50 text-green-700 hover:bg-green-100'
+                    }`}
+                  >
+                    <Power className="h-4 w-4 inline mr-1" />
+                    {selectedDevice.is_active ? '비활성화' : '활성화'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      onDeleteDevice(selectedDevice.id);
+                      setSelectedDevice(null);
+                    }}
+                    className="px-4 py-2 rounded-md text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4 inline mr-1" />
+                    삭제
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -13,6 +13,8 @@ urlpatterns = [
     path('all/', DeviceViewSet.as_view({'get': 'all'}), name='all-devices'),
     path('current-mac/', DeviceViewSet.as_view({'get': 'get_current_mac'}), name='current-mac'),
     path('register-manual/', DeviceViewSet.as_view({'post': 'register_manual'}), name='register-manual'),
+    path('user/rentals/', DeviceViewSet.as_view({'get': 'user_rentals'}), name='user-rentals'),
+    path('user/equipment-rentals/', DeviceViewSet.as_view({'get': 'user_equipment_rentals'}), name='user-equipment-rentals'),
     
     # 라우터 URL 포함
     path('', include(router.urls)),
