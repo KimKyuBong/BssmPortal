@@ -15,6 +15,8 @@ from django.contrib.auth import get_user_model, login
 from rest_framework.permissions import AllowAny
 import logging
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Prefetch
+from django.db import transaction
 
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
 from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer
@@ -70,7 +72,13 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     pagination_class = EquipmentPagination
     
     def get_queryset(self):
-        return Equipment.objects.prefetch_related('rentals').all()
+        return Equipment.objects.prefetch_related(
+            Prefetch(
+                'rentals',
+                queryset=Rental.objects.filter(status='RENTED').select_related('user').order_by('-rental_date'),
+                to_attr='current_rentals'
+            )
+        ).all()
     
     def get_permissions(self):
         """
@@ -160,7 +168,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             ws.cell(row=row_num, column=6, value=equipment.get_status_display())
             
             # 현재 대여 중인 사용자 정보
-            current_rental = equipment.rentals.filter(status__in=['RENTED', 'OVERDUE']).first()
+            current_rental = equipment.current_rentals.first()
             if current_rental and current_rental.user:
                 # 대여자 이름이 None이거나 빈 문자열인 경우 처리
                 last_name = str(current_rental.user.last_name or '').strip()
@@ -420,7 +428,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                 
             # 단일 MAC 주소가 있으면 목록에 추가
             if mac_address:
-                mac_addresses = [mac_address]
+                mac_addresses.append({'mac_address': mac_address})
             elif isinstance(mac_addresses, list) and all(isinstance(item, dict) for item in mac_addresses):
                 # mac_addresses가 객체 배열인 경우 MAC 주소만 추출
                 mac_addresses = [item.get('mac_address') for item in mac_addresses if item.get('mac_address')]
@@ -561,32 +569,54 @@ class RentalViewSet(viewsets.ModelViewSet):
             logger.error(f"유효성 검사 오류: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        # 장비 상태 체크
-        equipment = serializer.validated_data.get('equipment')
-        if equipment.status != 'AVAILABLE':
-            logger.warning(f"대여 불가능한 장비: {equipment.id}, 상태: {equipment.status}")
-            return Response(
-                {"detail": f"대여할 수 없는 장비입니다. 현재 상태: {equipment.get_status_display()}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
         try:
-            # 장비 상태 업데이트
-            equipment.status = 'RENTED'
-            equipment.save()
-            
-            # 대여 정보 생성
-            rental = serializer.save(
-                user=serializer.validated_data.get('user', request.user),
-                approved_by=request.user,
-                status='RENTED',
-                rental_date=timezone.now()
-            )
-            
-            logger.info(f"대여 정보 생성 성공: {rental.id}")
-            
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            with transaction.atomic():
+                # 장비 상태 체크
+                equipment = serializer.validated_data.get('equipment')
+                if equipment.status != 'AVAILABLE':
+                    logger.warning(f"대여 불가능한 장비: {equipment.id}, 상태: {equipment.status}")
+                    return Response(
+                        {"detail": f"대여할 수 없는 장비입니다. 현재 상태: {equipment.get_status_display()}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # 사용자의 기존 대여 기록 확인
+                user = serializer.validated_data.get('user', request.user)
+                existing_rentals = Rental.objects.filter(
+                    user=user,
+                    equipment=equipment,
+                    status__in=['RENTED', 'OVERDUE']
+                ).order_by('-rental_date')
+                
+                # 기존 대여 기록이 있는 경우 반납 처리
+                if existing_rentals.exists():
+                    for rental in existing_rentals:
+                        rental.status = 'RETURNED'
+                        rental.return_date = timezone.now()
+                        rental.returned_to = request.user if request.user.is_staff else None
+                        rental.save()
+                
+                # 장비 상태 업데이트
+                equipment.status = 'RENTED'
+                equipment.save()
+                
+                # 새 대여 정보 생성
+                rental = serializer.save(
+                    user=user,
+                    approved_by=request.user,
+                    status='RENTED',
+                    rental_date=timezone.now()
+                )
+                
+                logger.info(f"대여 정보 생성 성공: {rental.id}")
+                
+                headers = self.get_success_headers(serializer.data)
+                return Response({
+                    "success": True,
+                    "data": serializer.data,
+                    "message": "장비가 성공적으로 대여되었습니다."
+                }, status=status.HTTP_201_CREATED, headers=headers)
+                
         except Exception as e:
             logger.exception(f"대여 정보 생성 중 오류 발생: {str(e)}")
             return Response(
@@ -646,19 +676,40 @@ class RentalViewSet(viewsets.ModelViewSet):
                 {"detail": "이미 반납된 장비입니다."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-            
-        rental.status = 'RETURNED'
-        rental.return_date = timezone.now()
-        rental.returned_to = request.user if request.user.is_staff else None
-        rental.save()
         
-        # 장비 상태 업데이트
-        equipment = rental.equipment
-        equipment.status = 'AVAILABLE'
-        equipment.save()
-        
-        serializer = self.get_serializer(rental)
-        return Response(serializer.data)
+        try:
+            with transaction.atomic():
+                # 현재 대여 기록 반납 처리
+                rental.status = 'RETURNED'
+                rental.return_date = timezone.now()
+                rental.returned_to = request.user if request.user.is_staff else None
+                rental.save()
+                
+                # 장비 상태 업데이트
+                equipment = rental.equipment
+                
+                # 해당 장비의 다른 대여 기록 확인
+                other_active_rentals = Rental.objects.filter(
+                    equipment=equipment,
+                    status__in=['RENTED', 'OVERDUE']
+                ).exclude(id=rental.id)
+                
+                # 다른 활성 대여가 없는 경우에만 장비 상태를 'AVAILABLE'로 변경
+                if not other_active_rentals.exists():
+                    equipment.status = 'AVAILABLE'
+                    equipment.save()
+                
+                serializer = self.get_serializer(rental)
+                return Response({
+                    "success": True,
+                    "data": serializer.data,
+                    "message": "장비가 성공적으로 반납되었습니다."
+                })
+        except Exception as e:
+            return Response(
+                {"detail": f"반납 처리 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=False, methods=['get'])
     def export_excel(self, request):

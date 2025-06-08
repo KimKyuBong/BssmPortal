@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
 from django.contrib.auth import get_user_model
+import logging
 
 User = get_user_model()
 
@@ -27,26 +28,47 @@ class EquipmentMacAddressSerializer(serializers.ModelSerializer):
 
 
 class EquipmentSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
     equipment_type_display = serializers.CharField(source='get_equipment_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
     mac_addresses = EquipmentMacAddressSerializer(many=True, required=False)
     rental = serializers.SerializerMethodField()
+    purchase_date = serializers.DateTimeField(required=False, allow_null=True)
     
     class Meta:
         model = Equipment
         fields = [
-            'id', 'name', 'manufacturer', 'model_name', 'equipment_type', 
+            'id', 'name', 'manufacturer', 'model_name', 'equipment_type',
             'equipment_type_display', 'serial_number', 'mac_addresses',
-            'description', 'status', 'status_display', 'acquisition_date', 
-            'manufacture_year', 'purchase_date',
-            'created_at', 'updated_at', 'rental'
+            'description', 'status', 'status_display', 'acquisition_date',
+            'manufacture_year', 'purchase_date', 'rental'
         ]
+        read_only_fields = ['purchase_date']
     
     def get_rental(self, obj):
-        rental = obj.rentals.filter(status='RENTED').first()
-        if rental and rental.user:
+        if hasattr(obj, 'current_rentals') and obj.current_rentals:
+            rental = obj.current_rentals[0]  # 가장 최근 대여 정보
+            user = rental.user
+            
+            # 사용자 이름 처리
+            last_name = str(user.last_name or '').strip()
+            first_name = str(user.first_name or '').strip()
+            
+            # 이름이 모두 비어있는 경우 사용자 아이디 사용
+            if not last_name and not first_name:
+                full_name = user.username
+            else:
+                # 성과 이름이 있는 경우에만 공백 추가
+                full_name = f"{last_name} {first_name}".strip()
+            
             return {
-                'user': UserSerializer(rental.user).data
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': full_name
+                },
+                'due_date': rental.due_date,
+                'rental_date': rental.rental_date,
+                'id': rental.id  # 대여 ID 추가
             }
         return None
     
@@ -76,6 +98,58 @@ class EquipmentSerializer(serializers.ModelSerializer):
             EquipmentMacAddress.objects.create(equipment=equipment, **mac_data)
         
         return equipment
+
+    def update(self, instance, validated_data):
+        # 시리얼 번호 중복 체크 (다른 장비와 중복되는 경우)
+        serial_number = validated_data.get('serial_number')
+        if serial_number and serial_number != instance.serial_number:
+            try:
+                existing_equipment = Equipment.objects.get(serial_number=serial_number)
+                raise serializers.ValidationError({
+                    'serial_number': '이미 등록된 시리얼 번호입니다.',
+                    'existing_equipment': {
+                        'id': existing_equipment.id,
+                        'name': existing_equipment.name,
+                        'equipment_type': existing_equipment.get_equipment_type_display(),
+                        'status': existing_equipment.get_status_display(),
+                        'rental': self.get_rental(existing_equipment)
+                    }
+                })
+            except Equipment.DoesNotExist:
+                pass
+
+        # MAC 주소 업데이트
+        mac_addresses_data = validated_data.pop('mac_addresses', None)
+        
+        if mac_addresses_data is not None:
+            # 기존 MAC 주소 삭제
+            instance.mac_addresses.all().delete()
+            # 새로운 MAC 주소 추가 (빈 배열인 경우에도 처리)
+            if isinstance(mac_addresses_data, list):
+                for mac_data in mac_addresses_data:
+                    EquipmentMacAddress.objects.create(equipment=instance, **mac_data)
+
+        # manufacture_year가 문자열로 전달된 경우 정수로 변환
+        manufacture_year = validated_data.get('manufacture_year')
+        if isinstance(manufacture_year, str) and manufacture_year:
+            try:
+                validated_data['manufacture_year'] = int(manufacture_year)
+            except ValueError:
+                raise serializers.ValidationError({
+                    'manufacture_year': '생산년도는 유효한 숫자여야 합니다.'
+                })
+
+        # 나머지 필드 업데이트
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
+
+    def validate_purchase_date(self, value):
+        if value == '':
+            return None
+        return value
 
 
 class EquipmentLiteSerializer(serializers.ModelSerializer):

@@ -28,7 +28,7 @@ export default function RentalHistoryPage() {
         }
         
         setUser(userResponse.data);
-        await fetchRentalHistory(1);
+        await fetchRentalHistory();
       } catch (err) {
         setError('데이터를 불러오는 중 오류가 발생했습니다.');
         console.error('Rental history error:', err);
@@ -40,29 +40,32 @@ export default function RentalHistoryPage() {
     fetchUserAndRentals();
   }, [router]);
   
-  const fetchRentalHistory = async (page: number) => {
+  const fetchRentalHistory = async () => {
     try {
-      const rentalsResponse = await rentalService.getMyRentalHistory(page);
-      if (rentalsResponse.success && rentalsResponse.data) {
-        const data = rentalsResponse.data;
-        if (Array.isArray(data)) {
-          setRentalHistory(data);
+      setLoading(true);
+      const response = await rentalService.getMyRentalHistory(currentPage);
+      if (response.success && response.data) {
+        if ('results' in response.data) {
+          setRentalHistory(response.data.results);
+          setTotalPages(Math.ceil(response.data.count / 100));
+        } else {
+          setRentalHistory(response.data);
           setTotalPages(1);
-        } else if ('results' in data) {
-          setRentalHistory(data.results);
-          setTotalPages(Math.ceil(data.count / data.results.length));
         }
+      } else {
+        setError('대여 내역을 불러오는데 실패했습니다.');
       }
-    } catch (error) {
-      console.error('대여 내역 조회 오류:', error);
-      message.error('대여 내역을 불러오는 중 오류가 발생했습니다.');
+    } catch (err) {
+      setError('대여 내역을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
-    fetchRentalHistory(page);
+    fetchRentalHistory();
   };
   
   const filteredRentalHistory = rentalHistory.filter(rental => 

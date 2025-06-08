@@ -339,10 +339,14 @@ export interface Equipment {
     is_primary: boolean;
   }>;
   rental?: {
+    id: number;
     user: {
+      id: number;
       username: string;
       name: string;
     };
+    due_date: string;
+    rental_date: string;
   } | null;
 }
 

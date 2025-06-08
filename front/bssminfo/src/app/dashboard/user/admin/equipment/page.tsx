@@ -54,6 +54,7 @@ import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import { SelectChangeEvent } from '@mui/material';
 import { User } from '@/services/rental';
+import ClearIcon from '@mui/icons-material/Clear';
 
 // API 응답 타입 추가 (파일 상단 적절한 위치에 추가)
 // ImportEquipmentResponse 타입은 이미 equipment.ts에서 임포트하므로 여기서 제거
@@ -70,10 +71,64 @@ const getStatusColor = (status: string) => {
   }
 };
 
+// 일괄 업데이트 데이터 타입
+interface BatchUpdateData {
+  model_name: string;
+  manufacture_year?: number;
+  purchase_date?: string;
+}
+
+// 초기 일괄 업데이트 데이터
+const initialBatchUpdateData: BatchUpdateData = {
+  model_name: '',
+  manufacture_year: undefined,
+  purchase_date: ''
+};
+
+// 알림 상태 타입
+interface NotificationState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error' | 'info' | 'warning';
+}
+
+interface FormData {
+  name: string;
+  description: string;
+  manufacturer: string;
+  model_name: string;
+  serial_number: string;
+  equipment_type: string;
+  acquisition_date: string;
+  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'DISPOSED' | 'LOST' | 'DAMAGED';
+  manufacture_year: string;
+  purchase_date: string;
+  rental_user?: number;
+  rental_due_date?: string;
+}
+
+const initialFormData: FormData = {
+  name: '',
+  description: '',
+  manufacturer: '',
+  model_name: '',
+  serial_number: '',
+  equipment_type: 'LAPTOP',
+  acquisition_date: dayjs().format('YYYY-MM-DD'),
+  status: 'AVAILABLE',
+  manufacture_year: '',
+  purchase_date: '',
+  rental_user: undefined,
+  rental_due_date: undefined
+};
+
 export default function EquipmentManagementPage() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  
+  // 검색 상태
+  const [searchType, setSearchType] = useState<string>('name');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -86,25 +141,14 @@ export default function EquipmentManagementPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'add' | 'edit'>('add');
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    manufacturer: '',
-    model_name: '',
-    serial_number: '',
-    equipment_type: '',
-    acquisition_date: '',
-    status: 'AVAILABLE' as 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'DISPOSED' | 'LOST' | 'DAMAGED',
-    manufacture_year: '',
-    purchase_date: ''
-  });
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   
   // 삭제 확인 다이얼로그 상태
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [equipmentToDelete, setEquipmentToDelete] = useState<number | null>(null);
   
   // 알림 상태
-  const [notification, setNotification] = useState<{open: boolean, message: string, severity: 'success' | 'error' | 'info' | 'warning'}>({
+  const [notification, setNotification] = useState<NotificationState>({
     open: false,
     message: '',
     severity: 'info'
@@ -169,34 +213,24 @@ export default function EquipmentManagementPage() {
   // 검색 및 필터 적용
   useEffect(() => {
     filterEquipment();
-  }, [equipment, searchQuery, statusFilter, typeFilter]);
+  }, [equipment, searchType, searchQuery, statusFilter, typeFilter]);
   
   // 장비 목록 로드
   const loadEquipment = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const result = await equipmentService.getAllEquipment();
       if (result.success && result.data) {
-        // 데이터가 배열인지 확인하고, 아니면 빈 배열 사용
-        const equipmentData = Array.isArray(result.data) ? result.data : [];
-        setEquipment(equipmentData);
-        setFilteredEquipment(equipmentData);
-        
-        // 데이터가 배열이 아닌 경우 로그 출력
-        if (!Array.isArray(result.data)) {
-          console.error('장비 데이터가 배열 형식이 아닙니다:', result.data);
-          showNotification('장비 데이터 형식이 올바르지 않습니다.', 'warning');
-        }
-      } else {
-        setEquipment([]);
-        setFilteredEquipment([]);
-        showNotification('장비 목록을 불러오는데 실패했습니다.', 'error');
+        setEquipment(result.data);
+        setFilteredEquipment(result.data);
       }
     } catch (error) {
-      console.error('장비 목록 로드 중 오류 발생:', error);
-      setEquipment([]);
-      setFilteredEquipment([]);
-      showNotification('장비 목록을 불러오는 중 오류가 발생했습니다.', 'error');
+      console.error('장비 목록 로드 실패:', error);
+      setNotification({
+        open: true,
+        message: '장비 목록을 불러오는데 실패했습니다.',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -209,15 +243,36 @@ export default function EquipmentManagementPage() {
       return;
     }
     
-    // 검색어로 필터링
     let filtered = [...equipment];
+    
+    // 검색어로 필터링
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(query) ||
-        item.serial_number.toLowerCase().includes(query) ||
-        (item.description?.toLowerCase() || '').includes(query)
-      );
+      filtered = filtered.filter(item => {
+        switch (searchType) {
+          case 'name':
+            return item.name.toLowerCase().includes(query);
+          case 'manufacturer':
+            return item.manufacturer.toLowerCase().includes(query);
+          case 'model_name':
+            return item.model_name?.toLowerCase().includes(query) || false;
+          case 'serial_number':
+            return item.serial_number.toLowerCase().includes(query);
+          case 'description':
+            return item.description?.toLowerCase().includes(query) || false;
+          case 'rental_user':
+            return item.rental?.user.name.toLowerCase().includes(query) || 
+                   item.rental?.user.username.toLowerCase().includes(query);
+          case 'manufacture_year':
+            return item.manufacture_year?.toString().includes(query) || false;
+          case 'purchase_date':
+            return item.purchase_date ? dayjs(item.purchase_date).format('YYYY-MM-DD').includes(query) : false;
+          case 'acquisition_date':
+            return item.acquisition_date ? dayjs(item.acquisition_date).format('YYYY-MM-DD').includes(query) : false;
+          default:
+            return true;
+        }
+      });
     }
     
     // 상태로 필터링
@@ -247,18 +302,7 @@ export default function EquipmentManagementPage() {
   // 장비 추가 다이얼로그 열기
   const handleOpenAddDialog = () => {
     setDialogMode('add');
-    setFormData({
-      name: '',
-      description: '',
-      manufacturer: '',
-      model_name: '',
-      serial_number: '',
-      equipment_type: '',
-      acquisition_date: '',
-      status: 'AVAILABLE',
-      manufacture_year: '',
-      purchase_date: ''
-    });
+    setFormData(initialFormData);
     setOpenDialog(true);
   };
   
@@ -276,7 +320,9 @@ export default function EquipmentManagementPage() {
       acquisition_date: dayjs(item.acquisition_date).format('YYYY-MM-DD'),
       status: item.status,
       manufacture_year: item.manufacture_year?.toString() || '',
-      purchase_date: item.purchase_date ? dayjs(item.purchase_date).format('YYYY-MM-DD') : ''
+      purchase_date: item.purchase_date ? dayjs(item.purchase_date).format('YYYY-MM-DD') : '',
+      rental_user: item.rental?.user.id,
+      rental_due_date: item.rental?.due_date ? dayjs(item.rental.due_date).format('YYYY-MM-DD') : undefined
     });
     setOpenDialog(true);
   };
@@ -296,45 +342,124 @@ export default function EquipmentManagementPage() {
     }));
   };
   
-  // 장비 추가/수정 제출 핸들러
-  const handleSubmit = async () => {
+  // 장비 추가
+  const handleAdd = async () => {
     try {
+      setLoading(true);
       const submitData = {
         ...formData,
         manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
         purchase_date: formData.purchase_date ? dayjs(formData.purchase_date).format('YYYY-MM-DDTHH:mm:ssZ') : undefined
       };
       
-      const response = await equipmentService.updateEquipment(selectedEquipment!.id, submitData);
-      if (response.success && response.data) {
-        showNotification('장비 정보가 성공적으로 업데이트되었습니다.', 'success');
+      const result = await equipmentService.createEquipment(submitData);
+      if (result.success) {
+        setNotification({
+          open: true,
+          message: '장비가 성공적으로 추가되었습니다.',
+          severity: 'success'
+        });
         setOpenDialog(false);
-        
-        // 기존 장비 목록에서 해당 장비만 업데이트
-        setEquipment(prev => 
-          prev.map(item => 
-            item.id === response.data!.id ? response.data! : item
-          )
-        );
-        
-        // 필터링된 목록도 업데이트
-        setFilteredEquipment(prev => 
-          prev.map(item => 
-            item.id === response.data!.id ? response.data! : item
-          )
-        );
-      } else {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : response.error?.detail || '장비 정보 업데이트에 실패했습니다.';
-        showNotification(errorMessage, 'error');
+        setFormData(initialFormData);
+        // 목록 새로고침 대신 현재 목록에 새 장비 추가
+        const response = await equipmentService.getAllEquipment();
+        if (response.success && response.data) {
+          setEquipment(response.data);
+          setFilteredEquipment(response.data);
+        }
       }
     } catch (error) {
-      console.error('장비 정보 업데이트 중 오류 발생:', error);
-      showNotification('장비 정보 업데이트 중 오류가 발생했습니다.', 'error');
+      console.error('장비 추가 실패:', error);
+      setNotification({
+        open: true,
+        message: '장비 추가에 실패했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
   };
-  
+
+  // 장비 수정
+  const handleUpdate = async () => {
+    if (!selectedEquipment?.id) return;
+    
+    try {
+      setLoading(true);
+      const submitData = {
+        ...formData,
+        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
+        purchase_date: formData.purchase_date ? dayjs(formData.purchase_date).format('YYYY-MM-DDTHH:mm:ssZ') : undefined
+      };
+      
+      // 장비 정보 업데이트
+      const result = await equipmentService.updateEquipment(selectedEquipment.id, submitData);
+      if (result.success) {
+        // 대여 정보가 있는 경우 대여 처리
+        if (formData.rental_user && formData.rental_due_date) {
+          try {
+            const rentalResult = await rentalService.createRental(
+              selectedEquipment.id,
+              dayjs(formData.rental_due_date).format('YYYY-MM-DD'),
+              formData.rental_user
+            );
+            
+            if (rentalResult.success && rentalResult.data) {
+              // 대여 처리 성공 시 해당 장비 정보 업데이트
+              setEquipment(prev => 
+                prev.map(item => 
+                  item.id === selectedEquipment.id ? rentalResult.data!.equipment : item
+                )
+              );
+              setFilteredEquipment(prev => 
+                prev.map(item => 
+                  item.id === selectedEquipment.id ? rentalResult.data!.equipment : item
+                )
+              );
+              
+              setNotification({
+                open: true,
+                message: '장비 정보가 수정되고 대여가 성공적으로 처리되었습니다.',
+                severity: 'success'
+              });
+            }
+          } catch (error) {
+            console.error('대여 처리 중 오류:', error);
+            setNotification({
+              open: true,
+              message: '장비 정보는 수정되었으나 대여 처리 중 오류가 발생했습니다.',
+              severity: 'error'
+            });
+          }
+        } else {
+          setNotification({
+            open: true,
+            message: '장비 정보가 성공적으로 수정되었습니다.',
+            severity: 'success'
+          });
+        }
+        
+        setOpenDialog(false);
+        loadEquipment();  // 장비 목록 새로고침
+      } else {
+        setNotification({
+          open: true,
+          message: `장비 정보 수정 중 오류가 발생했습니다: ${result.error}`,
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('장비 수정 중 오류:', error);
+      setNotification({
+        open: true,
+        message: '장비 정보 수정 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 장비 삭제 핸들러
   const handleDelete = async () => {
     if (!equipmentToDelete) return;
@@ -343,18 +468,30 @@ export default function EquipmentManagementPage() {
     try {
       const result = await equipmentService.deleteEquipment(equipmentToDelete);
       if (result.success) {
-        showNotification('장비가 성공적으로 삭제되었습니다.', 'success');
+        setNotification({
+          open: true,
+          message: '장비가 성공적으로 삭제되었습니다.',
+          severity: 'success'
+        });
         setOpenDeleteDialog(false);
         
         // 삭제된 장비를 목록에서 제거
         setEquipment(prev => prev.filter(item => item.id !== equipmentToDelete));
         setFilteredEquipment(prev => prev.filter(item => item.id !== equipmentToDelete));
       } else {
-        showNotification(`장비 삭제 중 오류가 발생했습니다: ${result.error}`, 'error');
+        setNotification({
+          open: true,
+          message: `장비 삭제 중 오류가 발생했습니다: ${result.error}`,
+          severity: 'error'
+        });
       }
     } catch (error) {
       console.error('장비 삭제 중 오류 발생:', error);
-      showNotification('장비 삭제 중 오류가 발생했습니다.', 'error');
+      setNotification({
+        open: true,
+        message: '장비 삭제 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -364,106 +501,18 @@ export default function EquipmentManagementPage() {
   const exportToExcel = async () => {
     try {
       await equipmentService.exportEquipmentToExcel();
-      showNotification('장비 목록이 엑셀 파일로 저장되었습니다.', 'success');
+      setNotification({
+        open: true,
+        message: '장비 목록이 엑셀 파일로 저장되었습니다.',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('엑셀 내보내기 오류:', error);
-      showNotification('엑셀 파일 생성에 실패했습니다.', 'error');
-    }
-  };
-  
-  // 장비 일괄 등록용 템플릿 다운로드
-  const downloadTemplate = () => {
-    try {
-      // 템플릿 데이터 준비
-      const templateData = [
-        {
-          '장비명': '노트북 모델 X',
-          '제조사': 'ABC사',
-          '모델명': 'X-2023',
-          '장비 유형': 'LAPTOP',
-          '시리얼 번호': 'SN123456789',
-          '설명': '2023년형 개발용 노트북',
-          '장비 상태': 'AVAILABLE',
-          '생산년도': 2023,
-          '구매일': '2023-01-10',
-          '취득일': '2023-01-15'
-        },
-        {
-          '장비명': '태블릿 Y-Pro',
-          '제조사': 'XYZ사',
-          '모델명': 'Y-Pro-2023',
-          '장비 유형': 'TABLET',
-          '시리얼 번호': 'TB987654321',
-          '설명': '디자인팀 태블릿',
-          '장비 상태': 'AVAILABLE',
-          '생산년도': 2022,
-          '구매일': '2023-02-15',
-          '취득일': '2023-02-20'
-        }
-      ];
-
-      // 참조 정보 데이터
-      const referenceData = [
-        {
-          '필드': '장비 유형',
-          '허용값': 'LAPTOP, TABLET, PROJECTOR, OTHER',
-          '설명': '장비의 종류를 나타냅니다.'
-        },
-        {
-          '필드': '장비 상태',
-          '허용값': 'AVAILABLE, MAINTENANCE, LOST, DAMAGED',
-          '설명': '장비의 현재 상태를 나타냅니다. 기본값은 AVAILABLE입니다.'
-        },
-        {
-          '필드': '생산년도',
-          '허용값': '4자리 연도 형식 (예: 2023)',
-          '설명': '장비의 제조년도를 나타냅니다. 선택 입력 필드입니다.'
-        },
-        {
-          '필드': '구매일',
-          '허용값': 'YYYY-MM-DD 형식',
-          '설명': '장비의 구매일자를 나타냅니다. 선택 입력 필드입니다.'
-        },
-        {
-          '필드': '취득일',
-          '허용값': 'YYYY-MM-DD 형식',
-          '설명': '장비의 취득일자를 나타냅니다. 비어있으면 현재 날짜로 설정됩니다.'
-        }
-      ];
-
-      // 워크북 생성
-      const workbook = XLSX.utils.book_new();
-      
-      // 예시 시트 생성
-      const exampleSheet = XLSX.utils.json_to_sheet(templateData);
-      XLSX.utils.book_append_sheet(workbook, exampleSheet, '입력 예시');
-      
-      // 참조 정보 시트 생성
-      const referenceSheet = XLSX.utils.json_to_sheet(referenceData);
-      XLSX.utils.book_append_sheet(workbook, referenceSheet, '참고 정보');
-
-      // 빈 템플릿 시트 생성
-      const templateSheet = XLSX.utils.json_to_sheet([{
-        '장비명': '',
-        '제조사': '',
-        '모델명': '',
-        '장비 유형': '',
-        '시리얼 번호': '',
-        '설명': '',
-        '장비 상태': 'AVAILABLE',
-        '생산년도': '',
-        '구매일': '',
-        '취득일': ''
-      }]);
-      XLSX.utils.book_append_sheet(workbook, templateSheet, '장비 일괄 등록');
-      
-      // 엑셀 파일로 저장
-      XLSX.writeFile(workbook, `장비_등록_템플릿.xlsx`);
-      
-      showNotification('장비 등록 템플릿이 다운로드되었습니다.', 'success');
-    } catch (error) {
-      console.error('템플릿 다운로드 오류:', error);
-      showNotification('템플릿 파일 생성에 실패했습니다.', 'error');
+      setNotification({
+        open: true,
+        message: '엑셀 파일 생성에 실패했습니다.',
+        severity: 'error'
+      });
     }
   };
   
@@ -525,23 +574,6 @@ export default function EquipmentManagementPage() {
     }
   };
 
-  // 알림 표시
-  const showNotification = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
-    setNotification({
-      open: true,
-      message,
-      severity
-    });
-  };
-  
-  // 알림 닫기
-  const handleCloseNotification = () => {
-    setNotification({
-      ...notification,
-      open: false
-    });
-  };
-
   // 사용자 목록 로드
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -551,11 +583,19 @@ export default function EquipmentManagementPage() {
         setUsers(response.data);
       } else {
         console.error('사용자 목록 로드 실패:', response.error);
-        showNotification('사용자 목록을 불러오는데 실패했습니다.', 'error');
+        setNotification({
+          open: true,
+          message: '사용자 목록을 불러오는데 실패했습니다.',
+          severity: 'error'
+        });
       }
     } catch (error) {
       console.error('사용자 목록 로드 중 오류:', error);
-      showNotification('사용자 목록을 불러오는데 실패했습니다.', 'error');
+      setNotification({
+        open: true,
+        message: '사용자 목록을 불러오는데 실패했습니다.',
+        severity: 'error'
+      });
     } finally {
       setLoadingUsers(false);
     }
@@ -705,12 +745,20 @@ export default function EquipmentManagementPage() {
   // 모델별 일괄 업데이트 제출 핸들러
   const handleBatchUpdateSubmit = async () => {
     if (!batchUpdateData.model_name) {
-      showNotification('모델명을 입력해주세요.', 'error');
+      setNotification({
+        open: true,
+        message: '모델명을 입력해주세요.',
+        severity: 'error'
+      });
       return;
     }
     
     if (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date) {
-      showNotification('생산년도 또는 구매일을 입력해주세요.', 'error');
+      setNotification({
+        open: true,
+        message: '생산년도 또는 구매일을 입력해주세요.',
+        severity: 'error'
+      });
       return;
     }
     
@@ -719,27 +767,57 @@ export default function EquipmentManagementPage() {
       const result = await equipmentService.updateByModel(batchUpdateData);
       if (result.success && result.data) {
         const updatedCount = result.data.updated_count || 0;
-        showNotification(`${updatedCount}개의 장비가 성공적으로 업데이트되었습니다.`, 'success');
+        setNotification({
+          open: true,
+          message: `${updatedCount}개의 장비가 성공적으로 수정되었습니다.`,
+          severity: 'success'
+        });
         setOpenBatchUpdateDialog(false);
-        
-        // 업데이트된 장비 목록이 있으면 해당 모델을 검색어로 설정하여 필터링
-        if (updatedCount > 0) {
-          setSearchQuery(batchUpdateData.model_name);
-          // 전체 목록 새로고침 (일괄 업데이트의 경우 개별 업데이트가 어려우므로)
-          loadEquipment();
+        setBatchUpdateData({
+          model_name: '',
+          manufacture_year: undefined,
+          purchase_date: ''
+        });
+        // 목록 새로고침 대신 현재 목록에서 해당 장비들만 업데이트
+        const response = await equipmentService.getAllEquipment();
+        if (response.success && response.data) {
+          setEquipment(response.data);
+          setFilteredEquipment(response.data);
         }
-      } else {
-        showNotification(result.message || '모델별 일괄 업데이트에 실패했습니다.', 'error');
       }
     } catch (error) {
-      console.error('모델별 일괄 업데이트 중 오류 발생:', error);
-      showNotification('모델별 일괄 업데이트 중 오류가 발생했습니다.', 'error');
+      console.error('일괄 업데이트 실패:', error);
+      setNotification({
+        open: true,
+        message: '일괄 업데이트에 실패했습니다.',
+        severity: 'error'
+      });
     } finally {
       setBatchUpdateLoading(false);
     }
   };
 
-  const handleStatusChange = (e: SelectChangeEvent<string>) => {
+  // 검색 타입 변경 핸들러
+  const handleSearchTypeChange = (e: SelectChangeEvent<string>) => {
+    setSearchType(e.target.value);
+    setSearchQuery(''); // 검색 타입 변경 시 검색어 초기화
+  };
+  
+  // 검색어 변경 핸들러
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+  
+  // 검색 필터 초기화
+  const handleResetFilters = () => {
+    setSearchType('name');
+    setSearchQuery('');
+    setStatusFilter('');
+    setTypeFilter('');
+  };
+
+  // 상태 변경 핸들러
+  const handleStatusChange = (e: SelectChangeEvent<Equipment['status']>) => {
     const newStatus = e.target.value as Equipment['status'];
     setFormData(prev => {
       // 상태가 AVAILABLE로 변경될 때 대여자 정보 초기화
@@ -747,7 +825,8 @@ export default function EquipmentManagementPage() {
         return {
           ...prev,
           status: newStatus,
-          rental: null // 대여자 정보 초기화
+          rental_user: undefined,
+          rental_due_date: undefined
         };
       }
       return {
@@ -755,6 +834,56 @@ export default function EquipmentManagementPage() {
         status: newStatus
       };
     });
+  };
+
+  // 알림 닫기 핸들러
+  const handleCloseNotification = () => {
+    setNotification((prev: NotificationState) => ({
+      ...prev,
+      open: false
+    }));
+  };
+
+  // 템플릿 다운로드 함수
+  const downloadTemplate = () => {
+    try {
+      // 템플릿 데이터 준비
+      const templateData = [
+        {
+          '장비명': '노트북 모델 X',
+          '제조사': 'ABC사',
+          '모델명': 'X-2023',
+          '장비 유형': 'LAPTOP',
+          '시리얼 번호': 'SN123456789',
+          '설명': '2023년형 개발용 노트북',
+          '장비 상태': 'AVAILABLE',
+          '생산년도': 2023,
+          '구매일': '2023-01-10',
+          '취득일': '2023-01-15'
+        }
+      ];
+
+      // 워크북 생성
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, '장비 등록 템플릿');
+      
+      // 엑셀 파일로 저장
+      XLSX.writeFile(workbook, '장비_등록_템플릿.xlsx');
+      
+      setNotification({
+        open: true,
+        message: '장비 등록 템플릿이 다운로드되었습니다.',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('템플릿 다운로드 오류:', error);
+      setNotification({
+        open: true,
+        message: '템플릿 파일 생성에 실패했습니다.',
+        severity: 'error'
+      });
+    }
   };
 
   return (
@@ -793,16 +922,41 @@ export default function EquipmentManagementPage() {
         </Box>
       </Box>
 
-      {/* 검색 및 필터 영역 */}
-      <Paper sx={{ p: 2, mb: 3 }}>
+      {/* 검색 및 필터 섹션 */}
+      <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom>
+              검색 필터
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>검색 항목</InputLabel>
+              <Select
+                value={searchType}
+                onChange={handleSearchTypeChange}
+                label="검색 항목"
+              >
+                <MenuItem value="name">장비명</MenuItem>
+                <MenuItem value="manufacturer">제조사</MenuItem>
+                <MenuItem value="model_name">모델명</MenuItem>
+                <MenuItem value="serial_number">시리얼 번호</MenuItem>
+                <MenuItem value="description">설명</MenuItem>
+                <MenuItem value="rental_user">대여자</MenuItem>
+                <MenuItem value="manufacture_year">생산년도</MenuItem>
+                <MenuItem value="purchase_date">구매일</MenuItem>
+                <MenuItem value="acquisition_date">취득일</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <TextField
               fullWidth
-              label="장비명 검색"
-              variant="outlined"
+              size="small"
+              label="검색어"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -812,13 +966,12 @@ export default function EquipmentManagementPage() {
               }}
             />
           </Grid>
-          
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth variant="outlined">
+            <FormControl fullWidth size="small">
               <InputLabel>상태 필터</InputLabel>
               <Select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as string)}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 label="상태 필터"
               >
                 <MenuItem value="">전체</MenuItem>
@@ -830,13 +983,12 @@ export default function EquipmentManagementPage() {
               </Select>
             </FormControl>
           </Grid>
-          
           <Grid item xs={12} sm={6} md={2}>
-            <FormControl fullWidth variant="outlined">
+            <FormControl fullWidth size="small">
               <InputLabel>유형 필터</InputLabel>
               <Select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as string)}
+                onChange={(e) => setTypeFilter(e.target.value)}
                 label="유형 필터"
               >
                 <MenuItem value="">전체</MenuItem>
@@ -847,17 +999,23 @@ export default function EquipmentManagementPage() {
               </Select>
             </FormControl>
           </Grid>
-          
-          <Grid item>
-            <Button 
-              variant="outlined"
-              color="primary"
-              startIcon={<DownloadIcon />}
-              onClick={exportToExcel}
-              disabled={loading || filteredEquipment.length === 0}
-            >
-              엑셀로 내보내기
-            </Button>
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+              <Button
+                variant="outlined"
+                onClick={handleResetFilters}
+                startIcon={<ClearIcon />}
+              >
+                필터 초기화
+              </Button>
+              <Button
+                variant="contained"
+                onClick={filterEquipment}
+                startIcon={<SearchIcon />}
+              >
+                검색
+              </Button>
+            </Box>
           </Grid>
         </Grid>
       </Paper>
@@ -1034,7 +1192,7 @@ export default function EquipmentManagementPage() {
       {/* 장비 추가/수정 다이얼로그 */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ color: 'text.primary' }}>{dialogMode === 'add' ? '장비 추가' : '장비 수정'}</DialogTitle>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={dialogMode === 'add' ? handleAdd : handleUpdate}>
           <DialogContent>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
