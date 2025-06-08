@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User as UserIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User as UserIcon, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import UserManagement from '@/components/admin/UserManagement';
 import { useUsers } from '@/hooks/useUsers';
 import authService from '@/services/auth';
@@ -10,15 +10,33 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { userService, type User, type Student, type Class } from '@/services/userService';
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
+import EditUserModal from '@/components/admin/EditUserModal';
+import { User as AdminUser } from '@/services/admin';
 
 // User 타입 확장
 interface ExtendedUser extends User {
+  is_superuser: boolean;
+  is_initial_password: boolean;
+  email: string;
+  last_name: string;
+  is_staff: boolean;
   ip_count: number;
   rental_count: number;
+  id: number;
+  username: string;
+  created_at: string;
+  is_active: boolean;
 }
 
 // Student 타입 확장
 interface ExtendedStudent extends Student {
+  user: number;
+  device_limit: number;
+  email: string;
+  last_name: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+  is_initial_password: boolean;
   ip_count: number;
   rental_count: number;
 }
@@ -41,6 +59,8 @@ export default function AdminPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ id: number; username: string } | null>(null);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<ExtendedUser | ExtendedStudent | null>(null);
 
   const {
     handleCreateUser,
@@ -237,6 +257,28 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeviceLimitClick = (user: ExtendedUser | ExtendedStudent) => {
+    setSelectedUserForEdit(user);
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleEditUser = async (userId: number, userData: Partial<AdminUser>) => {
+    try {
+      const result = await userService.updateUser(userId, userData);
+      if (result.success) {
+        setIsEditUserModalOpen(false);
+        setSelectedUserForEdit(null);
+        alert(result.message);
+        fetchData(); // 사용자 목록 새로고침
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('사용자 정보 수정 실패:', error);
+      alert('사용자 정보 수정 중 오류가 발생했습니다.');
+    }
+  };
+
   if (authChecking || loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -368,6 +410,9 @@ export default function AdminPage() {
                       상태
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                      장치 제한
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                       작업
                     </th>
                   </tr>
@@ -408,15 +453,25 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {teacher.device_limit}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <button
+                          onClick={() => handleDeviceLimitClick(teacher)}
+                          className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+                        >
+                          <UserIcon className="h-3 w-3 inline mr-1" />
+                          사용자 정보 수정
+                        </button>
                         <button
                           onClick={() => handleResetPasswordClick(teacher.id, teacher.username)}
-                          className="text-yellow-600 hover:text-yellow-900 mr-4"
+                          className="mr-2 px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
                         >
                           비밀번호 초기화
                         </button>
                         <button
                           onClick={() => handleDeleteUser(teacher.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100"
                         >
                           삭제
                         </button>
@@ -509,6 +564,9 @@ export default function AdminPage() {
                         학반
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                        장치 제한
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                         작업
                       </th>
                     </tr>
@@ -544,7 +602,17 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {student.device_limit}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col sm:flex-row gap-2">
+                              <button
+                                onClick={() => handleDeviceLimitClick(student)}
+                                className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+                              >
+                                <UserIcon className="h-3 w-3 inline mr-1" />
+                                사용자 정보 수정
+                              </button>
                               <button
                                 onClick={() => handleResetPasswordClick(student.id, student.username)}
                                 className="text-yellow-600 hover:text-yellow-900 px-3 py-1 rounded-md border border-yellow-600 hover:bg-yellow-50"
@@ -604,15 +672,42 @@ export default function AdminPage() {
         </Tab.Panels>
       </Tab.Group>
 
-      <ResetPasswordModal
-        isOpen={isResetModalOpen}
-        onClose={() => {
-          setIsResetModalOpen(false);
-          setSelectedUser(null);
-        }}
-        onSubmit={handleResetPasswordConfirm}
-        username={selectedUser?.username || ''}
-      />
+      {/* 사용자 정보 수정 모달 */}
+      {isEditUserModalOpen && selectedUserForEdit && (
+        <EditUserModal
+          isOpen={isEditUserModalOpen}
+          onClose={() => {
+            setIsEditUserModalOpen(false);
+            setSelectedUserForEdit(null);
+          }}
+          onEditUser={handleEditUser}
+          user={{
+            id: selectedUserForEdit.id,
+            username: selectedUserForEdit.username,
+            email: 'email' in selectedUserForEdit ? selectedUserForEdit.email || null : null,
+            last_name: 'last_name' in selectedUserForEdit ? selectedUserForEdit.last_name || null : null,
+            is_staff: 'is_staff' in selectedUserForEdit ? selectedUserForEdit.is_staff || false : false,
+            is_superuser: 'is_superuser' in selectedUserForEdit ? selectedUserForEdit.is_superuser || false : false,
+            device_limit: selectedUserForEdit.device_limit,
+            is_initial_password: 'is_initial_password' in selectedUserForEdit ? selectedUserForEdit.is_initial_password || false : false,
+            is_active: true,
+            created_at: new Date().toISOString()
+          }}
+        />
+      )}
+
+      {/* 비밀번호 초기화 모달 */}
+      {isResetModalOpen && selectedUser && (
+        <ResetPasswordModal
+          isOpen={isResetModalOpen}
+          onClose={() => {
+            setIsResetModalOpen(false);
+            setSelectedUser(null);
+          }}
+          onSubmit={handleResetPasswordConfirm}
+          username={selectedUser.username}
+        />
+      )}
     </div>
   );
 } 

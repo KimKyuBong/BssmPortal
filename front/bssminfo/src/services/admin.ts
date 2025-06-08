@@ -38,10 +38,9 @@ export interface User {
   last_name: string | null;
   is_staff: boolean;
   is_superuser: boolean;
+  is_active: boolean;
   is_initial_password: boolean;
   created_at: string;
-  is_active: boolean;
-  message?: string; // 서버에서 반환하는 메시지
   device_limit: number;
 }
 
@@ -53,6 +52,17 @@ export interface CreateUserRequest {
   password: string;
   email?: string;
   last_name?: string;
+  is_staff?: boolean;
+  is_superuser?: boolean;
+  device_limit?: number;
+}
+
+/**
+ * 사용자 정보 수정 요청 타입
+ */
+export interface UpdateUserRequest {
+  email?: string | null;
+  last_name?: string | null;
   is_staff?: boolean;
   is_superuser?: boolean;
   device_limit?: number;
@@ -217,8 +227,20 @@ const adminService = {
    * @param data 수정할 사용자 데이터
    * @returns 수정된 사용자 정보
    */
-  updateUser: async (id: number, data: Partial<CreateUserRequest>) => {
-    return api.put<User>(`/admin/users/${id}/`, data);
+  updateUser: async (userId: number, userData: UpdateUserRequest): Promise<{ success: boolean; data?: User; error?: any }> => {
+    try {
+      const response = await api.patch(`/admin/users/${userId}/`, userData);
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('Update user error:', error);
+      return {
+        success: false,
+        error
+      };
+    }
   },
 
   /**

@@ -91,6 +91,11 @@ export const useUsers = () => {
     try {
       const response = await adminService.getUsersWithUrl(nextPageUrl);
       
+      if (!response) {
+        setError('다음 페이지를 불러오는데 실패했습니다.');
+        return;
+      }
+      
       // PaginatedResponse 타입으로 처리
       setUsers(response.results);
       setTotalUsers(response.count);
@@ -112,6 +117,11 @@ export const useUsers = () => {
     setLoading(true);
     try {
       const response = await adminService.getUsersWithUrl(prevPageUrl);
+      
+      if (!response) {
+        setError('이전 페이지를 불러오는데 실패했습니다.');
+        return;
+      }
       
       // PaginatedResponse 타입으로 처리
       setUsers(response.results);
@@ -142,6 +152,11 @@ export const useUsers = () => {
     try {
       const response = await adminService.getAllUsers(page);
       
+      if (!response) {
+        setError('페이지를 불러오는데 실패했습니다.');
+        return;
+      }
+      
       // PaginatedResponse 타입으로 처리
       setUsers(response.results);
       setTotalUsers(response.count);
@@ -161,35 +176,26 @@ export const useUsers = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleCreateUser = useCallback(async (userData: CreateUserRequest) => {
-    setLoading(true);
-    setError(null);
+  const handleCreateUser = async (userData: CreateUserRequest) => {
     try {
+      setLoading(true);
       const response = await adminService.createUser(userData);
       if (response.success) {
-        // 사용자 목록을 새로고침
         await fetchUsers();
-        // 성공 메시지 반환
-        return { 
-          success: true, 
-          message: response.data?.message || `사용자 '${userData.username}'이(가) 성공적으로 생성되었습니다.` 
-        };
+        return { success: true, message: '사용자가 성공적으로 생성되었습니다.' };
       } else {
-        const errorMsg = typeof response.error === 'string' 
+        const errorMessage = typeof response.error === 'string' 
           ? response.error 
-          : response.error?.detail || '사용자 생성에 실패했습니다.';
-        setError(errorMsg);
-        return { success: false, message: errorMsg };
+          : response.error?.detail || '사용자 생성 중 오류가 발생했습니다.';
+        return { success: false, message: errorMessage };
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '사용자 생성에 실패했습니다.';
-      setError(errorMsg);
-      console.error(err);
-      return { success: false, message: errorMsg };
+    } catch (error) {
+      console.error('Create user error:', error);
+      return { success: false, message: '사용자 생성 중 오류가 발생했습니다.' };
     } finally {
       setLoading(false);
     }
-  }, [fetchUsers]);
+  };
 
   const handleDeleteUser = useCallback(async (id: number) => {
     setLoading(true);

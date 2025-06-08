@@ -330,13 +330,14 @@ class DeviceViewSet(viewsets.ModelViewSet):
             
         # 사용자 장치 수 제한 확인
         user_devices = Device.objects.filter(user=request.user).count()
-        if user_devices >= 3:
-            logger.warning(f"장치 등록 제한 초과: 사용자={request.user.username}, 현재 장치 수={user_devices}")
+        if user_devices >= request.user.device_limit:
+            logger.warning(f"장치 등록 제한 초과: 사용자={request.user.username}, 현재 장치 수={user_devices}, 제한={request.user.device_limit}")
             return Response({
                 'success': False,
-                'message': '최대 3개의 장치만 등록할 수 있습니다.',
+                'message': f'최대 {request.user.device_limit}개의 장치만 등록할 수 있습니다.',
                 'error_code': 'MAX_DEVICES_REACHED',
-                'current_count': user_devices
+                'current_count': user_devices,
+                'device_limit': request.user.device_limit
             }, status=status.HTTP_400_BAD_REQUEST)
             
         # 새 IP 주소 할당

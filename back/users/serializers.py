@@ -21,7 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'last_name', 'is_staff', 'is_superuser', 'is_initial_password', 'created_at', 'is_active', 'ip_count', 'rental_count']
+        fields = ['id', 'username', 'email', 'last_name', 'is_staff', 'is_superuser', 'is_initial_password', 'created_at', 'is_active', 'ip_count', 'rental_count', 'device_limit']
         read_only_fields = ['created_at', 'is_initial_password', 'ip_count', 'rental_count']
 
 class UserCreateSerializer(serializers.ModelSerializer):

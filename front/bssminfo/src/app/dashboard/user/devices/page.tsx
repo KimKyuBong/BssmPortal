@@ -123,6 +123,8 @@ export default function DeviceManagementPage() {
         await fetchDevices();
         
         // URL 쿼리 파라미터 확인
+        if (!searchParams) return;
+        
         const action = searchParams.get('action');
         if (action === 'add') {
           openRegisterModal();

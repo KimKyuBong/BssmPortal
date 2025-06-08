@@ -87,7 +87,7 @@ export default function DashboardLayout({
                   key={item.name}
                   href={item.href}
                   className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                    item.isActive(pathname) 
+                    item.isActive(pathname || '') 
                       ? 'bg-blue-50 text-blue-600' 
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
@@ -111,7 +111,7 @@ export default function DashboardLayout({
                       key={item.name}
                       href={item.href}
                       className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                        item.isActive(pathname) 
+                        item.isActive(pathname || '') 
                           ? 'bg-blue-50 text-blue-600' 
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}
@@ -137,7 +137,7 @@ export default function DashboardLayout({
                       key={item.name}
                       href={item.href}
                       className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                        item.isActive(pathname) 
+                        item.isActive(pathname || '') 
                           ? 'bg-blue-50 text-blue-600' 
                           : 'text-gray-700 hover:bg-gray-100'
                       }`}

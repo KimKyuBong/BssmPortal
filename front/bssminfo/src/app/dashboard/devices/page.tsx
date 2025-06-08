@@ -125,11 +125,13 @@ export default function DeviceManagementPage() {
   
   // URL 쿼리 파라미터 처리
   useEffect(() => {
+    if (!searchParams) return;
+    
     const action = searchParams.get('action');
     if (action === 'add') {
       openRegisterModal();
     }
-  }, [searchParams]);
+  }, [searchParams, openRegisterModal]);
   
   useEffect(() => {
     const fetchData = async () => {

@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { 
   Search, Download, UserPlus, X, Key, Trash2, User,
-  ChevronLeft, ChevronRight, AlertCircle, CheckCircle
+  ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Settings
 } from 'lucide-react';
 import { User as AdminUser, CreateUserRequest } from '@/services/admin';
 import adminService from '@/services/admin';
 import CreateUserModal from './CreateUserModal';
+import EditUserModal from './EditUserModal';
 import TemplateModal from './TemplateModal';
 import ResetPasswordModal from './ResetPasswordModal';
 
@@ -34,6 +35,7 @@ interface UserManagementProps {
   onGoToPage?: (page: number) => void;
   hasNextPage?: boolean;
   hasPrevPage?: boolean;
+  onUpdateDeviceLimit: (userId: number, deviceLimit: number) => Promise<void>;
 }
 
 export default function UserManagement({
@@ -60,12 +62,15 @@ export default function UserManagement({
   onPrevPage,
   onGoToPage,
   hasNextPage,
-  hasPrevPage
+  hasPrevPage,
+  onUpdateDeviceLimit
 }: UserManagementProps) {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -209,6 +214,35 @@ export default function UserManagement({
     } catch (error) {
       showFeedback('error', '비밀번호 초기화 중 오류가 발생했습니다.');
     }
+  };
+
+  const handleEditUser = async (userId: number, userData: Partial<AdminUser>) => {
+    try {
+      const result = await adminService.updateUser(userId, {
+        email: userData.email,
+        last_name: userData.last_name,
+        is_staff: userData.is_staff,
+        is_superuser: userData.is_superuser,
+        device_limit: userData.device_limit
+      });
+      
+      if (result.success) {
+        showFeedback('success', '사용자 정보가 성공적으로 수정되었습니다.');
+        if (fetchUsers) {
+          await fetchUsers();
+        }
+      } else {
+        showFeedback('error', '사용자 정보 수정 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      showFeedback('error', '사용자 정보 수정 중 오류가 발생했습니다.');
+      console.error('Edit user error:', error);
+    }
+  };
+
+  const handleEditUserClick = (user: AdminUser) => {
+    setSelectedUser(user);
+    setShowEditUserModal(true);
   };
 
   return (
@@ -430,6 +464,16 @@ export default function UserManagement({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        handleEditUserClick(user);
+                      }}
+                      className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    >
+                      <Settings className="h-3 w-3 inline mr-1" />
+                      정보 수정
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleResetPasswordClick(user.id);
                       }}
                       className="mr-2 px-2 py-1 rounded text-xs font-medium bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
@@ -551,6 +595,17 @@ export default function UserManagement({
         isOpen={showCreateUserModal}
         onClose={() => setShowCreateUserModal(false)}
         onCreateUser={handleCreateUserSubmit}
+      />
+
+      {/* 사용자 정보 수정 모달 */}
+      <EditUserModal
+        isOpen={showEditUserModal}
+        onClose={() => {
+          setShowEditUserModal(false);
+          setSelectedUser(null);
+        }}
+        onEditUser={handleEditUser}
+        user={selectedUser}
       />
 
       {/* 템플릿 다운로드 모달 */}
