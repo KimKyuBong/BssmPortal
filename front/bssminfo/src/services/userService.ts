@@ -50,9 +50,12 @@ export const userService = {
 
   // 학생 학반 변경
   changeStudentClass: async (studentId: number, classId: number) => {
-    const response = await api.post(`/users/students/${studentId}/change-class/`, {
-      class_id: classId
-    });
+    const response = await api.post(`/students/${studentId}/change_class/`, { class_id: classId });
+    return response.data;
+  },
+
+  deleteUser: async (userId: number) => {
+    const response = await api.delete(`/users/${userId}/`);
     return response.data;
   }
 }; 

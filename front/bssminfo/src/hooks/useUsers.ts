@@ -367,38 +367,30 @@ export const useUsers = () => {
     }
   }, []);
 
-  const exportUsersToExcel = useCallback(() => {
+  const exportUsersToExcel = useCallback(async () => {
     try {
-      // 엑셀로 내보낼 데이터 준비
-      const exportData = users.map(user => ({
-        ID: user.id,
-        '사용자명': user.username,
-        '이메일': user.email || 'N/A',
-        '이름': user.last_name || 'N/A',
-        '역할': user.is_staff ? (user.is_superuser ? '관리자' : '교사') : '학생',
-        'is_staff': user.is_staff ? 'true' : 'false',
-        'is_superuser': user.is_superuser ? 'true' : 'false',
-        '활성 상태': user.is_active ? '활성' : '비활성',
-        '생성일': user.created_at || 'N/A'
-      }));
-
-      // 워크시트 생성
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      
-      // 워크북 생성
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, '사용자 목록');
-      
-      // 엑셀 파일로 저장
-      XLSX.writeFile(workbook, `사용자_목록_${new Date().toISOString().split('T')[0]}.xlsx`);
-      
-      return true;
+      const response = await adminService.exportUsersToExcel();
+      if (response instanceof Blob) {
+        // Blob URL 생성 및 다운로드 링크 클릭 시뮬레이션
+        const url = window.URL.createObjectURL(response);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `사용자_목록_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        return true;
+      } else {
+        setError('엑셀 파일 다운로드에 실패했습니다.');
+        return false;
+      }
     } catch (err) {
-      setError('엑셀 파일 생성에 실패했습니다.');
+      setError('엑셀 파일 다운로드에 실패했습니다.');
       console.error(err);
       return false;
     }
-  }, [users]);
+  }, []);
 
   const handleUserSelection = useCallback((id: number, event: React.MouseEvent) => {
     setSelectedUsers(prev => {

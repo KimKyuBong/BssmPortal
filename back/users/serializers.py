@@ -1,19 +1,28 @@
 from rest_framework import serializers
 from .models import User, Class, Student
+from django.db.models import Count
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
+    ip_count = serializers.SerializerMethodField()
+    rental_count = serializers.SerializerMethodField()
     
     def get_email(self, obj):
         """
-        이메일 필드가 None이면 빈 문자열 반환
+        이메일이 None인 경우 빈 문자열 반환
         """
         return "" if obj.email is None else obj.email
         
+    def get_ip_count(self, obj):
+        return obj.devices.filter(is_active=True).count()
+
+    def get_rental_count(self, obj):
+        return obj.rentals.filter(status='RENTED').count()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'last_name', 'is_staff', 'is_superuser', 'is_initial_password', 'created_at', 'is_active']
-        read_only_fields = ['created_at']
+        fields = ['id', 'username', 'email', 'last_name', 'is_staff', 'is_superuser', 'is_initial_password', 'created_at', 'is_active', 'ip_count', 'rental_count']
+        read_only_fields = ['created_at', 'is_initial_password', 'ip_count', 'rental_count']
 
 class UserCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,7 +51,17 @@ class ClassSerializer(serializers.ModelSerializer):
 class StudentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    ip_count = serializers.SerializerMethodField()
+    rental_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'username', 'user_name', 'current_class'] 
+        fields = ['id', 'user', 'username', 'user_name', 'current_class', 'ip_count', 'rental_count']
+
+    def get_ip_count(self, obj):
+        # user의 devices 관계를 활용해 개수 반환
+        return obj.user.devices.filter(is_active=True).count() if hasattr(obj.user, 'devices') else 0
+
+    def get_rental_count(self, obj):
+        # user의 rentals 관계를 활용해 대여중인 장비 개수 반환
+        return obj.user.rentals.filter(status='RENTED').count() if hasattr(obj.user, 'rentals') else 0 

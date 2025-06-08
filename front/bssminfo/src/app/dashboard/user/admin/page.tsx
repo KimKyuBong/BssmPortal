@@ -11,6 +11,18 @@ import { ko } from 'date-fns/locale';
 import { userService, type User, type Student, type Class } from '@/services/userService';
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal';
 
+// User 타입 확장
+interface ExtendedUser extends User {
+  ip_count: number;
+  rental_count: number;
+}
+
+// Student 타입 확장
+interface ExtendedStudent extends Student {
+  ip_count: number;
+  rental_count: number;
+}
+
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -18,8 +30,8 @@ function classNames(...classes: string[]) {
 export default function AdminPage() {
   const [authorized, setAuthorized] = useState<boolean>(false);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [teachers, setTeachers] = useState<User[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<ExtendedUser[]>([]);
+  const [students, setStudents] = useState<ExtendedStudent[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -130,6 +142,10 @@ export default function AdminPage() {
   const handleBulkTeacherAction = async (action: 'delete' | 'reset') => {
     if (selectedTeachers.length === 0) return;
     
+    if (action === 'delete' && !confirm('선택한 교사를 모두 삭제하시겠습니까?')) {
+      return;
+    }
+    
     try {
       if (action === 'delete') {
         await Promise.all(selectedTeachers.map(id => handleDeleteUser(id)));
@@ -146,9 +162,18 @@ export default function AdminPage() {
   const handleBulkStudentAction = async (action: 'delete' | 'reset') => {
     if (selectedStudents.length === 0) return;
     
+    if (action === 'delete' && !confirm('선택한 학생을 모두 삭제하시겠습니까?')) {
+      return;
+    }
+    
     try {
       if (action === 'delete') {
-        await Promise.all(selectedStudents.map(id => handleDeleteUser(id)));
+        await Promise.all(selectedStudents.map(id => {
+          const student = students.find(s => s.id === id);
+          if (student) {
+            return handleDeleteUser(student.user);
+          }
+        }));
       } else {
         await Promise.all(selectedStudents.map(id => handleResetPassword(id)));
       }
@@ -230,7 +255,7 @@ export default function AdminPage() {
             템플릿 다운로드
           </button>
           <button
-            onClick={() => exportUsersToExcel()}
+            onClick={async () => await exportUsersToExcel()}
             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
           >
             엑셀 내보내기
@@ -310,6 +335,12 @@ export default function AdminPage() {
                       이메일
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                      IP 대여 수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                      기기 대여 수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                       가입일
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
@@ -322,7 +353,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {teachers.map((teacher) => (
-                    <tr key={teacher.id}>
+                    <tr key={teacher.id} className={teacher.rental_count === 0 ? 'bg-pink-50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
@@ -336,6 +367,12 @@ export default function AdminPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{teacher.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{teacher.ip_count || 0}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{teacher.rental_count || 0}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
@@ -426,6 +463,12 @@ export default function AdminPage() {
                       아이디
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                      IP 대여 수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
+                      IP 대여 수
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                       학반
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
@@ -437,7 +480,7 @@ export default function AdminPage() {
                   {students.map((student) => {
                     const studentClass = classes.find(c => c.id === student.current_class);
                     return (
-                      <tr key={student.id}>
+                      <tr key={student.id} className={student.rental_count === 0 ? 'bg-pink-50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <input
                             type="checkbox"
@@ -453,6 +496,12 @@ export default function AdminPage() {
                           <div className="text-sm text-gray-900">{student.username}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{student.ip_count || 0}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{student.rental_count || 0}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {studentClass ? `${studentClass.grade}학년 ${studentClass.class_number}반` : '-'}
                           </div>
@@ -465,7 +514,12 @@ export default function AdminPage() {
                             비밀번호 초기화
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(student.id)}
+                            onClick={() => {
+                              const currentStudent = students.find(s => s.id === student.id);
+                              if (currentStudent) {
+                                handleDeleteUser(currentStudent.user);
+                              }
+                            }}
                             className="text-red-600 hover:text-red-900"
                           >
                             삭제

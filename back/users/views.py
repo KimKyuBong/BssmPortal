@@ -43,7 +43,7 @@ class IsStaffUser(BasePermission):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsStaffUser]
+    permission_classes = [IsStaffUser]  # 교사 이상의 권한 필요
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'last_name']
 
@@ -53,10 +53,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
     def get_permissions(self):
-        # 관리자 권한이 필요한 액션 목록 확장
+        # 관리자 권한이 필요한 액션 목록
         if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset_password']:
             return [IsSuperUser()]
-        return [IsStaffUser()]
+        return [IsStaffUser()]  # 나머지 액션은 교사 이상의 권한 필요
     
     def get_queryset(self):
         queryset = User.objects.all()
@@ -119,12 +119,18 @@ class UserViewSet(viewsets.ModelViewSet):
     def export(self, request):
         """
         사용자 목록을 엑셀 파일로 내보내는 API
+        페이지네이션 없이 모든 사용자 정보와 대여 IP, 장비 정보를 포함
         """
-        users = self.get_queryset()
+        # 페이지네이션 없이 모든 사용자 조회
+        users = User.objects.all()
         
         # 데이터프레임 생성
         data = []
         for user in users:
+            # IP 대여 수와 장비 대여 수 계산
+            ip_count = user.devices.filter(is_active=True).count() if hasattr(user, 'devices') else 0
+            rental_count = user.rentals.filter(status='RENTED').count() if hasattr(user, 'rentals') else 0
+            
             data.append({
                 'ID': user.id,
                 '아이디': user.username,
@@ -133,7 +139,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 '교사 여부': 'true' if user.is_staff else 'false',
                 '관리자 여부': 'true' if user.is_superuser else 'false',
                 '초기 비밀번호 상태': '초기 상태' if user.is_initial_password else '변경됨',
-                '생성일': user.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                '생성일': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'IP 대여 수': ip_count,
+                '장비 대여 수': rental_count
             })
         
         df = pd.DataFrame(data)

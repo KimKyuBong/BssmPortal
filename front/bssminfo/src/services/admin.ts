@@ -256,8 +256,6 @@ const adminService = {
     try {
       console.log('엑셀 내보내기 요청 시작');
       
-      // 정확한 URL 사용: backend urls.py에서 확인한 경로
-      // admin_router에 등록된 엔드포인트는 /admin/ 아래에 있음
       const response = await api.get('/admin/users/export/', {
         responseType: 'blob',
         headers: {
@@ -267,22 +265,16 @@ const adminService = {
       
       console.log('API 응답:', response);
       
-      if (response.success && response.data) {
+      if (response.data instanceof Blob) {
         console.log('엑셀 내보내기 성공:', typeof response.data, response.data instanceof Blob);
         return response.data;
       } else {
-        console.error('엑셀 내보내기 실패:', response.error);
-        return {
-          success: false,
-          error: response.error || '사용자 목록 내보내기에 실패했습니다.'
-        };
+        console.error('엑셀 내보내기 실패:', response);
+        throw new Error('사용자 목록 내보내기에 실패했습니다.');
       }
     } catch (error) {
       console.error('Export users error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '사용자 목록 내보내기 중 오류가 발생했습니다.'
-      };
+      throw error;
     }
   },
 
