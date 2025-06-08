@@ -146,10 +146,32 @@ class UserViewSet(viewsets.ModelViewSet):
         
         df = pd.DataFrame(data)
         
+        # 장비 대여가 0인 사용자 필터링
+        no_rental_data = []
+        for user in users:
+            rental_count = user.rentals.filter(status='RENTED').count() if hasattr(user, 'rentals') else 0
+            if rental_count == 0:
+                ip_count = user.devices.filter(is_active=True).count() if hasattr(user, 'devices') else 0
+                no_rental_data.append({
+                    'ID': user.id,
+                    '아이디': user.username,
+                    '이메일': user.email or '',
+                    '이름': user.last_name or '',
+                    '역할': '교사' if user.is_staff else '학생',
+                    '초기 비밀번호 상태': '초기 상태' if user.is_initial_password else '변경됨',
+                    '생성일': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'IP 대여 수': ip_count,
+                    '장비 대여 수': 0
+                })
+        
+        df_no_rental = pd.DataFrame(no_rental_data)
+        
         # 엑셀 파일 생성
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='사용자 목록', index=False)
+            df.to_excel(writer, sheet_name='전체 사용자', index=False)
+            if not df_no_rental.empty:
+                df_no_rental.to_excel(writer, sheet_name='미대여 사용자', index=False)
         
         # 응답 생성
         output.seek(0)
