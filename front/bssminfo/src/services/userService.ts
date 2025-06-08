@@ -18,7 +18,15 @@ export interface User {
 
 export interface Student {
   id: number;
-  user: number;
+  user: {
+    id: number;
+    username: string;
+    email: string | null;
+    first_name: string | null;
+    last_name: string;
+    is_staff: boolean;
+    name: string;
+  };
   username: string;
   user_name: string;
   current_class: number;

@@ -147,18 +147,14 @@ interface RentalStats {
  */
 interface RentalDetail {
   id: number;
-  user: number;
-  user_detail: {
-    id: number;
-    username: string;
-    email: string | null;
-    first_name: string | null;
-    last_name: string;
-    is_staff: boolean;
-    name: string;
-  };
-  equipment: number;
-  equipment_detail: {
+  device_name?: string;
+  mac_address?: string;
+  assigned_ip?: string;
+  username?: string;
+  created_at?: string;
+  last_access?: string;
+  is_active?: boolean;
+  equipment_detail?: {
     id: number;
     name: string;
     manufacturer: string;
@@ -170,16 +166,15 @@ interface RentalDetail {
     status_display: string;
     created_at: string;
   };
-  rental_date: string;
-  due_date: string;
-  return_date: string | null;
-  returned_to: number | null;
-  status: string;
-  status_display: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-  approved_by: {
+  rental_date?: string;
+  due_date?: string;
+  return_date?: string | null;
+  returned_to?: number | null;
+  status?: string;
+  status_display?: string;
+  notes?: string;
+  updated_at?: string;
+  approved_by?: {
     id: number;
     username: string;
     email: string | null;
@@ -188,6 +183,22 @@ interface RentalDetail {
     is_staff: boolean;
     name: string;
   };
+}
+
+export interface Student {
+  id: number;
+  user: {
+    id: number;
+    username: string;
+    email: string | null;
+    first_name: string | null;
+    last_name: string;
+    is_staff: boolean;
+    name: string;
+  };
+  grade: number;
+  class: number;
+  number: number;
 }
 
 /**
@@ -949,13 +960,19 @@ const adminService = {
    * @param userId 사용자 ID (선택)
    * @returns IP 대여 내역
    */
-  getIpRentals: async (userId?: number) => {
+  getIpRentals: async (userId: number) => {
     try {
-      const url = userId ? `/admin/ip-rentals/?user_id=${userId}` : '/admin/ip-rentals/';
-      const response = await api.get<RentalDetail[]>(url);
-      return response;
+      const response = await api.get(`/admin/ip-rentals/?user_id=${userId}`);
+      return {
+        success: true,
+        data: response.data.results || response.data
+      };
     } catch (error) {
-      return handleApiError(error);
+      console.error('IP 대여 내역 조회 실패:', error);
+      return {
+        success: false,
+        data: []
+      };
     }
   },
 
@@ -964,10 +981,29 @@ const adminService = {
    * @param userId 사용자 ID (선택)
    * @returns 장비 대여 내역
    */
-  getDeviceRentals: async (userId?: number) => {
+  getDeviceRentals: async (userId: number) => {
     try {
-      const url = userId ? `/admin/device-rentals/?user_id=${userId}` : '/admin/device-rentals/';
-      const response = await api.get<RentalDetail[]>(url);
+      const response = await api.get(`/admin/device-rentals/?user_id=${userId}`);
+      return {
+        success: true,
+        data: response.data.results || response.data
+      };
+    } catch (error) {
+      console.error('기기 대여 내역 조회 실패:', error);
+      return {
+        success: false,
+        data: []
+      };
+    }
+  },
+
+  /**
+   * 학생 목록 조회
+   * @returns 학생 목록
+   */
+  getStudents: async () => {
+    try {
+      const response = await api.get<Student[]>('/admin/students/');
       return response;
     } catch (error) {
       return handleApiError(error);

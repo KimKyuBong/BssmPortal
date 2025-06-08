@@ -14,6 +14,8 @@ import EditUserModal from '@/components/admin/EditUserModal';
 import { User as AdminUser } from '@/services/admin';
 import { Card, CardContent, Typography, Grid, CircularProgress, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Modal, IconButton } from '@mui/material';
 import adminService from '@/services/admin';
+import RentalHistoryModal from '@/components/RentalHistoryModal';
+import { useRouter } from 'next/navigation';
 
 // User 타입 확장
 interface ExtendedUser extends User {
@@ -32,7 +34,6 @@ interface ExtendedUser extends User {
 
 // Student 타입 확장
 interface ExtendedStudent extends Student {
-  user: number;
   device_limit: number;
   email: string;
   last_name: string;
@@ -224,11 +225,16 @@ export default function AdminPage() {
         await Promise.all(selectedStudents.map(id => {
           const student = students.find(s => s.id === id);
           if (student) {
-            return handleDeleteUser(student.user);
+            return handleDeleteUser(student.user.id);
           }
         }));
       } else {
-        await Promise.all(selectedStudents.map(id => handleResetPassword(id)));
+        await Promise.all(selectedStudents.map(id => {
+          const student = students.find(s => s.id === id);
+          if (student) {
+            return handleResetPassword(student.user.id);
+          }
+        }));
       }
       setSelectedStudents([]);
       fetchData();
@@ -260,7 +266,7 @@ export default function AdminPage() {
     try {
       // 학생인 경우 실제 user ID를 사용
       const student = students.find(s => s.id === selectedUser.id);
-      const userId = student ? student.user : selectedUser.id;
+      const userId = student ? student.user.id : selectedUser.id;
       await handleResetPassword(userId, password);
       setIsResetModalOpen(false);
       setSelectedUser(null);
@@ -325,16 +331,18 @@ export default function AdminPage() {
   };
 
   const fetchIpRentals = async () => {
+    if (!selectedUser) return;
+    
     try {
       setLoadingRentals(true);
-      const response = await adminService.getIpRentals();
+      const response = await adminService.getIpRentals(selectedUser.id);
       if (response.success && response.data) {
         setIpRentals(response.data);
       } else {
         setIpRentals([]);
       }
-    } catch (err) {
-      console.error('IP 대여 내역 조회 실패:', err);
+    } catch (error) {
+      console.error('IP 대여 내역 조회 실패:', error);
       setIpRentals([]);
     } finally {
       setLoadingRentals(false);
@@ -342,16 +350,18 @@ export default function AdminPage() {
   };
 
   const fetchDeviceRentals = async () => {
+    if (!selectedUser) return;
+    
     try {
       setLoadingRentals(true);
-      const response = await adminService.getDeviceRentals();
+      const response = await adminService.getDeviceRentals(selectedUser.id);
       if (response.success && response.data) {
         setDeviceRentals(response.data);
       } else {
         setDeviceRentals([]);
       }
-    } catch (err) {
-      console.error('장비 대여 내역 조회 실패:', err);
+    } catch (error) {
+      console.error('기기 대여 내역 조회 실패:', error);
       setDeviceRentals([]);
     } finally {
       setLoadingRentals(false);
@@ -359,36 +369,39 @@ export default function AdminPage() {
   };
 
   const handleShowIpRentals = () => {
+    if (!selectedUser) return;
     setShowIpRentals(true);
     fetchIpRentals();
   };
 
   const handleShowDeviceRentals = () => {
+    if (!selectedUser) return;
     setShowDeviceRentals(true);
     fetchDeviceRentals();
   };
 
   const handleRentalClick = async (user: ExtendedUser | ExtendedStudent, type: 'ip' | 'device') => {
-    setSelectedUser({ id: user.id, username: user.username });
-    setModalType(type);
-    setLoadingRentals(true);
-    setIpRentals([]);
-    setDeviceRentals([]);
-
     try {
-      const response = type === 'ip' 
-        ? await adminService.getIpRentals(user.id)
-        : await adminService.getDeviceRentals(user.id);
-
-      if (response.success && response.data) {
-        if (type === 'ip') {
+      setLoadingRentals(true);
+      const userId = 'user' in user ? user.user : user.id;
+      const username = user.username;
+      
+      setSelectedUser({ id: Number(userId), username });
+      setModalType(type);
+      
+      if (type === 'ip') {
+        const response = await adminService.getIpRentals(Number(userId));
+        if (response.success && response.data) {
           setIpRentals(response.data);
-        } else {
+        }
+      } else {
+        const response = await adminService.getDeviceRentals(Number(userId));
+        if (response.success && response.data) {
           setDeviceRentals(response.data);
         }
       }
-    } catch (err) {
-      console.error(`Error fetching ${type} rentals:`, err);
+    } catch (error) {
+      console.error('대여 내역 조회 실패:', error);
     } finally {
       setLoadingRentals(false);
     }
@@ -399,6 +412,30 @@ export default function AdminPage() {
     setModalType(null);
     setIpRentals([]);
     setDeviceRentals([]);
+  };
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const response = await userService.getStudents();
+      if (response.results) {
+        setStudents(response.results.map((student: Student) => ({
+          ...student,
+          device_limit: student.device_limit || 0,
+          email: student.user.email || '',
+          last_name: student.user.last_name || '',
+          is_staff: student.user.is_staff,
+          is_superuser: false,
+          is_initial_password: false,
+          ip_count: 0,
+          rental_count: 0
+        })));
+      }
+    } catch (err) {
+      console.error('학생 목록 조회 실패:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (authChecking || loading) {
@@ -765,7 +802,7 @@ export default function AdminPage() {
                                 onClick={() => {
                                   const currentStudent = students.find(s => s.id === student.id);
                                   if (currentStudent) {
-                                    handleDeleteUser(currentStudent.user);
+                                    handleDeleteUser(currentStudent.user.id);
                                   }
                                 }}
                                 className="text-red-600 hover:text-red-900 px-3 py-1 rounded-md border border-red-600 hover:bg-red-50"
@@ -1029,60 +1066,19 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* 대여 상세정보 모달 */}
-      {selectedUser && modalType && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <Typography variant="h6">
-                  {selectedUser.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
-                </Typography>
-                <IconButton onClick={handleCloseModal}>
-                  <X className="h-5 w-5" />
-                </IconButton>
-              </div>
-
-              {loadingRentals ? (
-                <Box display="flex" justifyContent="center" p={3}>
-                  <CircularProgress />
-                </Box>
-              ) : (modalType === 'ip' ? ipRentals : deviceRentals).length === 0 ? (
-                <Typography className="text-center p-4">
-                  대여 내역이 없습니다.
-                </Typography>
-              ) : (
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>장비명</TableCell>
-                        <TableCell>MAC 주소</TableCell>
-                        <TableCell>IP 주소</TableCell>
-                        <TableCell>대여일</TableCell>
-                        <TableCell>마지막 접속</TableCell>
-                        <TableCell>상태</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {(modalType === 'ip' ? ipRentals : deviceRentals).map((rental) => (
-                        <TableRow key={rental.id}>
-                          <TableCell>{rental.device_name}</TableCell>
-                          <TableCell>{rental.mac_address}</TableCell>
-                          <TableCell>{rental.assigned_ip}</TableCell>
-                          <TableCell>{new Date(rental.created_at).toLocaleString()}</TableCell>
-                          <TableCell>{new Date(rental.last_access).toLocaleString()}</TableCell>
-                          <TableCell>{rental.is_active ? '활성' : '비활성'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 대여 내역 모달 */}
+      <RentalHistoryModal
+        isOpen={modalType !== null}
+        onClose={() => {
+          setModalType(null);
+          setIpRentals([]);
+          setDeviceRentals([]);
+        }}
+        selectedUser={selectedUser}
+        modalType={modalType}
+        rentals={modalType === 'ip' ? ipRentals : deviceRentals}
+        loading={loadingRentals}
+      />
     </div>
   );
 } 
