@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Plus, Search, RefreshCw, Power, Trash2, Edit } from 'lucide-react';
 import authService from '@/services/auth';
 import ipService from '@/services/ip';
-import { Device, CurrentMacResponse } from '@/services/ip';
+import { Device, CurrentMacResponse, DeviceError } from '@/services/ip';
 
 export default function DeviceManagementPage() {
   const router = useRouter();
@@ -233,14 +233,34 @@ export default function DeviceManagementPage() {
         // 장치 목록 새로고침
         await fetchDevices();
       } else {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : response.error?.detail || '기기 IP 등록에 실패했습니다.';
+        // 에러 메시지 처리 개선
+        let errorMessage = '기기 IP 등록에 실패했습니다.';
+        
+        if (response.error) {
+          if (typeof response.error === 'string') {
+            errorMessage = response.error;
+          } else {
+            const deviceError = response.error as DeviceError;
+            if (deviceError.detail) {
+              errorMessage = deviceError.detail;
+            }
+            if (deviceError.error_code === 'MAX_DEVICES_REACHED') {
+              errorMessage = `장치 등록 제한을 초과했습니다. (현재 ${deviceError.current_count}개, 제한: ${deviceError.device_limit}개)`;
+            } else if (deviceError.error_code === 'IP_ASSIGNMENT_ERROR') {
+              errorMessage = 'IP 할당 중 오류가 발생했습니다. 관리자에게 문의해주세요.';
+            } else if (deviceError.error_code === 'DUPLICATE_MAC') {
+              errorMessage = '이미 등록된 MAC 주소입니다.';
+            } else if (deviceError.error_code === 'INVALID_MAC') {
+              errorMessage = '유효하지 않은 MAC 주소입니다.';
+            }
+          }
+        }
+        
         setError(errorMessage);
       }
     } catch (err) {
-      setError('기기 IP 등록 중 오류가 발생했습니다.');
       console.error('Register device error:', err);
+      setError('기기 IP 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setRegistering(false);
     }

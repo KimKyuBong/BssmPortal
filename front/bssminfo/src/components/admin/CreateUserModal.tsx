@@ -16,6 +16,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
     last_name: '',
     is_staff: false,
     is_superuser: false,
+    device_limit: 3,
   });
   
   const [loading, setLoading] = useState(false);
@@ -35,7 +36,8 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
         email: newUser.email || undefined,
         last_name: newUser.last_name || undefined,
         is_staff: newUser.is_staff,
-        is_superuser: newUser.is_superuser
+        is_superuser: newUser.is_superuser,
+        device_limit: newUser.device_limit
       };
       
       await onCreateUser(userData);
@@ -48,6 +50,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
         last_name: '',
         is_staff: false,
         is_superuser: false,
+        device_limit: 3,
       });
       
       // 모달 닫기
@@ -171,6 +174,24 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   value={newUser.email}
                   onChange={handleInputChange}
                 />
+              </div>
+              
+              <div>
+                <label htmlFor="device_limit" className="block text-sm font-medium text-gray-900">
+                  장치 등록 제한
+                </label>
+                <input
+                  type="number"
+                  name="device_limit"
+                  id="device_limit"
+                  min="1"
+                  max="10"
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  value={newUser.device_limit}
+                  onChange={handleInputChange}
+                />
+                <p className="mt-1 text-sm text-gray-500">사용자가 등록할 수 있는 최대 장치 수 (1-10)</p>
               </div>
               
               <div className="flex items-start">

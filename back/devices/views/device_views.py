@@ -63,27 +63,39 @@ class DeviceViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def perform_create(self, serializer):
+        # 사용자의 현재 장치 수 확인
+        user_devices = Device.objects.filter(user=self.request.user).count()
+        if user_devices >= self.request.user.device_limit:
+            logger.warning(f"장치 등록 제한 초과: 사용자={self.request.user.username}, 현재 장치 수={user_devices}, 제한={self.request.user.device_limit}")
+            raise ValidationError({
+                'detail': f'최대 {self.request.user.device_limit}개의 장치만 등록할 수 있습니다.',
+                'error_code': 'MAX_DEVICES_REACHED',
+                'current_count': user_devices,
+                'device_limit': self.request.user.device_limit
+            })
+
+        # 장비에 IP가 할당되어 있지 않은 경우 자동 할당
         device = serializer.save(user=self.request.user)
-        
-        # IP 주소가 없는 경우 자동 할당
         if not device.assigned_ip:
-            # 현재 사용 중인 IP 목록 가져오기
-            used_ips = list(Device.objects.values_list('assigned_ip', flat=True))
-            
-            # 학생 계정인지 확인
-            is_student = not self.request.user.is_staff
-            
-            # 사용 가능한 IP 찾기 (학생 계정 여부에 따라 다른 IP 대역 사용)
-            assigned_ip = KeaClient.find_available_ip(existing_ips=used_ips, is_student=is_student)
+            try:
+                # 학생 여부에 따라 적절한 IP 범위 선택
+                if self.request.user.is_student:
+                    available_ip = get_available_ip('student')
+                else:
+                    available_ip = get_available_ip('teacher')
                 
-            if not assigned_ip:
-                raise ValidationError({"assigned_ip": "사용 가능한 IP 주소가 없습니다."})
-                
-            logger.info(f"자동 할당된 IP 주소: {assigned_ip} (학생 계정: {is_student})")
-            
-            # 할당된 IP 주소 저장
-            device.assigned_ip = assigned_ip
-            device.save()
+                if available_ip:
+                    device.assigned_ip = available_ip
+                    device.save()
+                    logger.info(f"장치에 IP 자동 할당: 장치={device.name}, IP={available_ip}")
+                else:
+                    logger.warning(f"사용 가능한 IP가 없음: 장치={device.name}")
+            except Exception as e:
+                logger.error(f"IP 할당 중 오류 발생: 장치={device.name}, 오류={str(e)}")
+                raise ValidationError({
+                    'detail': 'IP 할당 중 오류가 발생했습니다.',
+                    'error_code': 'IP_ASSIGNMENT_ERROR'
+                })
         
         # 이력 기록
         DeviceHistory.objects.create(

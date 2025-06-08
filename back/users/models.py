@@ -24,6 +24,7 @@ class CustomUserManager(UserManager):
 class User(AbstractUser):
     is_initial_password = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    device_limit = models.IntegerField(default=3, help_text='최대 등록 가능한 장치 수')
     
     # 커스텀 매니저 설정
     objects = CustomUserManager()

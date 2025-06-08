@@ -52,6 +52,25 @@ export interface CurrentMacResponse {
 }
 
 /**
+ * IP 에러 타입
+ */
+export interface DeviceError {
+  detail: string;
+  error_code?: string;
+  current_count?: number;
+  device_limit?: number;
+}
+
+/**
+ * API 응답 타입
+ */
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string | DeviceError;
+}
+
+/**
  * IP 관리 서비스
  */
 const ipService = {

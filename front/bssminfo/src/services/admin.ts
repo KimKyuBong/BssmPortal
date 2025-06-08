@@ -42,6 +42,7 @@ export interface User {
   created_at: string;
   is_active: boolean;
   message?: string; // 서버에서 반환하는 메시지
+  device_limit: number;
 }
 
 /**
@@ -54,6 +55,7 @@ export interface CreateUserRequest {
   last_name?: string;
   is_staff?: boolean;
   is_superuser?: boolean;
+  device_limit?: number;
 }
 
 /**
@@ -120,6 +122,28 @@ export interface BlacklistedIPResponse {
 }
 
 /**
+ * API 에러 처리 함수
+ */
+const handleApiError = (error: any): ApiResponse<any> => {
+  if (error.response) {
+    return {
+      success: false,
+      message: error.response.data.message || '서버 오류가 발생했습니다.'
+    };
+  }
+  if (error.request) {
+    return {
+      success: false,
+      message: '서버와 통신할 수 없습니다.'
+    };
+  }
+  return {
+    success: false,
+    message: '요청을 처리하는 중 오류가 발생했습니다.'
+  };
+};
+
+/**
  * 관리자 서비스
  */
 const adminService = {
@@ -155,37 +179,16 @@ const adminService = {
   },
 
   /**
-   * 페이지네이션 URL로 사용자 목록 조회
-   * @param url 페이지네이션 URL
-   * @returns 페이지네이션된 사용자 데이터
+   * URL로 사용자 목록 조회
+   * @param url API URL
+   * @returns 사용자 목록
    */
-  getUsersWithUrl: async (url: string): Promise<PaginatedResponse<User>> => {
+  getUsersWithUrl: async (url: string) => {
     try {
-      // 상대 URL 경로 추출 (http://localhost:55693/api/admin/users/?page=2 -> /admin/users?page=2)
-      const urlObj = new URL(url);
-      // api.ts에서 슬래시 처리를 하므로 여기서는 원본 경로 사용
-      const relativePath = urlObj.pathname + urlObj.search;
-      
-      console.log('페이지네이션 URL로 사용자 가져오기:', relativePath);
-      const response = await api.get<PaginatedResponse<User>>(relativePath);
-      
-      if (response.success && response.data) {
-        if ('count' in response.data) {
-          console.log('페이지네이션 응답:', {
-            count: response.data.count,
-            next: response.data.next,
-            previous: response.data.previous
-          });
-        }
-        return response.data;
-      } else {
-        console.error('페이지네이션 URL로 사용자 가져오기 실패:', response.error);
-        // 에러 시에도 빈 PaginatedResponse 객체 반환
-        return { count: 0, next: null, previous: null, results: [] };
-      }
+      const response = await api.get<PaginatedResponse<User>>(url);
+      return response.data;
     } catch (error) {
       console.error('Get users with URL error:', error);
-      // 에러 시에도 빈 PaginatedResponse 객체 반환
       return { count: 0, next: null, previous: null, results: [] };
     }
   },
@@ -797,6 +800,52 @@ const adminService = {
       };
     }
   },
+
+  /**
+   * 일괄 사용자 삭제
+   * @param userIds 사용자 ID 목록
+   * @returns 삭제 결과
+   */
+  bulkDeleteUsers: async (userIds: number[]) => {
+    try {
+      const response = await api.post('/admin/users/bulk-delete/', { user_ids: userIds });
+      return response;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  /**
+   * 일괄 비밀번호 초기화
+   * @param userIds 사용자 ID 목록
+   * @returns 초기화 결과
+   */
+  bulkResetPasswords: async (userIds: number[]) => {
+    try {
+      const response = await api.post('/admin/users/bulk-reset-password/', { user_ids: userIds });
+      return response;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
+  /**
+   * 장치 제한 수정
+   * @param userId 사용자 ID
+   * @param deviceLimit 장치 제한 수
+   * @returns 수정 결과
+   */
+  updateDeviceLimit: async (userId: number, deviceLimit: number) => {
+    try {
+      const response = await api.patch(`/admin/users/${userId}/`, { device_limit: deviceLimit });
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return handleApiError(error);
+    }
+  }
 };
 
 export default adminService; 
