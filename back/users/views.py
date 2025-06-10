@@ -451,6 +451,28 @@ class UserViewSet(viewsets.ModelViewSet):
                 'message': f'비밀번호 초기화 중 오류가 발생했습니다: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # 공백 값 필터링
+        data = request.data.copy()
+        filtered_data = {}
+        for key, value in data.items():
+            if isinstance(value, str) and value.strip() == '':
+                continue
+            filtered_data[key] = value
+        
+        serializer = self.get_serializer(instance, data=filtered_data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
 class PasswordViewSet(viewsets.ViewSet):
     """
     비밀번호 관리를 위한 ViewSet

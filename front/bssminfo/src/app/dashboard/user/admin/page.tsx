@@ -22,7 +22,7 @@ interface ExtendedUser extends User {
   is_superuser: boolean;
   is_initial_password: boolean;
   email: string;
-  last_name: string;
+  user_name: string;
   is_staff: boolean;
   ip_count: number;
   rental_count: number;
@@ -33,13 +33,9 @@ interface ExtendedUser extends User {
 }
 
 // Student 타입 확장
-interface ExtendedStudent extends Student {
+interface ExtendedStudent extends Omit<Student, 'user'> {
+  user: number;
   device_limit: number;
-  email: string;
-  last_name: string;
-  is_staff: boolean;
-  is_superuser: boolean;
-  is_initial_password: boolean;
   ip_count: number;
   rental_count: number;
 }
@@ -159,12 +155,18 @@ export default function AdminPage() {
       if (classId === 0) {
         // 전체 학생 목록은 페이지네이션 없이 한 번에 불러오기
         const response = await userService.getStudentsByClass(classId, 1, 1000); // 큰 숫자로 설정하여 모든 학생을 한 번에 가져옴
-        setStudents(response.results);
+        setStudents(response.results.map((student: Student) => ({
+          ...student,
+          device_limit: student.device_limit || 0
+        })));
         setTotalPages(1); // 전체 목록에서는 페이지네이션 비활성화
       } else {
         // 학반별 보기에서는 페이지네이션 적용
         const response = await userService.getStudentsByClass(classId, 1);
-        setStudents(response.results);
+        setStudents(response.results.map((student: Student) => ({
+          ...student,
+          device_limit: student.device_limit || 0
+        })));
         setTotalPages(Math.ceil(response.count / response.results.length));
       }
     } catch (error) {
@@ -225,14 +227,14 @@ export default function AdminPage() {
         await Promise.all(selectedStudents.map(id => {
           const student = students.find(s => s.id === id);
           if (student) {
-            return handleDeleteUser(student.user.id);
+            return handleDeleteUser(student.user);
           }
         }));
       } else {
         await Promise.all(selectedStudents.map(id => {
           const student = students.find(s => s.id === id);
           if (student) {
-            return handleResetPassword(student.user.id);
+            return handleResetPassword(student.user);
           }
         }));
       }
@@ -266,10 +268,11 @@ export default function AdminPage() {
     try {
       // 학생인 경우 실제 user ID를 사용
       const student = students.find(s => s.id === selectedUser.id);
-      const userId = student ? student.user.id : selectedUser.id;
+      const userId = student ? student.user : selectedUser.id;
       await handleResetPassword(userId, password);
       setIsResetModalOpen(false);
       setSelectedUser(null);
+      fetchData(); // 데이터 새로고침
     } catch (error) {
       console.error('비밀번호 초기화 실패:', error);
     }
@@ -303,14 +306,34 @@ export default function AdminPage() {
       if (result.success) {
         setIsEditUserModalOpen(false);
         setSelectedUserForEdit(null);
-        alert(result.message);
-        fetchData(); // 사용자 목록 새로고침
+        alert('사용자 정보가 성공적으로 수정되었습니다.');
+        
+        // 데이터 새로고침
+        if (selectedClass === 0) {
+          // 전체 학생 목록인 경우
+          const response = await userService.getStudentsByClass(0, 1, 1000);
+          setStudents(response.results.map((student: Student) => ({
+            ...student,
+            device_limit: student.device_limit || 0
+          })));
+        } else if (selectedClass) {
+          // 학반별 보기인 경우
+          const response = await userService.getStudentsByClass(selectedClass, currentPage);
+          setStudents(response.results.map((student: Student) => ({
+            ...student,
+            device_limit: student.device_limit || 0
+          })));
+        }
+        
+        // 교사 목록도 새로고침
+        const teachersData = await userService.getTeachers();
+        setTeachers(teachersData.results || teachersData);
       } else {
-        alert(result.message);
+        alert(result.message || '사용자 정보 수정에 실패했습니다.');
       }
     } catch (error) {
       console.error('사용자 정보 수정 실패:', error);
-      alert('사용자 정보 수정 중 오류가 발생했습니다.');
+      alert('사용자 정보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     }
   };
 
@@ -386,16 +409,16 @@ export default function AdminPage() {
       const userId = 'user' in user ? user.user : user.id;
       const username = user.username;
       
-      setSelectedUser({ id: Number(userId), username });
+      setSelectedUser({ id: userId, username });
       setModalType(type);
       
       if (type === 'ip') {
-        const response = await adminService.getIpRentals(Number(userId));
+        const response = await adminService.getIpRentals(userId);
         if (response.success && response.data) {
           setIpRentals(response.data);
         }
       } else {
-        const response = await adminService.getDeviceRentals(Number(userId));
+        const response = await adminService.getDeviceRentals(userId);
         if (response.success && response.data) {
           setDeviceRentals(response.data);
         }
@@ -422,11 +445,6 @@ export default function AdminPage() {
         setStudents(response.results.map((student: Student) => ({
           ...student,
           device_limit: student.device_limit || 0,
-          email: student.user.email || '',
-          last_name: student.user.last_name || '',
-          is_staff: student.user.is_staff,
-          is_superuser: false,
-          is_initial_password: false,
           ip_count: 0,
           rental_count: 0
         })));
@@ -569,7 +587,7 @@ export default function AdminPage() {
                       상태
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                      장치 제한
+                      ip 제한
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                       작업
@@ -727,13 +745,13 @@ export default function AdminPage() {
                         IP 대여 수
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                        IP 대여 수
+                        기기 대여 수
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                         학반
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
-                        장치 제한
+                        ip 제한
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-900 uppercase tracking-wider">
                         작업
@@ -786,7 +804,12 @@ export default function AdminPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <div className="flex flex-col sm:flex-row gap-2">
                               <button
-                                onClick={() => handleDeviceLimitClick(student)}
+                                onClick={() => handleDeviceLimitClick({
+                                  ...student,
+                                  id: student.user,
+                                  username: student.username,
+                                  device_limit: student.device_limit || 0
+                                })}
                                 className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
                               >
                                 <UserIcon className="h-3 w-3 inline mr-1" />
@@ -802,7 +825,7 @@ export default function AdminPage() {
                                 onClick={() => {
                                   const currentStudent = students.find(s => s.id === student.id);
                                   if (currentStudent) {
-                                    handleDeleteUser(currentStudent.user.id);
+                                    handleDeleteUser(currentStudent.user);
                                   }
                                 }}
                                 className="text-red-600 hover:text-red-900 px-3 py-1 rounded-md border border-red-600 hover:bg-red-50"
@@ -864,7 +887,7 @@ export default function AdminPage() {
             id: selectedUserForEdit.id,
             username: selectedUserForEdit.username,
             email: 'email' in selectedUserForEdit ? selectedUserForEdit.email || null : null,
-            last_name: 'last_name' in selectedUserForEdit ? selectedUserForEdit.last_name || null : null,
+            user_name: 'user_name' in selectedUserForEdit ? selectedUserForEdit.user_name : null,
             is_staff: 'is_staff' in selectedUserForEdit ? selectedUserForEdit.is_staff || false : false,
             is_superuser: 'is_superuser' in selectedUserForEdit ? selectedUserForEdit.is_superuser || false : false,
             device_limit: selectedUserForEdit.device_limit,

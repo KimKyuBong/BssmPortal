@@ -6,17 +6,19 @@ from django.db import models
 class CustomUserManager(UserManager):
     def create_user(self, username, password=None, **extra_fields):
         """
-        last_name 필드가 올바르게 저장되도록 기본 create_user 메서드를 확장합니다.
+        user_name 필드가 올바르게 저장되도록 기본 create_user 메서드를 확장합니다.
         """
-        # last_name을 별도로 저장
-        last_name = extra_fields.get('last_name', '')
+        # user_name을 last_name으로 저장
+        user_name = extra_fields.pop('user_name', None)
+        if user_name:
+            extra_fields['last_name'] = user_name
         
         # 기본 메서드 호출
         user = super().create_user(username, password=password, **extra_fields)
         
         # last_name이 저장되지 않았는데 제공된 경우 직접 설정
-        if last_name and not user.last_name:
-            user.last_name = last_name
+        if user_name and not user.last_name:
+            user.last_name = user_name
             user.save(update_fields=['last_name'])
             
         return user

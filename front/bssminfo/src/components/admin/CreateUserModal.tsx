@@ -13,7 +13,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
     username: '',
     password: '',
     email: '',
-    last_name: '',
+    user_name: '',
     is_staff: false,
     is_superuser: false,
     device_limit: 3,
@@ -34,7 +34,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
         username: newUser.username,
         password: newUser.password,
         email: newUser.email || undefined,
-        last_name: newUser.last_name || undefined,
+        user_name: newUser.user_name || undefined,
         is_staff: newUser.is_staff,
         is_superuser: newUser.is_superuser,
         device_limit: newUser.device_limit
@@ -47,7 +47,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
         username: '',
         password: '',
         email: '',
-        last_name: '',
+        user_name: '',
         is_staff: false,
         is_superuser: false,
         device_limit: 3,
@@ -149,15 +149,15 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
               </div>
               
               <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-900">
+                <label htmlFor="user_name" className="block text-sm font-medium text-gray-900">
                   이름
                 </label>
                 <input
                   type="text"
-                  name="last_name"
-                  id="last_name"
+                  name="user_name"
+                  id="user_name"
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
-                  value={newUser.last_name}
+                  value={newUser.user_name}
                   onChange={handleInputChange}
                 />
               </div>

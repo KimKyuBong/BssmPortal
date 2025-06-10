@@ -395,6 +395,25 @@ export default function EquipmentManagementPage() {
       // 장비 정보 업데이트
       const result = await equipmentService.updateEquipment(selectedEquipment.id, submitData);
       if (result.success) {
+        // 상태가 AVAILABLE로 변경되고 이전에 대여 중이었다면 대여 기록 업데이트
+        if (formData.status === 'AVAILABLE' && selectedEquipment.status === 'RENTED' && selectedEquipment.rental) {
+          try {
+            await rentalService.returnRental(selectedEquipment.rental.id);
+            setNotification({
+              open: true,
+              message: '장비가 반납 처리되었습니다.',
+              severity: 'success'
+            });
+          } catch (error) {
+            console.error('대여 반납 처리 중 오류:', error);
+            setNotification({
+              open: true,
+              message: '장비 정보는 수정되었으나 반납 처리 중 오류가 발생했습니다.',
+              severity: 'error'
+            });
+          }
+        }
+        
         // 대여 정보가 있는 경우 대여 처리
         if (formData.rental_user && formData.rental_due_date) {
           try {

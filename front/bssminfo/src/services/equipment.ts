@@ -151,19 +151,29 @@ const equipmentService = {
 
   // 장비 목록 엑셀 다운로드 (관리자용)
   async exportEquipmentToExcel() {
-    const response = await api.get('/rentals/equipment/export_excel/', {
-      responseType: 'blob'
-    });
+    try {
+      const response = await api.get('/rentals/equipment/export_excel/', {
+        responseType: 'blob'
+      });
 
-    const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'equipment_list.xlsx');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+      // 현재 날짜를 파일명에 포함
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `장비_목록_${date}.xlsx`;
 
-    return { success: true };
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      return { success: true };
+    } catch (error) {
+      console.error('엑셀 다운로드 중 오류:', error);
+      throw new Error('엑셀 파일 다운로드에 실패했습니다.');
+    }
   },
 
   // 엑셀 파일로 장비 일괄 추가 (관리자용)

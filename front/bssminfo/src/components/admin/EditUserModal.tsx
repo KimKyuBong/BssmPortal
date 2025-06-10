@@ -12,7 +12,7 @@ interface EditUserModalProps {
 export default function EditUserModal({ isOpen, onClose, onEditUser, user }: EditUserModalProps) {
   const [editedUser, setEditedUser] = useState<Partial<AdminUser>>({
     email: '',
-    last_name: '',
+    user_name: '',
     is_staff: false,
     is_superuser: false,
     device_limit: 3,
@@ -25,7 +25,7 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
     if (user) {
       setEditedUser({
         email: user.email || '',
-        last_name: user.last_name || '',
+        user_name: user.user_name || '',
         is_staff: user.is_staff,
         is_superuser: user.is_superuser,
         device_limit: user.device_limit,
@@ -37,15 +37,22 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
     e.preventDefault();
     if (!user) return;
     
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      await onEditUser(user.id, editedUser);
-      onClose();
+      // 공백 값 필터링
+      const filteredData: Partial<AdminUser> = {};
+      Object.entries(editedUser).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          filteredData[key as keyof AdminUser] = value as any;
+        }
+      });
+
+      await onEditUser(user.id, filteredData);
     } catch (err) {
-      setError('사용자 정보 수정 중 오류가 발생했습니다.');
-      console.error('Edit user error:', err);
+      setError('사용자 정보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      console.error('Error updating user:', err);
     } finally {
       setLoading(false);
     }
@@ -119,15 +126,15 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
               </div>
               
               <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-900">
+                <label htmlFor="user_name" className="block text-sm font-medium text-gray-900">
                   이름
                 </label>
                 <input
                   type="text"
-                  name="last_name"
-                  id="last_name"
+                  name="user_name"
+                  id="user_name"
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
-                  value={editedUser.last_name ?? ''}
+                  value={editedUser.user_name ?? ''}
                   onChange={handleInputChange}
                 />
               </div>

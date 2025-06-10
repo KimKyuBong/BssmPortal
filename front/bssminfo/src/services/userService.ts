@@ -5,11 +5,11 @@ export interface User {
   id: number;
   username: string;
   email: string | null;
+  user_name: string | null | undefined;
   is_staff: boolean;
   is_active: boolean;
   created_at: string;
   device_limit: number;
-  last_name: string | null;
   is_superuser: boolean;
   is_initial_password: boolean;
   ip_count: number;
@@ -18,15 +18,7 @@ export interface User {
 
 export interface Student {
   id: number;
-  user: {
-    id: number;
-    username: string;
-    email: string | null;
-    first_name: string | null;
-    last_name: string;
-    is_staff: boolean;
-    name: string;
-  };
+  user: number;
   username: string;
   user_name: string;
   current_class: number;

@@ -141,80 +141,79 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         if not request.user.is_staff:
             return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
             
-        equipment_list = Equipment.objects.all()
-        
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "장비 목록"
-        
-        # 헤더 스타일 설정
-        header_font = Font(bold=True)
-        header_alignment = Alignment(horizontal='center')
-        
-        # 컬럼 헤더 설정
-        columns = ['ID', '장비명', '모델명', '종류', '일련번호', '상태', '대여자', '대여자 아이디', '취득일']
-        for col_num, column_title in enumerate(columns, 1):
-            cell = ws.cell(row=1, column=col_num, value=column_title)
-            cell.font = header_font
-            cell.alignment = header_alignment
-        
-        # 데이터 입력
-        for row_num, equipment in enumerate(equipment_list, 2):
-            ws.cell(row=row_num, column=1, value=equipment.id)
-            ws.cell(row=row_num, column=2, value=equipment.name)
-            ws.cell(row=row_num, column=3, value=equipment.model_name or '-')
-            ws.cell(row=row_num, column=4, value=equipment.get_equipment_type_display())
-            ws.cell(row=row_num, column=5, value=equipment.serial_number)
-            ws.cell(row=row_num, column=6, value=equipment.get_status_display())
+        try:
+            equipment_list = Equipment.objects.all()
             
-            # 현재 대여 중인 사용자 정보
-            current_rental = equipment.current_rentals.first()
-            if current_rental and current_rental.user:
-                # 대여자 이름이 None이거나 빈 문자열인 경우 처리
-                last_name = str(current_rental.user.last_name or '').strip()
-                first_name = str(current_rental.user.first_name or '').strip()
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "장비 목록"
+            
+            # 헤더 스타일 설정
+            header_font = Font(bold=True)
+            header_alignment = Alignment(horizontal='center')
+            
+            # 컬럼 헤더 설정
+            columns = ['ID', '장비명', '모델명', '종류', '일련번호', '상태', '대여자', '대여자 아이디', '취득일']
+            for col_num, column_title in enumerate(columns, 1):
+                cell = ws.cell(row=1, column=col_num, value=column_title)
+                cell.font = header_font
+                cell.alignment = header_alignment
+            
+            # 데이터 입력
+            for row_num, equipment in enumerate(equipment_list, 2):
+                ws.cell(row=row_num, column=1, value=equipment.id)
+                ws.cell(row=row_num, column=2, value=equipment.name)
+                ws.cell(row=row_num, column=3, value=equipment.model_name or '-')
+                ws.cell(row=row_num, column=4, value=equipment.get_equipment_type_display())
+                ws.cell(row=row_num, column=5, value=equipment.serial_number)
+                ws.cell(row=row_num, column=6, value=equipment.get_status_display())
                 
-                # 이름이 모두 비어있는 경우 사용자 아이디 사용
-                if not last_name and not first_name:
-                    full_name = current_rental.user.username
+                # 현재 대여 중인 사용자 정보
+                current_rental = equipment.rentals.filter(status='RENTED').first()
+                if current_rental and current_rental.user:
+                    # last_name이 있으면 사용, 없으면 username 사용
+                    user_name = current_rental.user.last_name or current_rental.user.username
+                    ws.cell(row=row_num, column=7, value=user_name)
+                    ws.cell(row=row_num, column=8, value=current_rental.user.username)
                 else:
-                    # 성과 이름이 있는 경우에만 공백 추가
-                    full_name = f"{last_name} {first_name}".strip()
-                
-                ws.cell(row=row_num, column=7, value=full_name)
-                ws.cell(row=row_num, column=8, value=current_rental.user.username)
-            else:
-                ws.cell(row=row_num, column=7, value="-")
-                ws.cell(row=row_num, column=8, value="-")
-                
-            ws.cell(row=row_num, column=9, value=str(equipment.acquisition_date))
-        
-        # 컬럼 너비 자동 조정
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column_letter].width = adjusted_width
-        
-        # 파일 저장
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-        
-        response = HttpResponse(
-            output.getvalue(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="equipment_list.xlsx"'
-        response['Content-Length'] = len(output.getvalue())
-        
-        return response
+                    ws.cell(row=row_num, column=7, value="-")
+                    ws.cell(row=row_num, column=8, value="-")
+                    
+                ws.cell(row=row_num, column=9, value=str(equipment.acquisition_date))
+            
+            # 컬럼 너비 자동 조정
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column_letter].width = adjusted_width
+            
+            # 파일 저장
+            output = BytesIO()
+            wb.save(output)
+            output.seek(0)
+            
+            response = HttpResponse(
+                output.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = 'attachment; filename="equipment_list.xlsx"'
+            response['Content-Length'] = len(output.getvalue())
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"엑셀 출력 중 오류 발생: {str(e)}")
+            return Response(
+                {"detail": "엑셀 파일 생성 중 오류가 발생했습니다."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['post'], url_path='import')
     def import_excel(self, request):

@@ -31,7 +31,7 @@ export const useUsers = () => {
     return users.filter(user => 
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.last_name && user.last_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      (user.user_name && user.user_name.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [users, searchTerm]);
 

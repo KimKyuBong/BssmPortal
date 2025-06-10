@@ -321,6 +321,11 @@ const rentalService = {
     return response.data;
   },
 
+  async returnRental(rentalId: number): Promise<ApiResponse<Rental>> {
+    const response = await api.post(`/rentals/${rentalId}/return/`);
+    return response.data;
+  },
+
   async getRentals(page?: number): Promise<ApiResponse<Rental[] | PaginatedResponse<Rental>>> {
     try {
       const url = `/rentals/${page ? `?page=${page}` : ''}`;

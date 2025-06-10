@@ -35,7 +35,7 @@ export interface User {
   id: number;
   username: string;
   email: string | null;
-  last_name: string | null;
+  user_name: string | null;
   is_staff: boolean;
   is_superuser: boolean;
   is_active: boolean;
@@ -51,7 +51,7 @@ export interface CreateUserRequest {
   username: string;
   password: string;
   email?: string;
-  last_name?: string;
+  user_name?: string;
   is_staff?: boolean;
   is_superuser?: boolean;
   device_limit?: number;
@@ -62,7 +62,7 @@ export interface CreateUserRequest {
  */
 export interface UpdateUserRequest {
   email?: string | null;
-  last_name?: string | null;
+  user_name?: string | null;
   is_staff?: boolean;
   is_superuser?: boolean;
   device_limit?: number;

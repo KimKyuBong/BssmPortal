@@ -220,7 +220,7 @@ export default function UserManagement({
     try {
       const result = await adminService.updateUser(userId, {
         email: userData.email,
-        last_name: userData.last_name,
+        user_name: userData.user_name,
         is_staff: userData.is_staff,
         is_superuser: userData.is_superuser,
         device_limit: userData.device_limit
@@ -428,7 +428,7 @@ export default function UserManagement({
                         <User className="h-6 w-6 text-gray-500" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.last_name || '이름 없음'}</div>
+                        <div className="text-sm font-medium text-gray-900">{user.user_name || '이름 없음'}</div>
                       </div>
                     </div>
                   </td>
