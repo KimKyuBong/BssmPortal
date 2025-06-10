@@ -7,38 +7,8 @@ services:
     volumes:
       - ./back:/app
       - ./backups:/backups
-    environment:
-      # Django 설정
-      - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=${DEBUG}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      
-      # kea 데이터베이스 설정
-      - KEA_DATABASE_HOST=db
-      - KEA_DATABASE_USER=${KEA_DATABASE_USER}
-      - KEA_DATABASE_PASSWORD=${KEA_DATABASE_PASSWORD}
-      - KEA_DATABASE_NAME=${KEA_DATABASE_NAME}
-      - KEA_DATABASE_PORT=${KEA_DATABASE_PORT}
-
-      # bssm 데이터베이스 설정
-      - BSSM_DATABASE_HOST=db
-      - BSSM_DATABASE_USER=${BSSM_DATABASE_USER}
-      - BSSM_DATABASE_PASSWORD=${BSSM_DATABASE_PASSWORD}
-      - BSSM_DATABASE_NAME=${BSSM_DATABASE_NAME}
-      - BSSM_DATABASE_PORT=${BSSM_DATABASE_PORT}
-      
-      # CORS 설정
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
-      
-      # JWT 설정
-      - JWT_ACCESS_TOKEN_HOURS=${JWT_ACCESS_TOKEN_HOURS}
-      - JWT_REFRESH_TOKEN_DAYS=${JWT_REFRESH_TOKEN_DAYS}
-      - JWT_ALGORITHM=${JWT_ALGORITHM}
-      
-      # KEA DHCP 설정
-      - KEA_SUBNET_ID=${KEA_SUBNET_ID}
-      - KEA_TEACHER_LIFETIME=${KEA_TEACHER_LIFETIME}
-      - KEA_STUDENT_LIFETIME=${KEA_STUDENT_LIFETIME}
+    env_file:
+      - .env
     depends_on:
       - db
 
@@ -56,11 +26,8 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${KEA_DATABASE_NAME}
-      MYSQL_USER: ${KEA_DATABASE_USER}
-      MYSQL_PASSWORD: ${KEA_DATABASE_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    env_file:
+      - .env
     ports:
       - "3306:3306"
     volumes:
@@ -70,38 +37,11 @@ services:
     image: mysql:8.0
     restart: unless-stopped
     volumes:
-      - ./backups:/backups
-    environment:
-      # KEA 데이터베이스 설정
-      - KEA_DB_HOST=db
-      - KEA_DB_USER=${KEA_DATABASE_USER}
-      - KEA_DB_PASSWORD=${KEA_DATABASE_PASSWORD}
-      - KEA_DB_NAME=${KEA_DATABASE_NAME}
-      # BSSM 데이터베이스 설정
-      - BSSM_DB_HOST=db
-      - BSSM_DB_USER=${BSSM_DATABASE_USER}
-      - BSSM_DB_PASSWORD=${BSSM_DATABASE_PASSWORD}
-      - BSSM_DB_NAME=${BSSM_DATABASE_NAME}
-    entrypoint: |
-      bash -c '
-        while true; do
-          DATE=$$(date +%Y%m%d_%H%M%S)
-          
-          # KEA 데이터베이스 백업
-          mysqldump -h $$KEA_DB_HOST -u $$KEA_DB_USER -p$$KEA_DB_PASSWORD $$KEA_DB_NAME > /backups/kea_db_backup_$$DATE.sql
-          gzip /backups/kea_db_backup_$$DATE.sql
-          
-          # BSSM 데이터베이스 백업
-          mysqldump -h $$BSSM_DB_HOST -u $$BSSM_DB_USER -p$$BSSM_DB_PASSWORD $$BSSM_DB_NAME > /backups/bssm_db_backup_$$DATE.sql
-          gzip /backups/bssm_db_backup_$$DATE.sql
-          
-          # 30일이 지난 백업 파일 삭제
-          find /backups -name "kea_db_backup_*.sql.gz" -type f -mtime +30 -delete
-          find /backups -name "bssm_db_backup_*.sql.gz" -type f -mtime +30 -delete
-          
-          sleep 86400
-        done
-      '
+      - ./backup:/backup
+      - ./backup/scripts:/scripts
+    env_file:
+      - .env
+    entrypoint: ["/scripts/backup.sh"]
     depends_on:
       - db
 
@@ -113,77 +53,8 @@ services:
     volumes:
       - ./kea/config:/etc/kea
       - ./kea/logs:/var/log/kea
-    environment:
-      - TZ=Asia/Seoul
-      # KEA 데이터베이스 설정
-      - KEA_DATABASE_HOST=127.0.0.1
-      - KEA_DATABASE_PORT=${KEA_DATABASE_PORT}
-      - KEA_DATABASE_NAME=${KEA_DATABASE_NAME}
-      - KEA_DATABASE_USER=${KEA_DATABASE_USER}
-      - KEA_DATABASE_PASSWORD=${KEA_DATABASE_PASSWORD}
-      
-      # 기존 KEA 네트워크 설정 (호환성 유지)
-      - KEA_INTERFACE=${KEA_INTERFACE}
-      - KEA_NORMAL_GATEWAY=${KEA_NORMAL_GATEWAY}
-      - KEA_NORMAL_SUBNET=${KEA_NORMAL_SUBNET}
-      - KEA_NORMAL_POOL=${KEA_NORMAL_POOL}
-      - KEA_BOOT_GATEWAY=${KEA_BOOT_GATEWAY}
-      - KEA_BOOT_SUBNET=${KEA_BOOT_SUBNET}
-      - KEA_BOOT_POOL=${KEA_BOOT_POOL}
-      - KEA_BOOT_DHCP=${KEA_BOOT_DHCP}
-      - KEA_NORMAL_DHCP=${KEA_NORMAL_DHCP}
-      
-      # 새로 추가된 KEA 네트워크 설정
-      - KEA_INTERFACE2=${KEA_INTERFACE2}
-      
-      # 미인증 교사 네트워크
-      - KEA_NC_TEACHER_GATEWAY=${KEA_NC_TEACHER_GATEWAY}
-      - KEA_NC_TEACHER_SUBNET=${KEA_NC_TEACHER_SUBNET}
-      - KEA_NC_TEACHER_POOL=${KEA_NC_TEACHER_POOL}
-      - KEA_NC_TEACHER_DHCP=${KEA_NC_TEACHER_DHCP}
-      
-      # 미인증 학생 네트워크
-      - KEA_NC_STUDENT_GATEWAY=${KEA_NC_STUDENT_GATEWAY}
-      - KEA_NC_STUDENT_SUBNET=${KEA_NC_STUDENT_SUBNET}
-      - KEA_NC_STUDENT_POOL=${KEA_NC_STUDENT_POOL}
-      - KEA_NC_STUDENT_DHCP=${KEA_NC_STUDENT_DHCP}
-      
-      # 교사 부팅 네트워크
-      - KEA_TEACHER_BOOT_GATEWAY=${KEA_TEACHER_BOOT_GATEWAY}
-      - KEA_TEACHER_BOOT_SUBNET=${KEA_TEACHER_BOOT_SUBNET}
-      - KEA_TEACHER_BOOT_POOL=${KEA_TEACHER_BOOT_POOL}
-      - KEA_TEACHER_BOOT_DHCP=${KEA_TEACHER_BOOT_DHCP}
-      
-      # 학생 부팅 네트워크
-      - KEA_STUDENT_BOOT_GATEWAY=${KEA_STUDENT_BOOT_GATEWAY}
-      - KEA_STUDENT_BOOT_SUBNET=${KEA_STUDENT_BOOT_SUBNET}
-      - KEA_STUDENT_BOOT_POOL=${KEA_STUDENT_BOOT_POOL}
-      - KEA_STUDENT_BOOT_DHCP=${KEA_STUDENT_BOOT_DHCP}
-      
-      # 인증 교사 네트워크
-      - KEA_AUTH_TEACHER_GATEWAY=${KEA_AUTH_TEACHER_GATEWAY}
-      - KEA_AUTH_TEACHER_SUBNET=${KEA_AUTH_TEACHER_SUBNET}
-      - KEA_AUTH_TEACHER_POOL=${KEA_AUTH_TEACHER_POOL}
-      - KEA_AUTH_TEACHER_DHCP=${KEA_AUTH_TEACHER_DHCP}
-      
-      # 인증 학생 네트워크 (망 1)
-      - KEA_AUTH_STUDENT1_GATEWAY=${KEA_AUTH_STUDENT1_GATEWAY}
-      - KEA_AUTH_STUDENT1_SUBNET=${KEA_AUTH_STUDENT1_SUBNET}
-      - KEA_AUTH_STUDENT1_POOL=${KEA_AUTH_STUDENT1_POOL}
-      - KEA_AUTH_STUDENT1_DHCP=${KEA_AUTH_STUDENT1_DHCP}
-      
-      # 인증 학생 네트워크 (망 2)
-      - KEA_AUTH_STUDENT2_GATEWAY=${KEA_AUTH_STUDENT2_GATEWAY}
-      - KEA_AUTH_STUDENT2_SUBNET=${KEA_AUTH_STUDENT2_SUBNET}
-      - KEA_AUTH_STUDENT2_POOL=${KEA_AUTH_STUDENT2_POOL}
-      - KEA_AUTH_STUDENT2_DHCP=${KEA_AUTH_STUDENT2_DHCP}
-      
-      # PXE/iPXE 설정
-      - PXE_TEACHER_SERVER=${PXE_TEACHER_SERVER}
-      - PXE_TEACHER_HTTP_PORT=${PXE_TEACHER_HTTP_PORT}
-      - PXE_STUDENT_SERVER=${PXE_STUDENT_SERVER}
-      - PXE_STUDENT_HTTP_PORT=${PXE_STUDENT_HTTP_PORT}
-      
+    env_file:
+      - .env
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -202,7 +73,7 @@ services:
       VERBOSITY: 4
       SECURE: 1
       PERMISSIVE: 1
-      MAXPROC: 4  # 프로세스 수 제한
+      MAXPROC: 4
       MAPFILE: ""   
     volumes:
       - ./tftp/data:/tftpboot
@@ -217,6 +88,8 @@ services:
       - ./smb/initsetup:/setup
       - ./smb/setup:/oldsetup
       - ./smb/bssmdata:/bssmdata
+    env_file:
+      - .env
     environment:
       USERID: 1000
       GROUPID: 1000
