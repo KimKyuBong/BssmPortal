@@ -190,7 +190,7 @@ export default function Dashboard() {
         </Link>
         
         <Link 
-          href="/dashboard/change-password"
+          href="/dashboard/user/change-password"
           className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
         >
           <Settings className="w-8 h-8 text-gray-500 mr-4" />
@@ -207,7 +207,7 @@ export default function Dashboard() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">교사 기능</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <Link 
-              href="/dashboard/user/admin"
+              href="/dashboard/admin"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <Users className="w-8 h-8 text-orange-500 mr-4" />
@@ -229,7 +229,7 @@ export default function Dashboard() {
             </Link>
             
             <Link 
-              href="/dashboard/user/admin/equipment"
+              href="/dashboard/admin/equipment"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <Shield className="w-8 h-8 text-green-500 mr-4" />
@@ -240,7 +240,7 @@ export default function Dashboard() {
             </Link>
             
             <Link 
-              href="/dashboard/user/admin/rental-requests"
+              href="/dashboard/admin/rental-requests"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <BookOpen className="w-8 h-8 text-purple-500 mr-4" />
@@ -259,7 +259,7 @@ export default function Dashboard() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">관리자 기능</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <Link 
-              href="/dashboard/user/admin"
+              href="/dashboard/admin"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <Users className="w-8 h-8 text-orange-500 mr-4" />
@@ -292,7 +292,7 @@ export default function Dashboard() {
             </Link>
             
             <Link 
-              href="/dashboard/user/admin/equipment"
+              href="/dashboard/admin/equipment"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <Shield className="w-8 h-8 text-green-500 mr-4" />
@@ -303,7 +303,7 @@ export default function Dashboard() {
             </Link>
             
             <Link 
-              href="/dashboard/user/admin/rental-requests"
+              href="/dashboard/admin/rental-requests"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <BookOpen className="w-8 h-8 text-purple-500 mr-4" />

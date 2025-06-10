@@ -22,8 +22,8 @@ export const useAppState = () => {
     }
     
     // 특정 관리자 페이지 처리
-    if (href === '/dashboard/user/admin') {
-      return currentPath === '/dashboard/user/admin' || currentPath === '/dashboard/user/admin/';
+    if (href === '/dashboard/admin') {
+      return currentPath === '/dashboard/admin' || currentPath === '/dashboard/admin/';
     }
     
     // 메인 경로(/dashboard/user)와 하위 경로(/dashboard/user/my-devices)를 명확히 구분

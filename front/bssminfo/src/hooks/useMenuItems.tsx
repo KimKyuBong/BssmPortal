@@ -55,8 +55,8 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '비밀번호 변경', 
       icon: <Settings className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/change-password',
-      isActive: (pathname: string) => isActive('/dashboard/change-password', pathname)
+      href: '/dashboard/user/change-password',
+      isActive: (pathname: string) => isActive('/dashboard/user/change-password', pathname)
     },
   ], [isActive]);
 
@@ -65,8 +65,8 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '사용자 관리', 
       icon: <Users className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin', pathname)
+      href: '/dashboard/admin', 
+      isActive: (pathname: string) => isActive('/dashboard/admin', pathname)
     },
     { 
       name: 'IP 할당 내역', 
@@ -77,14 +77,14 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '장비 관리', 
       icon: <Shield className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin/equipment', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin/equipment', pathname)
+      href: '/dashboard/admin/equipment', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/equipment', pathname)
     },
     { 
       name: '대여 요청 관리', 
       icon: <BookOpen className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin/rental-requests', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin/rental-requests', pathname)
+      href: '/dashboard/admin/rental-requests', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/rental-requests', pathname)
     },
   ], [isActive]);
   
@@ -93,8 +93,8 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '사용자 관리', 
       icon: <Users className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin', pathname)
+      href: '/dashboard/admin', 
+      isActive: (pathname: string) => isActive('/dashboard/admin', pathname)
     },
     {
       name: 'IP 관리',
@@ -111,14 +111,14 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '장비 관리', 
       icon: <Shield className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin/equipment', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin/equipment', pathname)
+      href: '/dashboard/admin/equipment', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/equipment', pathname)
     },
     { 
       name: '대여 요청 관리', 
       icon: <BookOpen className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/admin/rental-requests', 
-      isActive: (pathname: string) => isActive('/dashboard/user/admin/rental-requests', pathname)
+      href: '/dashboard/admin/rental-requests', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/rental-requests', pathname)
     },
   ], [isActive]);
   

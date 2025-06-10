@@ -371,7 +371,7 @@ export default function UserDashboard() {
           
           {isAdmin && (
             <Link 
-              href="/dashboard/user/admin"
+              href="/dashboard/admin"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
               <Shield className="w-8 h-8 text-purple-500 mr-4" />

@@ -125,13 +125,13 @@ const equipmentService = {
         };
         return await api.put<Equipment>(`/rentals/equipment/${id}/`, minimalData, {
           headers: {
-            'Referer': `${window.location.origin}/dashboard/user/admin/equipment/`
+            'Referer': `${window.location.origin}/dashboard/admin/equipment/`
           }
         });
       }
       return await api.put<Equipment>(`/rentals/equipment/${id}/`, equipmentData, {
         headers: {
-          'Referer': `${window.location.origin}/dashboard/user/admin/equipment/`
+          'Referer': `${window.location.origin}/dashboard/admin/equipment/`
         }
       });
     } catch (error) {
