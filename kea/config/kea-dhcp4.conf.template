@@ -14,7 +14,7 @@
             "name": "${KEA_DATABASE_NAME}",
             "user": "${KEA_DATABASE_USER}",
             "password": "${KEA_DATABASE_PASSWORD}",
-            "host": "${KEA_DATABASE_HOST}",
+            "host": "127.0.0.1",
             "port": ${KEA_DATABASE_PORT},
             "max-reconnect-tries": 10,
             "reconnect-wait-time": 3000
@@ -24,7 +24,7 @@
             "name": "${KEA_DATABASE_NAME}",
             "user": "${KEA_DATABASE_USER}",
             "password": "${KEA_DATABASE_PASSWORD}",
-            "host": "${KEA_DATABASE_HOST}",
+            "host": "127.0.0.1",
             "port": ${KEA_DATABASE_PORT},
             "max-reconnect-tries": 10,
             "reconnect-wait-time": 3000
