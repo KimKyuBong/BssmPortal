@@ -814,7 +814,7 @@ const adminService = {
    */
   getBlacklistedIPs: async (): Promise<ApiResponse<BlacklistedIPResponse>> => {
     try {
-      const url = '/devices/blacklisted_ips/';
+      const url = '/admin/ip/blacklisted/';
       const response = await api.get<BlacklistedIPResponse>(url);
       
       return response;

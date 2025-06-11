@@ -18,6 +18,7 @@ export interface Device {
   created_at: string;
   user?: number;
   username?: string;
+  user_full_name?: string;
   last_seen?: string; // 마지막 접속 시간 (UI 표시용)
 }
 

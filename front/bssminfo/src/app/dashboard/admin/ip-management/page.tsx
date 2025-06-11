@@ -26,7 +26,7 @@ import {
 import { Delete as DeleteIcon, Add as AddIcon, Refresh as RefreshIcon, Block as BlockIcon, Laptop as LaptopIcon } from '@mui/icons-material';
 import { BlacklistedIPResponse } from '@/services/admin';
 import adminService from '@/services/admin';
-import DeviceManagement from '@/components/admin/DeviceManagement';
+import DeviceManagement from '@/components/admin/IpManagement';
 import useIps from '@/hooks/useIps';
 
 export default function IpManagementPage() {

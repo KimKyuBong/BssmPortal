@@ -66,11 +66,12 @@ class DeviceDetailSerializer(serializers.ModelSerializer):
 
 class DeviceSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
+    user_full_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Device
-        fields = ['id', 'mac_address', 'device_name', 'assigned_ip', 'is_active', 'created_at', 'last_access', 'user', 'username']
-        read_only_fields = ['user', 'username', 'last_access', 'is_active', 'created_at']
+        fields = ['id', 'mac_address', 'device_name', 'assigned_ip', 'is_active', 'created_at', 'last_access', 'user', 'username', 'user_full_name']
+        read_only_fields = ['user', 'username', 'user_full_name', 'last_access', 'is_active', 'created_at']
         extra_kwargs = {
             'assigned_ip': {'required': False},  # IP 주소를 선택적으로 설정
             'mac_address': {'required': True},  # MAC 주소는 필수
@@ -78,4 +79,11 @@ class DeviceSerializer(serializers.ModelSerializer):
         }
         
     def get_username(self, obj):
-        return obj.user.username if obj.user else None 
+        return obj.user.username if obj.user else None
+
+    def get_user_full_name(self, obj):
+        if not obj.user:
+            return None
+        first_name = obj.user.first_name or ''
+        last_name = obj.user.last_name or ''
+        return f"{last_name}{first_name}".strip() or None 
