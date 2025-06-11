@@ -84,3 +84,16 @@ class StudentSerializer(serializers.ModelSerializer):
     def get_rental_count(self, obj):
         # user의 rentals 관계를 활용해 대여중인 장비 개수 반환
         return obj.user.rentals.filter(status='RENTED').count() if hasattr(obj.user, 'rentals') else 0 
+
+class TeacherSerializer(UserSerializer):
+    ip_count = serializers.SerializerMethodField()
+    rental_count = serializers.SerializerMethodField()
+
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['ip_count', 'rental_count']
+
+    def get_ip_count(self, obj):
+        return obj.devices.filter(is_active=True).count() if hasattr(obj, 'devices') else 0
+
+    def get_rental_count(self, obj):
+        return obj.rentals.filter(status='RENTED').count() if hasattr(obj, 'rentals') else 0 

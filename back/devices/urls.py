@@ -16,6 +16,10 @@ urlpatterns = [
     path('user/rentals/', DeviceViewSet.as_view({'get': 'user_rentals'}), name='user-rentals'),
     path('user/equipment-rentals/', DeviceViewSet.as_view({'get': 'user_equipment_rentals'}), name='user-equipment-rentals'),
     
+    # 블랙리스트 관련 URL 패턴
+    path('admin/ip/blacklist/', DeviceViewSet.as_view({'post': 'blacklist_ip', 'get': 'blacklisted_ips'}), name='blacklist-ip'),
+    path('admin/ip/unblacklist/', DeviceViewSet.as_view({'post': 'unblacklist_ip'}), name='unblacklist-ip'),
+    
     # 라우터 URL 포함
     path('', include(router.urls)),
 ] 

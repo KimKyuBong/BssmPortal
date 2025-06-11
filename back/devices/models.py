@@ -17,12 +17,15 @@ class DeviceHistory(models.Model):
     class Action(models.TextChoices):
         REGISTER = 'REGISTER'
         UNREGISTER = 'UNREGISTER'
+        REASSIGN_IP_BLACKLIST = 'REASSIGN_IP_BLACKLIST'
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
     mac_address = models.CharField(max_length=255)
     device_name = models.CharField(max_length=255)
     assigned_ip = models.GenericIPAddressField(null=True)
-    action = models.CharField(max_length=10, choices=Action.choices)
+    action = models.CharField(max_length=30, choices=Action.choices)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -39,4 +42,15 @@ class DeviceHistory(models.Model):
 #
 #     class Meta:
 #         db_table = 'device_leases'
+
+class BlacklistedIP(models.Model):
+    ip_address = models.GenericIPAddressField(unique=True)
+    reason = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'blacklisted_ips'
+        verbose_name = '블랙리스트 IP'
+        verbose_name_plural = '블랙리스트 IP 목록'
 

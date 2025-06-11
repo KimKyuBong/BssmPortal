@@ -80,6 +80,7 @@ export default function DeviceHistoryPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP 주소</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">작업일자</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상세 설명</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -97,8 +98,15 @@ export default function DeviceHistoryPage() {
                     <td className="px-6 py-4 whitespace-nowrap">{item.device_mac}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{item.device_name}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{item.assigned_ip || '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{item.action}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{new Date(item.created_at).toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {item.action === 'update' && item.details?.includes('블랙리스트')
+                        ? <span className="text-red-600 font-bold">블랙리스트로 인한 IP 변경</span>
+                        : item.action === 'create' ? '등록'
+                        : item.action === 'delete' ? '삭제'
+                        : '수정'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{new Date(item.timestamp || item.created_at).toLocaleString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{item.details}</td>
                   </tr>
                 ))
               )}

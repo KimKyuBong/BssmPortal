@@ -4,7 +4,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from .models import User, Class, Student
-from .serializers import UserSerializer, UserCreateSerializer, ClassSerializer, StudentSerializer
+from .serializers import UserSerializer, UserCreateSerializer, ClassSerializer, StudentSerializer, TeacherSerializer
 import bcrypt
 import pandas as pd
 import io
@@ -740,3 +740,11 @@ class StudentViewSet(viewsets.ModelViewSet):
         return Response({
             'message': '학반이 변경되었습니다.'
         })
+
+class TeacherViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.filter(is_staff=True)
+    serializer_class = TeacherSerializer
+    permission_classes = [IsStaffUser]
+
+    def get_queryset(self):
+        return User.objects.filter(is_staff=True)

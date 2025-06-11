@@ -48,7 +48,7 @@ export default function Login() {
         // 초기 비밀번호 상태 확인
         if (userResponse.success && userResponse.data && userResponse.data.is_initial_password) {
           console.log('초기 비밀번호 상태입니다. 비밀번호 변경 페이지로 이동합니다.');
-          router.push('/dashboard/change-password');
+          router.push('/dashboard/user/change-password');
         } else {
           router.push('/dashboard');
         }

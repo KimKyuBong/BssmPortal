@@ -809,71 +809,29 @@ const adminService = {
   },
 
   /**
+   * IP 블랙리스트 추가
+   * @param ipAddress 블랙리스트에 추가할 IP 주소
+   * @returns 블랙리스트 추가 결과
+   */
+  blacklistIP: async (ipAddress: string) => {
+    return api.post<{message: string}>('/admin/ip/blacklist_ip/', { ip_address: ipAddress });
+  },
+
+  /**
+   * IP 블랙리스트 제거
+   * @param ipAddress 블랙리스트에서 제거할 IP 주소
+   * @returns 블랙리스트 제거 결과
+   */
+  unblacklistIP: async (ipAddress: string) => {
+    return api.post<{message: string}>('/admin/ip/unblacklist_ip/', { ip_address: ipAddress });
+  },
+
+  /**
    * 블랙리스트된 IP 목록 조회
    * @returns 블랙리스트된 IP 목록
    */
-  getBlacklistedIPs: async (): Promise<ApiResponse<BlacklistedIPResponse>> => {
-    try {
-      const url = '/admin/ip/blacklisted/';
-      const response = await api.get<BlacklistedIPResponse>(url);
-      
-      return response;
-    } catch (error) {
-      console.error('블랙리스트된 IP 목록 조회 중 오류 발생:', error);
-      return {
-        success: false,
-        error: { detail: '블랙리스트된 IP 목록을 조회하는 중 오류가 발생했습니다.' },
-        message: '블랙리스트된 IP 목록을 조회하는 중 오류가 발생했습니다.'
-      };
-    }
-  },
-
-  /**
-   * IP 주소를 블랙리스트에 추가
-   * @param ipAddress 블랙리스트에 추가할 IP 주소
-   * @returns 처리 결과
-   */
-  blacklistIP: async (ipAddress: string): Promise<ApiResponse<any>> => {
-    try {
-      const url = '/devices/blacklist_ip/';
-      const response = await api.post(url, { ip_address: ipAddress });
-      
-      return {
-        ...response,
-        message: response.message || 'IP 주소가 블랙리스트에 추가되었습니다.'
-      };
-    } catch (error) {
-      console.error('IP 블랙리스트 추가 중 오류 발생:', error);
-      return {
-        success: false,
-        error: { detail: 'IP 주소를 블랙리스트에 추가하는 중 오류가 발생했습니다.' },
-        message: 'IP 주소를 블랙리스트에 추가하는 중 오류가 발생했습니다.'
-      };
-    }
-  },
-
-  /**
-   * IP 주소를 블랙리스트에서 제거
-   * @param ipAddress 블랙리스트에서 제거할 IP 주소
-   * @returns 처리 결과
-   */
-  unblacklistIP: async (ipAddress: string): Promise<ApiResponse<any>> => {
-    try {
-      const url = '/devices/unblacklist_ip/';
-      const response = await api.post(url, { ip_address: ipAddress });
-      
-      return {
-        ...response,
-        message: response.message || 'IP 주소가 블랙리스트에서 제거되었습니다.'
-      };
-    } catch (error) {
-      console.error('IP 블랙리스트 제거 중 오류 발생:', error);
-      return {
-        success: false,
-        error: { detail: 'IP 주소를 블랙리스트에서 제거하는 중 오류가 발생했습니다.' },
-        message: 'IP 주소를 블랙리스트에서 제거하는 중 오류가 발생했습니다.'
-      };
-    }
+  getBlacklistedIPs: async () => {
+    return api.get<BlacklistedIPResponse>('/admin/ip/blacklisted_ips/');
   },
 
   getAllDevices: async (): Promise<ApiResponse<any>> => {

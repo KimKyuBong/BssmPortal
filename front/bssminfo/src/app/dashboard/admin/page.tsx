@@ -79,14 +79,10 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<{ id: number; username: string } | null>(null);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<ExtendedUser | ExtendedStudent | null>(null);
-  const [stats, setStats] = useState<RentalStats | null>(null);
-  const [showIpRentals, setShowIpRentals] = useState(false);
-  const [showDeviceRentals, setShowDeviceRentals] = useState(false);
+  const [modalType, setModalType] = useState<'ip' | 'device' | null>(null);
   const [ipRentals, setIpRentals] = useState<RentalDetail[]>([]);
   const [deviceRentals, setDeviceRentals] = useState<RentalDetail[]>([]);
   const [loadingRentals, setLoadingRentals] = useState(false);
-  const [rentalDetails, setRentalDetails] = useState<RentalDetail[]>([]);
-  const [modalType, setModalType] = useState<'ip' | 'device' | null>(null);
 
   const {
     handleCreateUser,
@@ -266,10 +262,7 @@ export default function AdminPage() {
     if (!selectedUser) return;
     
     try {
-      // 학생인 경우 실제 user ID를 사용
-      const student = students.find(s => s.id === selectedUser.id);
-      const userId = student ? student.user : selectedUser.id;
-      await handleResetPassword(userId, password);
+      await handleResetPassword(selectedUser.id, password);
       setIsResetModalOpen(false);
       setSelectedUser(null);
       fetchData(); // 데이터 새로고침
@@ -278,7 +271,6 @@ export default function AdminPage() {
     }
   };
 
-  // 학반 이동 함수
   const moveToNextClass = () => {
     if (!selectedClass) return;
     const currentClassIndex = classes.findIndex(c => c.id === selectedClass);
@@ -337,72 +329,6 @@ export default function AdminPage() {
     }
   };
 
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-      const response = await adminService.getRentalStats();
-      if (response.success && response.data) {
-        setStats(response.data);
-      } else {
-        console.error('통계를 불러오는데 실패했습니다.');
-      }
-    } catch (err) {
-      console.error('통계를 불러오는데 실패했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchIpRentals = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      setLoadingRentals(true);
-      const response = await adminService.getIpRentals(selectedUser.id);
-      if (response.success && response.data) {
-        setIpRentals(response.data);
-      } else {
-        setIpRentals([]);
-      }
-    } catch (error) {
-      console.error('IP 대여 내역 조회 실패:', error);
-      setIpRentals([]);
-    } finally {
-      setLoadingRentals(false);
-    }
-  };
-
-  const fetchDeviceRentals = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      setLoadingRentals(true);
-      const response = await adminService.getDeviceRentals(selectedUser.id);
-      if (response.success && response.data) {
-        setDeviceRentals(response.data);
-      } else {
-        setDeviceRentals([]);
-      }
-    } catch (error) {
-      console.error('기기 대여 내역 조회 실패:', error);
-      setDeviceRentals([]);
-    } finally {
-      setLoadingRentals(false);
-    }
-  };
-
-  const handleShowIpRentals = () => {
-    if (!selectedUser) return;
-    setShowIpRentals(true);
-    fetchIpRentals();
-  };
-
-  const handleShowDeviceRentals = () => {
-    if (!selectedUser) return;
-    setShowDeviceRentals(true);
-    fetchDeviceRentals();
-  };
-
   const handleRentalClick = async (user: ExtendedUser | ExtendedStudent, type: 'ip' | 'device') => {
     try {
       setLoadingRentals(true);
@@ -435,25 +361,6 @@ export default function AdminPage() {
     setModalType(null);
     setIpRentals([]);
     setDeviceRentals([]);
-  };
-
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const response = await userService.getStudents();
-      if (response.results) {
-        setStudents(response.results.map((student: Student) => ({
-          ...student,
-          device_limit: student.device_limit || 0,
-          ip_count: 0,
-          rental_count: 0
-        })));
-      }
-    } catch (err) {
-      console.error('학생 목록 조회 실패:', err);
-    } finally {
-      setLoading(false);
-    }
   };
 
   if (authChecking || loading) {
@@ -816,7 +723,7 @@ export default function AdminPage() {
                                 사용자 정보 수정
                               </button>
                               <button
-                                onClick={() => handleResetPasswordClick(student.id, student.username)}
+                                onClick={() => handleResetPasswordClick(student.user, student.username)}
                                 className="text-yellow-600 hover:text-yellow-900 px-3 py-1 rounded-md border border-yellow-600 hover:bg-yellow-50"
                               >
                                 비밀번호 초기화
@@ -909,184 +816,6 @@ export default function AdminPage() {
           onSubmit={handleResetPasswordConfirm}
           username={selectedUser.username}
         />
-      )}
-
-      <Typography variant="h4" gutterBottom sx={{ color: 'text.primary', fontWeight: 'bold', mt: 4 }}>
-        사용자 관리 대시보드
-      </Typography>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={handleShowIpRentals}>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Typography variant="h6" color="textSecondary" gutterBottom>
-                    학생 IP 대여 현황
-                  </Typography>
-                  <Typography variant="h4" component="div" className="text-blue-600">
-                    {stats?.student_ip_rentals || 0}
-                  </Typography>
-                </div>
-                <Laptop className="h-12 w-12 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card className="h-full cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={handleShowDeviceRentals}>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Typography variant="h6" color="textSecondary" gutterBottom>
-                    장비 대여 현황
-                  </Typography>
-                  <Typography variant="h4" component="div" className="text-green-600">
-                    {stats?.device_rentals || 0}
-                  </Typography>
-                </div>
-                <Package className="h-12 w-12 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* IP 대여 상세정보 모달 */}
-      {showIpRentals && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">IP 대여 상세 내역</h2>
-                <button
-                  onClick={() => setShowIpRentals(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {loadingRentals ? (
-                <div className="flex justify-center items-center h-40">
-                  <CircularProgress />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {ipRentals.map((rental) => (
-                    <div key={rental.id} className="border rounded-lg p-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">기기 정보</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.device_name || '이름 없음'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">MAC 주소</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.mac_address || '-'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">IP 주소</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.assigned_ip || '-'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">소유자</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.username || '미할당'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">대여 시작일</h3>
-                          <p className="mt-1 text-sm text-gray-900">
-                            {rental.created_at ? new Date(rental.created_at).toLocaleString() : '기록 없음'}
-                          </p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">마지막 접속</h3>
-                          <p className="mt-1 text-sm text-gray-900">
-                            {rental.last_access ? new Date(rental.last_access).toLocaleString() : '기록 없음'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {ipRentals.length === 0 && (
-                    <div className="text-center text-gray-500 py-4">
-                      대여 내역이 없습니다.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 장비 대여 상세정보 모달 */}
-      {showDeviceRentals && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">장비 대여 상세 내역</h2>
-                <button
-                  onClick={() => setShowDeviceRentals(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {loadingRentals ? (
-                <div className="flex justify-center items-center h-40">
-                  <CircularProgress />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {deviceRentals.map((rental) => (
-                    <div key={rental.id} className="border rounded-lg p-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">장비 정보</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.device_name || '이름 없음'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">MAC 주소</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.mac_address || '-'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">IP 주소</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.assigned_ip || '-'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">소유자</h3>
-                          <p className="mt-1 text-sm text-gray-900">{rental.username || '미할당'}</p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">대여 시작일</h3>
-                          <p className="mt-1 text-sm text-gray-900">
-                            {rental.created_at ? new Date(rental.created_at).toLocaleString() : '기록 없음'}
-                          </p>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-500">마지막 접속</h3>
-                          <p className="mt-1 text-sm text-gray-900">
-                            {rental.last_access ? new Date(rental.last_access).toLocaleString() : '기록 없음'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {deviceRentals.length === 0 && (
-                    <div className="text-center text-gray-500 py-4">
-                      대여 내역이 없습니다.
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       )}
 
       {/* 대여 내역 모달 */}

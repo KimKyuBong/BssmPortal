@@ -510,9 +510,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                         mac_address=device.mac_address,
                         device_name=device.device_name,
                         assigned_ip=new_ip,
-                        action='REASSIGN_IP_BLACKLIST',
-                        old_value={'ip': old_ip},
-                        new_value={'ip': new_ip, 'reason': 'IP blacklisted'}
+                        action='REASSIGN_IP_BLACKLIST'
                     )
                     
                     logger.info(f"블랙리스트로 인해 장치 {device.mac_address}의 IP가 {old_ip}에서 {new_ip}로 변경되었습니다.")

@@ -184,7 +184,6 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error) => {
-    // 오류 로깅 - 간소화됨
     if (error.response) {
       console.error(`API 오류 상태 코드: ${error.response.status}`);
     }
@@ -199,13 +198,11 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
       
       try {
-        // 토큰 갱신 시도
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
           throw new Error('No refresh token');
         }
         
-        // 직접 axios.post 대신 axiosInstance를 사용
         const refreshResponse = await axiosInstance({
           method: 'post',
           url: '/api/auth/refresh/',
@@ -213,29 +210,20 @@ axiosInstance.interceptors.response.use(
         });
         
         if (refreshResponse.data?.access) {
-          // 새 액세스 토큰 저장
           localStorage.setItem('access_token', refreshResponse.data.access);
-          
-          // 헤더 업데이트
           originalRequest.headers['Authorization'] = `Bearer ${refreshResponse.data.access}`;
-          
-          // 원래 요청 재시도
           return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
         console.error('토큰 갱신 실패:', refreshError);
-        // 토큰 갱신 실패 시 로그인 페이지로 이동
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          
-          // 현재 로그인 페이지에 있는지 확인
-          const isLoginPage = window.location.pathname.includes('/login');
-          
-          // 로그인 페이지가 아닐 때만 리디렉션
-          if (!isLoginPage) {
-            window.location.href = '/login/';
-          }
+        
+        // 토큰 갱신 실패 시 로컬 스토리지 정리
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        
+        // 현재 페이지가 로그인 페이지가 아닐 때만 리다이렉션
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
         }
       }
     }

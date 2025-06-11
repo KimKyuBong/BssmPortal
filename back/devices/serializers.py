@@ -41,6 +41,8 @@ class DeviceHistorySerializer(serializers.ModelSerializer):
             return 'create'
         elif obj.action == 'UNREGISTER':
             return 'delete'
+        elif obj.action == 'REASSIGN_IP_BLACKLIST':
+            return 'update'
         return 'update'
         
     def get_details(self, obj):
@@ -49,6 +51,8 @@ class DeviceHistorySerializer(serializers.ModelSerializer):
             return f"{obj.device_name} 기기가 등록되었습니다. (IP: {obj.assigned_ip or '미할당'})"
         elif obj.action == 'UNREGISTER':
             return f"{obj.device_name} 기기가 삭제되었습니다."
+        elif obj.action == 'REASSIGN_IP_BLACKLIST':
+            return f"{obj.device_name} 기기의 IP가 블랙리스트로 인해 {obj.assigned_ip}로 변경되었습니다."
         return f"{obj.device_name} 기기가 업데이트되었습니다."
 
 class DeviceDetailSerializer(serializers.ModelSerializer):

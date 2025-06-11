@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views, auth
-from .views import UserViewSet, ClassViewSet, StudentViewSet
+from .views import UserViewSet, ClassViewSet, StudentViewSet, TeacherViewSet
 
 # 라우터 설정
 router = DefaultRouter()
@@ -9,6 +9,7 @@ router.register(r'password', views.PasswordViewSet, basename='password')
 router.register(r'users', UserViewSet)
 router.register(r'classes', ClassViewSet)
 router.register(r'students', StudentViewSet)
+router.register(r'teachers', TeacherViewSet, basename='teacher')
 
 # 일반 사용자용 URL 패턴
 urlpatterns = [
@@ -20,6 +21,7 @@ urlpatterns = [
     
     # 인증 관련 URL
     path('login/', auth.login, name='login'),
+    path('logout/', auth.logout, name='logout'),
     path('refresh/', auth.refresh_token, name='token_refresh'),
 ]
 

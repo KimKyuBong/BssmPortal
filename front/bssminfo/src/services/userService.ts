@@ -31,10 +31,25 @@ export interface Class {
   class_number: number;
 }
 
+export interface Teacher {
+  id: number;
+  user: number;
+  username: string;
+  user_name: string;
+  email: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+  device_limit: number;
+  ip_count: number;
+  rental_count: number;
+  created_at: string;
+  is_active: boolean;
+}
+
 export const userService = {
-  // 교사 목록 조회
+  // 교사 목록 조회 (새로운 엔드포인트 사용)
   getTeachers: async () => {
-    const response = await api.get('/users/users/?is_staff=true');
+    const response = await api.get('/users/teachers/');
     return response.data;
   },
 
