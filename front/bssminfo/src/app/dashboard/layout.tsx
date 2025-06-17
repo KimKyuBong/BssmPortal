@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { LogOut, Menu, X } from 'lucide-react';
+import { LogOut, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import useAppState from '@/hooks/useAppState';
 import useMenuItems from '@/hooks/useMenuItems';
 
@@ -21,7 +21,8 @@ export default function DashboardLayout({
     setSidebarOpen,
     isActive,
     handleLogout,
-    getHeaderTitle
+    getHeaderTitle,
+    toggleSidebar
   } = useAppState();
 
   // 메뉴 아이템 관리 훅 사용
@@ -41,7 +42,7 @@ export default function DashboardLayout({
       {/* 모바일 사이드바 토글 버튼 */}
       <div className="lg:hidden fixed top-0 left-0 w-full bg-white z-10 p-4 flex items-center justify-between shadow-sm">
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={toggleSidebar}
           className="p-2 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none"
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
@@ -59,7 +60,7 @@ export default function DashboardLayout({
       </div>
 
       {/* 사이드바 */}
-      <div className={`lg:block fixed inset-y-0 left-0 z-20 w-64 bg-white shadow transform ${
+      <div className={`fixed inset-y-0 left-0 z-20 w-64 bg-white shadow transform ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <div className="h-full flex flex-col">
@@ -164,8 +165,20 @@ export default function DashboardLayout({
         </div>
       </div>
 
+      {/* 데스크톱 토글 버튼 */}
+      <button
+        onClick={toggleSidebar}
+        className="fixed bottom-4 left-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 hidden lg:flex"
+      >
+        {sidebarOpen ? (
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        ) : (
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        )}
+      </button>
+
       {/* 메인 컨텐츠 */}
-      <div className={`lg:pl-64 pt-16 lg:pt-0 min-h-screen`}>
+      <div className={`lg:pl-64 pt-16 lg:pt-0 min-h-screen transition-all duration-300 ease-in-out`}>
         <main className="p-4 md:p-8">
           {children}
         </main>
