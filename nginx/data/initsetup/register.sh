@@ -114,7 +114,7 @@ collect_computer_info() {
     DESCRIPTION="[시스템 정보] 제조사: Apple 모델: $MODEL 시리얼번호: $SERIAL 운영체제: macOS $OS_VERSION 프로세서: $CPU_INFO 메모리: $MEMORY_SIZE 디스크: $DISK_SIZE [네트워크 정보] 이름: en0 MAC: $MAC_ADDRESS (ETHERNET) IP: $IP_ADDRESS"
     
     # JSON 데이터 생성 (한 줄로)
-    json_data="{\"mac_addresses\":[{\"mac_address\":\"$MAC_ADDRESS\",\"interface_type\":\"ETHERNET\",\"equipment\":null}],\"name\":\"노트북 컴퓨터\",\"manufacturer\":\"Apple\",\"model_name\":\"$MODEL\",\"equipment_type\":\"LAPTOP\",\"serial_number\":\"$SERIAL\",\"description\":\"$DESCRIPTION\",\"status\":\"RENTED\",\"acquisition_date\":\"$CURRENT_DATE\"}"
+    json_data="{\"mac_addresses\":[{\"mac_address\":\"$MAC_ADDRESS\",\"interface_type\":\"ETHERNET\",\"equipment\":null}],\"name\":\"노트북 컴퓨터\",\"manufacturer\":\"Apple\",\"model_name\":\"$MODEL\",\"equipment_type\":\"MACBOOK\",\"serial_number\":\"$SERIAL\",\"description\":\"$DESCRIPTION\",\"status\":\"RENTED\",\"acquisition_date\":\"$CURRENT_DATE\"}"
     
     # 서버로 데이터 전송
     if send_to_server "$json_data"; then

@@ -22,6 +22,32 @@ export interface ModelBatchUpdateData {
   purchase_price?: number;
 }
 
+export interface MacAddress {
+  id: number;
+  mac_address: string;
+  interface_type: string;
+  interface_type_display: string;
+  is_primary: boolean;
+}
+
+export interface UpdatedEquipment {
+  id: number;
+  asset_number: string | null;
+  manufacturer: string;
+  model_name: string;
+  equipment_type: string;
+  equipment_type_display: string;
+  serial_number: string;
+  mac_addresses: MacAddress[];
+}
+
+export interface ModelBatchUpdateResponse {
+  success: boolean;
+  message: string;
+  updated_count: number;
+  updated_equipments: UpdatedEquipment[];
+}
+
 // 장비 서비스 - 장비 관련 API 통신
 export const equipmentService = {
   // 장비 목록 조회
@@ -183,7 +209,7 @@ export const equipmentService = {
    * @param data 모델별 업데이트 데이터 (모델명, 생산년도, 구매일)
    * @returns 업데이트 결과
    */
-  updateByModel: async (data: ModelBatchUpdateData): Promise<ApiResponse<any>> => {
+  updateByModel: async (data: ModelBatchUpdateData): Promise<ModelBatchUpdateResponse> => {
     try {
       const response = await api.post('/rentals/equipment/update-by-model/', data);
       return response.data;
@@ -192,7 +218,8 @@ export const equipmentService = {
       return {
         success: false,
         message: '모델별 장비 업데이트에 실패했습니다.',
-        data: null
+        updated_count: 0,
+        updated_equipments: []
       };
     }
   },

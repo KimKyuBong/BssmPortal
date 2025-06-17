@@ -19,26 +19,25 @@ import {
   Select,
   SelectChangeEvent,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import equipment, { ModelBatchUpdateData } from '@/services/equipment';
+import equipment, { ModelBatchUpdateData, UpdatedEquipment } from '@/services/equipment';
 import { Equipment } from '@/services/api';
 import { message } from 'antd';
 
-interface UpdatedEquipment {
-  id: number;
-  asset_number: string;
-  model_name: string;
-  manufacture_year?: number;
-  purchase_date?: string;
-  purchase_price?: number;
-  serial_number: string;
+interface ModelBatchUpdateProps {
+  open: boolean;
+  onClose: () => void;
 }
 
-export default function ModelBatchUpdate() {
+export default function ModelBatchUpdate({ open, onClose }: ModelBatchUpdateProps) {
   // 모델명 선택/입력
   const [modelName, setModelName] = useState<string>('');
   // 모델명 목록 (기존 모델들)
@@ -148,32 +147,28 @@ export default function ModelBatchUpdate() {
     
     try {
       const response = await equipment.updateByModel(data);
+      console.log('업데이트 응답:', response);
       
       if (response.success) {
-        setResult({
-          success: true,
-          message: response.data.message || '일괄 업데이트가 완료되었습니다.'
-        });
+        // 성공 메시지 표시
+        message.success(response.message);
         
-        // 업데이트된 장비 목록 설정
-        if (response.data.updated_equipments) {
-          setUpdatedEquipments(response.data.updated_equipments);
-        }
-        
-        message.success('일괄 업데이트가 완료되었습니다.');
+        // 2초 후 모달 닫기
+        setTimeout(() => {
+          onClose();
+          // 상태 초기화
+          setModelName('');
+          setManufactureYear(undefined);
+          setPurchaseDate(null);
+          setPurchasePrice(undefined);
+          setResult(null);
+          setUpdatedEquipments([]);
+        }, 2000);
       } else {
-        setResult({
-          success: false,
-          message: response.message || '일괄 업데이트에 실패했습니다.'
-        });
-        message.error('일괄 업데이트 실패: ' + response.message);
+        message.error(response.message || '일괄 업데이트에 실패했습니다.');
       }
     } catch (error) {
       console.error('일괄 업데이트 오류:', error);
-      setResult({
-        success: false,
-        message: '일괄 업데이트 처리 중 오류가 발생했습니다.'
-      });
       message.error('일괄 업데이트 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
@@ -181,147 +176,150 @@ export default function ModelBatchUpdate() {
   };
 
   return (
-    <Paper 
-      sx={{ 
-        p: 3, 
-        mb: 3, 
-        borderRadius: 2,
-        boxShadow: theme => theme.palette.mode === 'dark' 
-          ? '0 4px 20px 0 rgba(0,0,0,0.4)' 
-          : '0 4px 20px 0 rgba(0,0,0,0.1)'
-      }}
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
     >
-      <Typography variant="h5" gutterBottom>
-        모델별 일괄 업데이트
-      </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph>
-        특정 모델명을 가진 모든 장비의 생산년도, 구매일시, 구매가격을 한 번에 업데이트합니다.
-      </Typography>
+      <DialogTitle>
+        <Typography variant="h5">
+          모델별 일괄 업데이트
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          특정 모델명을 가진 모든 장비의 생산년도, 구매일시, 구매가격을 한 번에 업데이트합니다.
+        </Typography>
+      </DialogTitle>
       
-      <Divider sx={{ my: 2 }} />
-      
-      <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
-        <FormControl fullWidth margin="normal">
-          <InputLabel id="model-name-label">모델명</InputLabel>
-          <Select
-            labelId="model-name-label"
-            id="model-name"
+      <DialogContent>
+        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
+          <FormControl fullWidth margin="normal">
+            <InputLabel id="model-name-label">모델명</InputLabel>
+            <Select
+              labelId="model-name-label"
+              id="model-name"
+              value={modelName}
+              onChange={handleSelectChange}
+              label="모델명"
+              displayEmpty
+              required
+            >
+              <MenuItem value="">
+                <em>모델명 선택</em>
+              </MenuItem>
+              {modelOptions.map((model) => (
+                <MenuItem key={model} value={model}>{model}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <TextField
+            margin="normal"
+            fullWidth
+            id="modelNameInput"
+            label="모델명 직접 입력"
             value={modelName}
-            onChange={handleSelectChange}
-            label="모델명"
-            displayEmpty
-            required
-          >
-            <MenuItem value="">
-              <em>모델명 선택</em>
-            </MenuItem>
-            {modelOptions.map((model) => (
-              <MenuItem key={model} value={model}>{model}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        
-        <TextField
-          margin="normal"
-          fullWidth
-          id="modelNameInput"
-          label="모델명 직접 입력"
-          value={modelName}
-          onChange={(e) => handleModelNameChange(e.target.value)}
-          helperText="모델명이 목록에 없는 경우 직접 입력하세요"
-        />
-        
-        <TextField
-          margin="normal"
-          fullWidth
-          id="manufactureYear"
-          label="생산년도"
-          type="number"
-          value={manufactureYear === undefined ? '' : manufactureYear}
-          onChange={(e) => {
-            const val = e.target.value;
-            setManufactureYear(val === '' ? undefined : parseInt(val, 10));
-          }}
-          InputProps={{ inputProps: { min: 1900, max: new Date().getFullYear() } }}
-        />
-        
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DateTimePicker
-            label="구매일시"
-            value={purchaseDate}
-            onChange={(newValue) => setPurchaseDate(newValue)}
-            slotProps={{
-              textField: {
-                margin: 'normal',
-                fullWidth: true,
-                helperText: '구매일시가 정확하지 않은 경우 생략 가능합니다'
-              }
+            onChange={(e) => handleModelNameChange(e.target.value)}
+            helperText="모델명이 목록에 없는 경우 직접 입력하세요"
+          />
+          
+          <TextField
+            margin="normal"
+            fullWidth
+            id="manufactureYear"
+            label="생산년도"
+            type="number"
+            value={manufactureYear === undefined ? '' : manufactureYear}
+            onChange={(e) => {
+              const val = e.target.value;
+              setManufactureYear(val === '' ? undefined : parseInt(val, 10));
+            }}
+            InputProps={{ inputProps: { min: 1900, max: new Date().getFullYear() } }}
+          />
+          
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DateTimePicker
+              label="구매일시"
+              value={purchaseDate}
+              onChange={(newValue) => setPurchaseDate(newValue)}
+              sx={{ width: '100%', mt: 2 }}
+            />
+          </LocalizationProvider>
+          
+          <TextField
+            margin="normal"
+            fullWidth
+            id="purchasePrice"
+            label="구매가격"
+            type="number"
+            value={purchasePrice === undefined ? '' : purchasePrice}
+            onChange={(e) => {
+              const val = e.target.value;
+              setPurchasePrice(val === '' ? undefined : parseInt(val, 10));
+            }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">₩</InputAdornment>,
             }}
           />
-        </LocalizationProvider>
-        
-        <TextField
-          margin="normal"
-          fullWidth
-          id="purchasePrice"
-          label="구매가격"
-          type="number"
-          value={purchasePrice === undefined ? '' : purchasePrice}
-          onChange={(e) => {
-            const val = e.target.value;
-            setPurchasePrice(val === '' ? undefined : parseFloat(val));
-          }}
-          InputProps={{ 
-            inputProps: { min: 0, step: 0.01 },
-            startAdornment: <InputAdornment position="start">₩</InputAdornment>
-          }}
-          helperText="구매가격을 입력하세요 (선택사항)"
-        />
-        
-        <Button
-          type="submit"
-          fullWidth
-          variant="contained"
-          sx={{ mt: 3, mb: 2 }}
-          disabled={loading || (!modelName) || (manufactureYear === undefined && !purchaseDate && purchasePrice === undefined)}
-        >
-          {loading ? <CircularProgress size={24} /> : '일괄 업데이트'}
-        </Button>
-      </Box>
-      
-      {result && (
-        <Alert severity={result.success ? 'success' : 'error'} sx={{ mt: 2 }}>
-          {result.message}
-        </Alert>
-      )}
-      
-      {updatedEquipments.length > 0 && (
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6">업데이트된 장비 목록 ({updatedEquipments.length})</Typography>
-          <List sx={{ bgcolor: 'background.paper', mt: 1, borderRadius: 1 }}>
-            {updatedEquipments.map((equipment) => (
-              <ListItem key={equipment.id} divider>
-                <ListItemText
-                  primary={`${equipment.asset_number} (${equipment.model_name})`}
-                  secondary={
-                    <React.Fragment>
-                      <Typography component="span" variant="body2" color="text.primary">
-                        시리얼: {equipment.serial_number}
-                      </Typography>
-                      <br />
-                      {equipment.manufacture_year && `생산년도: ${equipment.manufacture_year}`}
-                      {equipment.manufacture_year && equipment.purchase_date && ' | '}
-                      {equipment.purchase_date && `구매일시: ${dayjs(equipment.purchase_date).format('YYYY-MM-DD HH:mm:ss')}`}
-                      {equipment.purchase_date && equipment.purchase_price && ' | '}
-                      {equipment.purchase_price && `구매가격: ₩${equipment.purchase_price.toLocaleString()}`}
-                    </React.Fragment>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
+          
+          {result && (
+            <Alert 
+              severity={result.success ? "success" : "error"}
+              sx={{ mt: 2 }}
+            >
+              {result.message}
+            </Alert>
+          )}
+          
+          {updatedEquipments.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                업데이트된 장비 목록 ({updatedEquipments.length}개)
+              </Typography>
+              <List>
+                {updatedEquipments.map((equipment) => (
+                  <ListItem key={equipment.id}>
+                    <ListItemText
+                      primary={`${equipment.model_name} (${equipment.equipment_type_display})`}
+                      secondary={
+                        <>
+                          <Typography component="span" variant="body2" color="text.primary">
+                            제조사: {equipment.manufacturer}
+                          </Typography>
+                          <br />
+                          <Typography component="span" variant="body2">
+                            자산번호: {equipment.asset_number || '없음'} | 시리얼번호: {equipment.serial_number}
+                          </Typography>
+                          {equipment.mac_addresses.length > 0 && (
+                            <>
+                              <br />
+                              <Typography component="span" variant="body2">
+                                MAC 주소: {equipment.mac_addresses.map(mac => mac.mac_address).join(', ')}
+                              </Typography>
+                            </>
+                          )}
+                        </>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
         </Box>
-      )}
-    </Paper>
+      </DialogContent>
+      
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button 
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading}
+          startIcon={loading ? <CircularProgress size={20} /> : null}
+        >
+          {loading ? '업데이트 중...' : '업데이트'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 } 

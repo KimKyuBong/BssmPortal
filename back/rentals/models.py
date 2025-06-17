@@ -36,15 +36,26 @@ class Equipment(models.Model):
     """
     EQUIPMENT_TYPE_CHOICES = [
         ('LAPTOP', '노트북'),
+        ('MACBOOK', '맥북'),
         ('TABLET', '태블릿'),
         ('DESKTOP', '데스크톱'),
         ('MONITOR', '모니터'),
-        ('KEYBOARD', '키보드'),
-        ('MOUSE', '마우스'),
         ('PRINTER', '프린터'),
         ('PROJECTOR', '프로젝터'),
         ('OTHER', '기타'),
     ]
+    
+    # 장비 유형별 이니셜 매핑
+    EQUIPMENT_TYPE_INITIALS = {
+        'LAPTOP': 'L',  # 노트북
+        'MACBOOK': 'M',  # 맥북
+        'TABLET': 'T',
+        'DESKTOP': 'D',
+        'MONITOR': 'D',  # Display
+        'PRINTER': 'P',
+        'PROJECTOR': 'J',  # Projector
+        'OTHER': 'O',
+    }
     
     STATUS_CHOICES = [
         ('AVAILABLE', '사용 가능'),
@@ -69,6 +80,48 @@ class Equipment(models.Model):
     purchase_price = models.DecimalField('구입금액', max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField('등록일', auto_now_add=True)
     updated_at = models.DateTimeField('수정일', auto_now=True)
+
+    def generate_management_number(self):
+        """관리번호 생성 메서드 - 구매년도 기준"""
+        # 장비 유형 이니셜 가져오기
+        initial = self.EQUIPMENT_TYPE_INITIALS.get(self.equipment_type, 'O')
+        
+        # 구매년도 가져오기 (구매일이 있으면 구매일의 연도, 없으면 제작년도 사용)
+        year = None
+        if self.purchase_date:
+            year = self.purchase_date.year
+        elif self.manufacture_year:
+            year = self.manufacture_year
+        else:
+            # 구매년도와 제작년도가 모두 없으면 현재 연도 사용
+            year = timezone.now().year
+        
+        # 같은 유형, 같은 연도의 장비 중 가장 큰 일련번호 찾기
+        base_number = f"{initial}-{year}"
+        existing_numbers = Equipment.objects.filter(
+            management_number__startswith=base_number
+        ).values_list('management_number', flat=True)
+        
+        # 일련번호 추출 및 최대값 찾기
+        max_sequence = 0
+        for number in existing_numbers:
+            try:
+                sequence = int(number.split('-')[-1])
+                max_sequence = max(max_sequence, sequence)
+            except (ValueError, IndexError):
+                continue
+        
+        # 새로운 일련번호 생성
+        new_sequence = max_sequence + 1
+        
+        # 최종 관리번호 생성 (예: N-2024-001)
+        return f"{base_number}-{new_sequence:03d}"
+
+    def save(self, *args, **kwargs):
+        """저장 시 관리번호 자동 생성"""
+        if not self.management_number:
+            self.management_number = self.generate_management_number()
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = '장비'

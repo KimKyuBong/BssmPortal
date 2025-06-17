@@ -42,7 +42,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
             'description', 'status', 'status_display', 'acquisition_date',
             'manufacture_year', 'purchase_date', 'rental', 'management_number', 'purchase_price'
         ]
-        read_only_fields = ['purchase_date']
+        read_only_fields = ['purchase_date', 'management_number']
     
     def get_rental(self, obj):
         if hasattr(obj, 'current_rentals') and obj.current_rentals:

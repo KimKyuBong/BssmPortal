@@ -164,7 +164,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                         '제조사': equipment.manufacturer,
                         '모델명': equipment.model_name,
                         '구매일자': equipment.purchase_date.strftime('%Y-%m-%d') if equipment.purchase_date else '',
-                        '구매금액': equipment.purchase_price if equipment.purchase_price else '',
+                        '구매금액': f"₩{int(equipment.purchase_price):,}" if equipment.purchase_price else '',
                         '대여자': user_name,
                         '대여일자': current_rental.rental_date.strftime('%Y-%m-%d') if current_rental else '',
                         '관리자 확인': ''
@@ -535,12 +535,12 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         if not model_name:
             return Response({"detail": "모델명이 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
             
-        # 모델명이 정확히 일치하는 장비 중 가장 최근에 등록된 장비의 정보를 가져옴
-        equipment = Equipment.objects.filter(model_name=model_name).order_by('-created_at').first()
+        # 모델명이 정확히 일치하는 장비 중 가장 먼저 등록된 장비의 정보를 가져옴
+        equipment = Equipment.objects.filter(model_name=model_name).order_by('created_at').first()
         
         if not equipment:
             # 모델명이 포함된 장비 검색 (부분 일치)
-            equipment = Equipment.objects.filter(model_name__icontains=model_name).order_by('-created_at').first()
+            equipment = Equipment.objects.filter(model_name__icontains=model_name).order_by('created_at').first()
             
         if not equipment:
             return Response({
