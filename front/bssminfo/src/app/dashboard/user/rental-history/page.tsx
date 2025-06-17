@@ -69,7 +69,7 @@ export default function RentalHistoryPage() {
   };
   
   const filteredRentalHistory = rentalHistory.filter(rental => 
-    rental.equipment?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    rental.equipment?.asset_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     rental.equipment?.equipment_type_display?.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
@@ -149,7 +149,7 @@ export default function RentalHistoryPage() {
           <table className="min-w-full bg-white border rounded-lg">
             <thead className="bg-gray-100">
               <tr>
-                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장비 이름</th>
+                <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">물품번호</th>
                 <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">장비 유형</th>
                 <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">대여 일시</th>
                 <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">반납 일시</th>
@@ -159,7 +159,7 @@ export default function RentalHistoryPage() {
             <tbody className="divide-y divide-gray-200">
               {filteredRentalHistory.map((rental) => (
                 <tr key={rental.id} className="hover:bg-gray-50">
-                  <td className="py-4 px-4 text-sm font-medium text-gray-900">{rental.equipment.name}</td>
+                  <td className="py-4 px-4 text-sm font-medium text-gray-900">{rental.equipment.asset_number}</td>
                   <td className="py-4 px-4 text-sm text-gray-500">{rental.equipment.equipment_type_display}</td>
                   <td className="py-4 px-4 text-sm text-gray-500">{formatDate(rental.rental_date)}</td>
                   <td className="py-4 px-4 text-sm text-gray-500">

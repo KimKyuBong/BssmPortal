@@ -9,27 +9,11 @@ import { Device } from '@/services/ip';
 import Link from 'next/link';
 import { User as UserIcon, LogOut, Mail, Key, Calendar, Package, NetworkIcon, Users, Shield, Database, Laptop, Server, HardDrive, Cpu, BarChart } from 'lucide-react';
 import api from '@/services/api';
+import type { Equipment, Rental, RentalRequest } from '@/services/api';
 
 // Device 타입 확장
 interface ExtendedDevice extends Device {
   last_seen?: string;
-}
-
-// 대여 타입 정의
-interface Rental {
-  id: number;
-  equipment: {
-    id: number;
-    name: string;
-    equipment_type: string;
-    equipment_type_display: string;
-    serial_number: string;
-  };
-  rental_date: string;
-  due_date: string;
-  return_date: string | null;
-  status: string;
-  status_display: string;
 }
 
 // 시스템 상태 타입 정의
@@ -320,7 +304,7 @@ export default function UserDashboard() {
                   {rentals.map((rental) => (
                     <tr key={rental.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {rental.equipment.name}
+                        {rental.equipment.asset_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(rental.rental_date).toLocaleDateString()}
@@ -330,11 +314,10 @@ export default function UserDashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          rental.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 
-                          rental.status === 'OVERDUE' ? 'bg-red-100 text-red-800' : 
+                          rental.status === 'RENTED' ? 'bg-green-100 text-green-800' : 
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {rental.status_display}
+                          {rental.status === 'RENTED' ? '대여 중' : rental.status_display}
                         </span>
                       </td>
                     </tr>

@@ -86,7 +86,7 @@ const rentalService = {
             ...rental,
             equipment: {
               id: equipmentDetail.id,
-              name: equipmentDetail.name,
+              asset_number: equipmentDetail.asset_number,
               manufacturer: equipmentDetail.manufacturer || '',
               model_name: equipmentDetail.model_name || '',
               serial_number: equipmentDetail.serial_number || '',
@@ -178,7 +178,7 @@ const rentalService = {
             ...rental,
             equipment: {
               id: equipmentDetail.id,
-              name: equipmentDetail.name,
+              asset_number: equipmentDetail.asset_number,
               manufacturer: equipmentDetail.manufacturer || '',
               model_name: equipmentDetail.model_name || '',
               serial_number: equipmentDetail.serial_number || '',

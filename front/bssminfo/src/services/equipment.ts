@@ -1,4 +1,5 @@
 import { api, ApiResponse, Equipment, PaginatedResponse } from './api';
+import dayjs from 'dayjs';
 
 // 엑셀 가져오기 응답 타입 정의
 export interface ImportEquipmentResponse {
@@ -18,10 +19,11 @@ export interface ModelBatchUpdateData {
   model_name: string;
   manufacture_year?: number;
   purchase_date?: string;
+  purchase_price?: number;
 }
 
 // 장비 서비스 - 장비 관련 API 통신
-const equipmentService = {
+export const equipmentService = {
   // 장비 목록 조회
   async getAllEquipment() {
     try {
@@ -118,7 +120,7 @@ const equipmentService = {
         const minimalData = {
           status: 'AVAILABLE',
           rental: null,
-          name: equipmentData.name,
+          asset_number: equipmentData.asset_number,
           equipment_type: equipmentData.equipment_type,
           serial_number: equipmentData.serial_number,
           acquisition_date: equipmentData.acquisition_date
@@ -147,33 +149,6 @@ const equipmentService = {
   // 장비 정보 삭제 (관리자용)
   async deleteEquipment(id: number) {
     return await api.delete(`/rentals/equipment/${id}/`);
-  },
-
-  // 장비 목록 엑셀 다운로드 (관리자용)
-  async exportEquipmentToExcel() {
-    try {
-      const response = await api.get('/rentals/equipment/export_excel/', {
-        responseType: 'blob'
-      });
-
-      // 현재 날짜를 파일명에 포함
-      const date = new Date().toISOString().split('T')[0];
-      const filename = `장비_목록_${date}.xlsx`;
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      return { success: true };
-    } catch (error) {
-      console.error('엑셀 다운로드 중 오류:', error);
-      throw new Error('엑셀 파일 다운로드에 실패했습니다.');
-    }
   },
 
   // 엑셀 파일로 장비 일괄 추가 (관리자용)
@@ -218,6 +193,75 @@ const equipmentService = {
         success: false,
         message: '모델별 장비 업데이트에 실패했습니다.',
         data: null
+      };
+    }
+  },
+
+  /**
+   * 모델명으로 장비 정보 조회
+   * @param modelName 모델명
+   * @returns 모델 정보
+   */
+  getModelInfo: async (modelName: string): Promise<ApiResponse<{
+    model_name: string;
+    manufacture_year?: number;
+    purchase_date?: string;
+    purchase_price?: number;
+  }>> => {
+    try {
+      console.log('getModelInfo 호출:', modelName);
+      const response = await api.get(`/rentals/equipment/get-model-info/?model_name=${encodeURIComponent(modelName)}`);
+      console.log('getModelInfo 응답:', response);
+      return response.data;
+    } catch (error) {
+      console.error("모델 정보 조회 중 오류 발생:", error);
+      return {
+        success: false,
+        message: '모델 정보 조회에 실패했습니다.',
+        data: undefined
+      };
+    }
+  },
+
+  // 장비 목록 엑셀 다운로드 (관리자용)
+  async exportEquipmentToExcel(): Promise<ApiResponse<void>> {
+    try {
+      const response = await api.get('/rentals/equipment/export_excel/', {
+        responseType: 'blob'
+      });
+
+      // 현재 날짜를 파일명에 포함
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `장비_목록_${date}.xlsx`;
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      return { success: true };
+    } catch (error) {
+      console.error('엑셀 다운로드 중 오류:', error);
+      throw new Error('엑셀 파일 다운로드에 실패했습니다.');
+    }
+  },
+
+  updateEquipmentStatus: async (id: number, status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED'): Promise<ApiResponse<Equipment>> => {
+    try {
+      const response = await api.patch<Equipment>(`/equipment/${id}/`, { status });
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('장비 상태 업데이트 중 오류 발생:', error);
+      return {
+        success: false,
+        error: { detail: '장비 상태 업데이트에 실패했습니다.' }
       };
     }
   }

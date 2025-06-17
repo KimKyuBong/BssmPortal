@@ -18,21 +18,23 @@ import {
   MenuItem,
   Select,
   SelectChangeEvent,
+  InputAdornment,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
-import equipmentService, { ModelBatchUpdateData } from '@/services/equipment';
+import equipment, { ModelBatchUpdateData } from '@/services/equipment';
 import { Equipment } from '@/services/api';
 import { message } from 'antd';
 
 interface UpdatedEquipment {
   id: number;
-  name: string;
+  asset_number: string;
   model_name: string;
   manufacture_year?: number;
   purchase_date?: string;
+  purchase_price?: number;
   serial_number: string;
 }
 
@@ -45,6 +47,8 @@ export default function ModelBatchUpdate() {
   const [manufactureYear, setManufactureYear] = useState<number | undefined>();
   // 구매일시
   const [purchaseDate, setPurchaseDate] = useState<Dayjs | null>(null);
+  // 구매가격
+  const [purchasePrice, setPurchasePrice] = useState<number | undefined>();
   // 로딩 상태
   const [loading, setLoading] = useState<boolean>(false);
   // 결과 메시지
@@ -52,11 +56,44 @@ export default function ModelBatchUpdate() {
   // 업데이트된 장비들
   const [updatedEquipments, setUpdatedEquipments] = useState<UpdatedEquipment[]>([]);
 
+  // 모델명 변경 핸들러
+  const handleModelNameChange = async (newModelName: string) => {
+    console.log('모델명 변경 핸들러 호출됨:', newModelName);
+    setModelName(newModelName);
+    
+    if (newModelName) {
+      try {
+        console.log('모델 정보 조회 시도:', newModelName);
+        const response = await equipment.getModelInfo(newModelName);
+        console.log('모델 정보 조회 응답:', response);
+        if (response.success && response.data) {
+          console.log('모델 정보 설정:', response.data);
+          setManufactureYear(response.data.manufacture_year);
+          setPurchaseDate(response.data.purchase_date ? dayjs(response.data.purchase_date) : null);
+          setPurchasePrice(response.data.purchase_price);
+        }
+      } catch (error) {
+        console.error("모델 정보 조회 실패:", error);
+      }
+    } else {
+      // 모델명이 비어있으면 입력 필드 초기화
+      setManufactureYear(undefined);
+      setPurchaseDate(null);
+      setPurchasePrice(undefined);
+    }
+  };
+
+  // Select 컴포넌트의 onChange 핸들러
+  const handleSelectChange = (event: SelectChangeEvent<string>) => {
+    console.log('Select onChange 이벤트 발생:', event.target.value);
+    handleModelNameChange(event.target.value);
+  };
+
   // 고유한 모델명 목록 가져오기
   useEffect(() => {
     const fetchModelNames = async () => {
       try {
-        const response = await equipmentService.getAllEquipment();
+        const response = await equipment.getAllEquipment();
         if (response.success && Array.isArray(response.data)) {
           // 중복 제거하고 고유한 모델명만 추출
           const uniqueModels = Array.from(
@@ -85,8 +122,8 @@ export default function ModelBatchUpdate() {
       return;
     }
     
-    if (manufactureYear === undefined && !purchaseDate) {
-      message.error('생산년도나 구매일시 중 하나는 입력해야 합니다.');
+    if (manufactureYear === undefined && !purchaseDate && purchasePrice === undefined) {
+      message.error('생산년도, 구매일시, 구매가격 중 하나는 입력해야 합니다.');
       return;
     }
     
@@ -102,11 +139,15 @@ export default function ModelBatchUpdate() {
       data.purchase_date = purchaseDate.format('YYYY-MM-DD HH:mm:ss');
     }
     
+    if (purchasePrice !== undefined) {
+      data.purchase_price = purchasePrice;
+    }
+    
     setLoading(true);
     setResult(null);
     
     try {
-      const response = await equipmentService.updateByModel(data);
+      const response = await equipment.updateByModel(data);
       
       if (response.success) {
         setResult({
@@ -154,7 +195,7 @@ export default function ModelBatchUpdate() {
         모델별 일괄 업데이트
       </Typography>
       <Typography variant="body2" color="text.secondary" paragraph>
-        특정 모델명을 가진 모든 장비의 생산년도와 구매일시를 한 번에 업데이트합니다.
+        특정 모델명을 가진 모든 장비의 생산년도, 구매일시, 구매가격을 한 번에 업데이트합니다.
       </Typography>
       
       <Divider sx={{ my: 2 }} />
@@ -166,7 +207,7 @@ export default function ModelBatchUpdate() {
             labelId="model-name-label"
             id="model-name"
             value={modelName}
-            onChange={(e: SelectChangeEvent) => setModelName(e.target.value)}
+            onChange={handleSelectChange}
             label="모델명"
             displayEmpty
             required
@@ -186,7 +227,7 @@ export default function ModelBatchUpdate() {
           id="modelNameInput"
           label="모델명 직접 입력"
           value={modelName}
-          onChange={(e) => setModelName(e.target.value)}
+          onChange={(e) => handleModelNameChange(e.target.value)}
           helperText="모델명이 목록에 없는 경우 직접 입력하세요"
         />
         
@@ -219,12 +260,30 @@ export default function ModelBatchUpdate() {
           />
         </LocalizationProvider>
         
+        <TextField
+          margin="normal"
+          fullWidth
+          id="purchasePrice"
+          label="구매가격"
+          type="number"
+          value={purchasePrice === undefined ? '' : purchasePrice}
+          onChange={(e) => {
+            const val = e.target.value;
+            setPurchasePrice(val === '' ? undefined : parseFloat(val));
+          }}
+          InputProps={{ 
+            inputProps: { min: 0, step: 0.01 },
+            startAdornment: <InputAdornment position="start">₩</InputAdornment>
+          }}
+          helperText="구매가격을 입력하세요 (선택사항)"
+        />
+        
         <Button
           type="submit"
           fullWidth
           variant="contained"
           sx={{ mt: 3, mb: 2 }}
-          disabled={loading || (!modelName) || (manufactureYear === undefined && !purchaseDate)}
+          disabled={loading || (!modelName) || (manufactureYear === undefined && !purchaseDate && purchasePrice === undefined)}
         >
           {loading ? <CircularProgress size={24} /> : '일괄 업데이트'}
         </Button>
@@ -243,7 +302,7 @@ export default function ModelBatchUpdate() {
             {updatedEquipments.map((equipment) => (
               <ListItem key={equipment.id} divider>
                 <ListItemText
-                  primary={`${equipment.name} (${equipment.model_name})`}
+                  primary={`${equipment.asset_number} (${equipment.model_name})`}
                   secondary={
                     <React.Fragment>
                       <Typography component="span" variant="body2" color="text.primary">
@@ -253,6 +312,8 @@ export default function ModelBatchUpdate() {
                       {equipment.manufacture_year && `생산년도: ${equipment.manufacture_year}`}
                       {equipment.manufacture_year && equipment.purchase_date && ' | '}
                       {equipment.purchase_date && `구매일시: ${dayjs(equipment.purchase_date).format('YYYY-MM-DD HH:mm:ss')}`}
+                      {equipment.purchase_date && equipment.purchase_price && ' | '}
+                      {equipment.purchase_price && `구매가격: ₩${equipment.purchase_price.toLocaleString()}`}
                     </React.Fragment>
                   }
                 />

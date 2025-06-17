@@ -17,6 +17,7 @@ import logging
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Prefetch
 from django.db import transaction
+from datetime import datetime
 
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
 from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer
@@ -66,8 +67,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     serializer_class = EquipmentSerializer
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'serial_number', 'description']
-    ordering_fields = ['name', 'equipment_type', 'status', 'acquisition_date']
+    search_fields = ['asset_number', 'serial_number', 'description']
+    ordering_fields = ['asset_number', 'equipment_type', 'status', 'acquisition_date']
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = EquipmentPagination
     
@@ -89,6 +90,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         """
         if self.action in ['register', 'by_mac']:
             return [AllowAny()]
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
         return [IsAdminOrReadOnly()]
     
     def update(self, request, *args, **kwargs):
@@ -129,89 +132,69 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             )
     
     @action(detail=False, methods=['get'])
-    def available(self, request):
-        """대여 가능한 장비 목록 조회"""
-        available_equipment = Equipment.objects.filter(status='AVAILABLE')
-        serializer = self.get_serializer(available_equipment, many=True)
-        return Response(serializer.data)
-    
-    @action(detail=False, methods=['get'])
     def export_excel(self, request):
-        """장비 목록 엑셀 출력"""
-        if not request.user.is_staff:
-            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
-            
+        logger = logging.getLogger(__name__)
         try:
-            equipment_list = Equipment.objects.all()
+            logger.info("엑셀 내보내기 시작")
             
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "장비 목록"
+            # 모든 장비 정보 조회
+            equipment_list = Equipment.objects.all().prefetch_related('rentals')
+            logger.info(f"조회된 장비 수: {equipment_list.count()}")
             
-            # 헤더 스타일 설정
-            header_font = Font(bold=True)
-            header_alignment = Alignment(horizontal='center')
-            
-            # 컬럼 헤더 설정
-            columns = ['ID', '장비명', '모델명', '종류', '일련번호', '상태', '대여자', '대여자 아이디', '취득일']
-            for col_num, column_title in enumerate(columns, 1):
-                cell = ws.cell(row=1, column=col_num, value=column_title)
-                cell.font = header_font
-                cell.alignment = header_alignment
-            
-            # 데이터 입력
-            for row_num, equipment in enumerate(equipment_list, 2):
-                ws.cell(row=row_num, column=1, value=equipment.id)
-                ws.cell(row=row_num, column=2, value=equipment.name)
-                ws.cell(row=row_num, column=3, value=equipment.model_name or '-')
-                ws.cell(row=row_num, column=4, value=equipment.get_equipment_type_display())
-                ws.cell(row=row_num, column=5, value=equipment.serial_number)
-                ws.cell(row=row_num, column=6, value=equipment.get_status_display())
-                
-                # 현재 대여 중인 사용자 정보
-                current_rental = equipment.rentals.filter(status='RENTED').first()
-                if current_rental and current_rental.user:
-                    # last_name이 있으면 사용, 없으면 username 사용
-                    user_name = current_rental.user.last_name or current_rental.user.username
-                    ws.cell(row=row_num, column=7, value=user_name)
-                    ws.cell(row=row_num, column=8, value=current_rental.user.username)
-                else:
-                    ws.cell(row=row_num, column=7, value="-")
-                    ws.cell(row=row_num, column=8, value="-")
+            # 데이터 준비
+            data = []
+            for idx, equipment in enumerate(equipment_list, 1):
+                try:
+                    # 현재 대여 중인 정보 찾기
+                    current_rental = equipment.rentals.filter(status='RENTED').first()
+                    logger.debug(f"장비 {equipment.asset_number}의 현재 대여 정보: {current_rental}")
                     
-                ws.cell(row=row_num, column=9, value=str(equipment.acquisition_date))
+                    # 사용자 이름 생성
+                    user_name = ''
+                    if current_rental and current_rental.user:
+                        first_name = current_rental.user.first_name or ''
+                        last_name = current_rental.user.last_name or ''
+                        user_name = f"{last_name}{first_name}".strip() or current_rental.user.username
+                    
+                    equipment_data = {
+                        '연번': idx,
+                        '종류': equipment.get_equipment_type_display(),
+                        '물품번호': equipment.asset_number,
+                        '관리번호': equipment.management_number,
+                        '제조사': equipment.manufacturer,
+                        '모델명': equipment.model_name,
+                        '구매일자': equipment.purchase_date.strftime('%Y-%m-%d') if equipment.purchase_date else '',
+                        '구매금액': equipment.purchase_price if equipment.purchase_price else '',
+                        '대여자': user_name,
+                        '대여일자': current_rental.rental_date.strftime('%Y-%m-%d') if current_rental else '',
+                        '관리자 확인': ''
+                    }
+                    data.append(equipment_data)
+                    logger.debug(f"장비 {equipment.asset_number} 데이터 처리 완료")
+                except Exception as e:
+                    logger.error(f"장비 {equipment.asset_number} 데이터 처리 중 오류: {str(e)}")
+                    raise
             
-            # 컬럼 너비 자동 조정
-            for column in ws.columns:
-                max_length = 0
-                column_letter = column[0].column_letter
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = (max_length + 2)
-                ws.column_dimensions[column_letter].width = adjusted_width
+            logger.info("DataFrame 생성 시작")
+            # DataFrame 생성
+            df = pd.DataFrame(data)
+            logger.info(f"DataFrame 생성 완료: {len(df)} 행")
             
-            # 파일 저장
-            output = BytesIO()
-            wb.save(output)
-            output.seek(0)
+            # 엑셀 파일 생성
+            response = HttpResponse(content_type='application/vnd.ms-excel')
+            response['Content-Disposition'] = f'attachment; filename=equipment_list_{datetime.now().strftime("%Y%m%d")}.xlsx'
             
-            response = HttpResponse(
-                output.getvalue(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            response['Content-Disposition'] = 'attachment; filename="equipment_list.xlsx"'
-            response['Content-Length'] = len(output.getvalue())
+            logger.info("엑셀 파일 저장 시작")
+            # 엑셀 파일로 저장
+            df.to_excel(response, index=False, sheet_name='장비목록')
+            logger.info("엑셀 파일 저장 완료")
             
             return response
             
         except Exception as e:
-            logger.error(f"엑셀 출력 중 오류 발생: {str(e)}")
+            logger.error(f"엑셀 내보내기 중 오류 발생: {str(e)}", exc_info=True)
             return Response(
-                {"detail": "엑셀 파일 생성 중 오류가 발생했습니다."},
+                {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -231,7 +214,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             df = pd.read_excel(excel_file)
             
             # 필수 열 확인
-            required_columns = ['장비명', '장비 유형', '시리얼 번호', '취득일']
+            required_columns = ['물품번호', '장비 유형', '시리얼 번호', '취득일']
             for col in required_columns:
                 if col not in df.columns:
                     return Response({'error': f'필수 열 "{col}"이 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -253,7 +236,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                             acquisition_date = timezone.now().date()
                     
                     equipment_data = {
-                        'name': row['장비명'],
+                        'asset_number': row['물품번호'],
                         'equipment_type': row['장비 유형'],
                         'serial_number': row['시리얼 번호'],
                         'description': row.get('설명', ''),
@@ -265,7 +248,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                     if Equipment.objects.filter(serial_number=equipment_data['serial_number']).exists():
                         errors.append({
                             'row': index + 2,  # 엑셀 행 번호 (헤더 + 1)
-                            'name': equipment_data['name'],
+                            'asset_number': equipment_data['asset_number'],
                             'errors': '이미 존재하는 시리얼 번호입니다.'
                         })
                         continue
@@ -274,17 +257,17 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                     serializer = EquipmentSerializer(data=equipment_data)
                     if serializer.is_valid():
                         serializer.save()
-                        created_equipment.append(equipment_data['name'])
+                        created_equipment.append(equipment_data['asset_number'])
                     else:
                         errors.append({
                             'row': index + 2,
-                            'name': equipment_data['name'],
+                            'asset_number': equipment_data['asset_number'],
                             'errors': serializer.errors
                         })
                 except Exception as e:
                     errors.append({
                         'row': index + 2,
-                        'name': row.get('장비명', '알 수 없음'),
+                        'asset_number': row.get('물품번호', '알 수 없음'),
                         'errors': str(e)
                     })
             
@@ -321,7 +304,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                     'error': '이미 등록된 시리얼 번호입니다.',
                     'existing_equipment': {
                         'id': existing_equipment.id,
-                        'name': existing_equipment.name,
+                        'asset_number': existing_equipment.asset_number,
                         'equipment_type': existing_equipment.get_equipment_type_display(),
                         'status': existing_equipment.get_status_display(),
                         'rental': rental_info
@@ -455,18 +438,19 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='update-by-model')
     def update_by_model(self, request):
-        """모델명 기준으로 생산년도와 구매일시 일괄 업데이트"""
+        """모델명 기준으로 생산년도, 구매일시, 구매가격 일괄 업데이트"""
         if not request.user.is_staff:
             return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
             
         model_name = request.data.get('model_name')
         manufacture_year = request.data.get('manufacture_year')
         purchase_date = request.data.get('purchase_date')
+        purchase_price = request.data.get('purchase_price')
         
         if not model_name:
             return Response({"detail": "모델명이 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
             
-        if not manufacture_year and not purchase_date:
+        if not manufacture_year and not purchase_date and purchase_price is None:
             return Response({"detail": "업데이트할 데이터가 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
         
         # 모델명이 정확히 일치하는 경우
@@ -509,6 +493,24 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                     "detail": f"구매일시 처리 중 오류가 발생했습니다: {str(e)}"
                 }, status=status.HTTP_400_BAD_REQUEST)
         
+        if purchase_price is not None:
+            try:
+                # 빈 문자열이나 None이 아닌 경우에만 처리
+                if purchase_price != '' and purchase_price is not None:
+                    purchase_price = float(purchase_price)
+                    if purchase_price < 0:
+                        return Response({
+                            "detail": "구매가격은 0 이상이어야 합니다."
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    update_data['purchase_price'] = purchase_price
+                elif purchase_price == '':
+                    # 빈 문자열인 경우 None으로 설정 (필드 초기화)
+                    update_data['purchase_price'] = None
+            except (ValueError, TypeError):
+                return Response({
+                    "detail": "구매가격은 유효한 숫자여야 합니다."
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
         # 일괄 업데이트 수행
         count = equipments.count()
         equipments.update(**update_data)
@@ -523,6 +525,38 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             "updated_equipments": serializer.data
         })
 
+    @action(detail=False, methods=['get'], url_path='get-model-info')
+    def get_model_info(self, request):
+        """모델명에 해당하는 장비의 정보를 가져옴"""
+        if not request.user.is_staff:
+            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+            
+        model_name = request.query_params.get('model_name')
+        if not model_name:
+            return Response({"detail": "모델명이 필요합니다."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # 모델명이 정확히 일치하는 장비 중 가장 최근에 등록된 장비의 정보를 가져옴
+        equipment = Equipment.objects.filter(model_name=model_name).order_by('-created_at').first()
+        
+        if not equipment:
+            # 모델명이 포함된 장비 검색 (부분 일치)
+            equipment = Equipment.objects.filter(model_name__icontains=model_name).order_by('-created_at').first()
+            
+        if not equipment:
+            return Response({
+                "detail": f"모델명 '{model_name}'에 해당하는 장비가 없습니다."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({
+            "success": True,
+            "data": {
+                "model_name": equipment.model_name,
+                "manufacture_year": equipment.manufacture_year,
+                "purchase_date": equipment.purchase_date,
+                "purchase_price": equipment.purchase_price
+            }
+        })
+
 
 class RentalViewSet(viewsets.ModelViewSet):
     """
@@ -532,7 +566,7 @@ class RentalViewSet(viewsets.ModelViewSet):
     serializer_class = RentalSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['equipment__name', 'equipment__serial_number', 'user__username']
+    search_fields = ['equipment__asset_number', 'equipment__serial_number', 'user__username']
     ordering_fields = ['rental_date', 'due_date', 'return_date', 'status']
     http_method_names = ['get', 'post', 'put', 'patch', 'delete']
     
@@ -738,7 +772,7 @@ class RentalViewSet(viewsets.ModelViewSet):
             ws.cell(row=row_num, column=1, value=rental.id)
             ws.cell(row=row_num, column=2, value=rental.user.username)
             ws.cell(row=row_num, column=3, value=f"{rental.user.last_name}{rental.user.first_name}")
-            ws.cell(row=row_num, column=4, value=rental.equipment.name)
+            ws.cell(row=row_num, column=4, value=rental.equipment.asset_number)
             ws.cell(row=row_num, column=5, value=str(rental.rental_date))
             ws.cell(row=row_num, column=6, value=str(rental.due_date))
             ws.cell(row=row_num, column=7, value=str(rental.return_date) if rental.return_date else "미반납")
@@ -779,7 +813,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
     serializer_class = RentalRequestSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['equipment__name', 'user__username', 'reason']
+    search_fields = ['equipment__asset_number', 'user__username', 'reason']
     ordering_fields = ['requested_date', 'status', 'request_type']
     
     def get_queryset(self):
@@ -1233,7 +1267,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             ws.cell(row=row_num, column=1, value=req.id)
             ws.cell(row=row_num, column=2, value=req.user.username)
             ws.cell(row=row_num, column=3, value=req.get_request_type_display())
-            ws.cell(row=row_num, column=4, value=req.equipment.name)
+            ws.cell(row=row_num, column=4, value=req.equipment.asset_number)
             ws.cell(row=row_num, column=5, value=str(req.requested_date))
             ws.cell(row=row_num, column=6, value=req.get_status_display())
             ws.cell(row=row_num, column=7, value=req.processed_by.username if req.processed_by else "미처리")

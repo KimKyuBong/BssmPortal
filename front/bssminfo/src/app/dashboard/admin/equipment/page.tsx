@@ -48,7 +48,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import 'dayjs/locale/ko';
 import { Equipment, ApiResponse } from '@/services/api';
-import equipmentService, { ImportEquipmentResponse, ModelBatchUpdateData } from '@/services/equipment';
+import { equipmentService, ImportEquipmentResponse, ModelBatchUpdateData } from '@/services/equipment';
 import rentalService from '@/services/rental';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
@@ -76,13 +76,15 @@ interface BatchUpdateData {
   model_name: string;
   manufacture_year?: number;
   purchase_date?: string;
+  purchase_price?: number;
 }
 
 // 초기 일괄 업데이트 데이터
 const initialBatchUpdateData: BatchUpdateData = {
   model_name: '',
   manufacture_year: undefined,
-  purchase_date: ''
+  purchase_date: '',
+  purchase_price: undefined
 };
 
 // 알림 상태 타입
@@ -93,22 +95,24 @@ interface NotificationState {
 }
 
 interface FormData {
-  name: string;
+  asset_number: string;
   description: string;
   manufacturer: string;
   model_name: string;
   serial_number: string;
   equipment_type: string;
   acquisition_date: string;
-  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'DISPOSED' | 'LOST' | 'DAMAGED';
+  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED';
   manufacture_year: string;
   purchase_date: string;
+  purchase_price: string;
+  management_number?: string;
   rental_user?: number;
   rental_due_date?: string;
 }
 
 const initialFormData: FormData = {
-  name: '',
+  asset_number: '',
   description: '',
   manufacturer: '',
   model_name: '',
@@ -118,6 +122,8 @@ const initialFormData: FormData = {
   status: 'AVAILABLE',
   manufacture_year: '',
   purchase_date: '',
+  purchase_price: '',
+  management_number: '',
   rental_user: undefined,
   rental_due_date: undefined
 };
@@ -128,7 +134,7 @@ export default function EquipmentManagementPage() {
   const [loading, setLoading] = useState<boolean>(false);
   
   // 검색 상태
-  const [searchType, setSearchType] = useState<string>('name');
+  const [searchType, setSearchType] = useState<string>('asset_number');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('');
@@ -187,7 +193,8 @@ export default function EquipmentManagementPage() {
   const [batchUpdateData, setBatchUpdateData] = useState<ModelBatchUpdateData>({
     model_name: '',
     manufacture_year: undefined,
-    purchase_date: ''
+    purchase_date: '',
+    purchase_price: undefined
   });
   const [batchUpdateLoading, setBatchUpdateLoading] = useState(false);
 
@@ -250,8 +257,8 @@ export default function EquipmentManagementPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(item => {
         switch (searchType) {
-          case 'name':
-            return item.name.toLowerCase().includes(query);
+          case 'asset_number':
+            return item.asset_number?.toLowerCase().includes(query) || false;
           case 'manufacturer':
             return item.manufacturer.toLowerCase().includes(query);
           case 'model_name':
@@ -311,7 +318,7 @@ export default function EquipmentManagementPage() {
     setDialogMode('edit');
     setSelectedEquipment(item);
     setFormData({
-      name: item.name,
+      asset_number: item.asset_number || '',
       description: item.description || '',
       manufacturer: item.manufacturer || '',
       model_name: item.model_name || '',
@@ -321,6 +328,8 @@ export default function EquipmentManagementPage() {
       status: item.status,
       manufacture_year: item.manufacture_year?.toString() || '',
       purchase_date: item.purchase_date ? dayjs(item.purchase_date).format('YYYY-MM-DD') : '',
+      purchase_price: item.purchase_price || '',
+      management_number: item.management_number || '',
       rental_user: item.rental?.user.id,
       rental_due_date: item.rental?.due_date ? dayjs(item.rental.due_date).format('YYYY-MM-DD') : undefined
     });
@@ -424,17 +433,8 @@ export default function EquipmentManagementPage() {
             );
             
             if (rentalResult.success && rentalResult.data) {
-              // 대여 처리 성공 시 해당 장비 정보 업데이트
-              setEquipment(prev => 
-                prev.map(item => 
-                  item.id === selectedEquipment.id ? rentalResult.data!.equipment : item
-                )
-              );
-              setFilteredEquipment(prev => 
-                prev.map(item => 
-                  item.id === selectedEquipment.id ? rentalResult.data!.equipment : item
-                )
-              );
+              // 대여 처리 성공 시 장비 목록 새로고침
+              loadEquipment();
               
               setNotification({
                 open: true,
@@ -517,7 +517,7 @@ export default function EquipmentManagementPage() {
   };
   
   // 장비 목록을 엑셀로 내보내기
-  const exportToExcel = async () => {
+  const handleExportExcel = async () => {
     try {
       await equipmentService.exportEquipmentToExcel();
       setNotification({
@@ -732,9 +732,29 @@ export default function EquipmentManagementPage() {
     setBatchUpdateData({
       model_name: '',
       manufacture_year: undefined,
-      purchase_date: ''
+      purchase_date: '',
+      purchase_price: undefined
     });
     setOpenBatchUpdateDialog(true);
+  };
+  
+  // 모델 선택 시 API 호출하여 모델 정보 가져오기
+  const handleModelSelect = async (modelName: string) => {
+    try {
+      const response = await equipmentService.getModelInfo(modelName);
+      if (response.success && response.data) {
+        const modelData = response.data;
+        setBatchUpdateData(prev => ({
+          ...prev,
+          model_name: modelName,
+          manufacture_year: modelData.manufacture_year,
+          purchase_date: modelData.purchase_date || '',
+          purchase_price: modelData.purchase_price
+        }));
+      }
+    } catch (error) {
+      console.error('모델 정보 조회 실패:', error);
+    }
   };
   
   // 모델별 일괄 업데이트 필드 변경 핸들러
@@ -742,7 +762,8 @@ export default function EquipmentManagementPage() {
     const { name, value } = e.target;
     setBatchUpdateData(prev => ({
       ...prev,
-      [name]: name === 'manufacture_year' ? (value ? parseInt(value) : undefined) : value
+      [name]: name === 'manufacture_year' ? (value ? parseInt(value) : undefined) : 
+              name === 'purchase_price' ? (value ? parseFloat(value) : undefined) : value
     }));
   };
   
@@ -772,10 +793,10 @@ export default function EquipmentManagementPage() {
       return;
     }
     
-    if (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date) {
+    if (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date && batchUpdateData.purchase_price === undefined) {
       setNotification({
         open: true,
-        message: '생산년도 또는 구매일을 입력해주세요.',
+        message: '생산년도, 구매일 또는 구매가격 중 하나는 입력해주세요.',
         severity: 'error'
       });
       return;
@@ -795,7 +816,8 @@ export default function EquipmentManagementPage() {
         setBatchUpdateData({
           model_name: '',
           manufacture_year: undefined,
-          purchase_date: ''
+          purchase_date: '',
+          purchase_price: undefined
         });
         // 목록 새로고침 대신 현재 목록에서 해당 장비들만 업데이트
         const response = await equipmentService.getAllEquipment();
@@ -829,30 +851,55 @@ export default function EquipmentManagementPage() {
   
   // 검색 필터 초기화
   const handleResetFilters = () => {
-    setSearchType('name');
+    setSearchType('asset_number');
     setSearchQuery('');
     setStatusFilter('');
     setTypeFilter('');
   };
 
   // 상태 변경 핸들러
-  const handleStatusChange = (e: SelectChangeEvent<Equipment['status']>) => {
-    const newStatus = e.target.value as Equipment['status'];
-    setFormData(prev => {
-      // 상태가 AVAILABLE로 변경될 때 대여자 정보 초기화
-      if (newStatus === 'AVAILABLE' && prev.status !== 'AVAILABLE') {
-        return {
-          ...prev,
-          status: newStatus,
-          rental_user: undefined,
-          rental_due_date: undefined
-        };
+  const handleStatusChange = async (id: number, newStatus: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED') => {
+    try {
+      const response = await equipmentService.updateEquipmentStatus(id, newStatus);
+      if (response.success) {
+        setEquipment(prev => prev.map(item => 
+          item.id === id ? { ...item, status: newStatus, status_display: getStatusDisplay(newStatus) } : item
+        ));
+        setFilteredEquipment(prev => prev.map(item => 
+          item.id === id ? { ...item, status: newStatus, status_display: getStatusDisplay(newStatus) } : item
+        ));
+        setNotification({
+          open: true,
+          message: '장비 상태가 업데이트되었습니다.',
+          severity: 'success'
+        });
+      } else {
+        setNotification({
+          open: true,
+          message: response.message || '장비 상태 업데이트에 실패했습니다.',
+          severity: 'error'
+        });
       }
-      return {
-        ...prev,
-        status: newStatus
-      };
-    });
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: '장비 상태 업데이트 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 상태 표시 텍스트를 가져오는 함수
+  const getStatusDisplay = (status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED'): string => {
+    const statusMap = {
+      'AVAILABLE': '사용 가능',
+      'RENTED': '대여 중',
+      'MAINTENANCE': '유지보수 중',
+      'BROKEN': '파손',
+      'LOST': '분실',
+      'DISPOSED': '폐기'
+    };
+    return statusMap[status];
   };
 
   // 알림 닫기 핸들러
@@ -869,7 +916,7 @@ export default function EquipmentManagementPage() {
       // 템플릿 데이터 준비
       const templateData = [
         {
-          '장비명': '노트북 모델 X',
+          '물품번호': '노트북 모델 X',
           '제조사': 'ABC사',
           '모델명': 'X-2023',
           '장비 유형': 'LAPTOP',
@@ -931,7 +978,7 @@ export default function EquipmentManagementPage() {
           <Button 
             variant="outlined" 
             startIcon={<DownloadIcon />}
-            onClick={exportToExcel}
+            onClick={handleExportExcel}
           >
             엑셀로 내보내기
           </Button>
@@ -957,7 +1004,7 @@ export default function EquipmentManagementPage() {
                 onChange={handleSearchTypeChange}
                 label="검색 항목"
               >
-                <MenuItem value="name">장비명</MenuItem>
+                <MenuItem value="asset_number">물품번호</MenuItem>
                 <MenuItem value="manufacturer">제조사</MenuItem>
                 <MenuItem value="model_name">모델명</MenuItem>
                 <MenuItem value="serial_number">시리얼 번호</MenuItem>
@@ -997,8 +1044,9 @@ export default function EquipmentManagementPage() {
                 <MenuItem value="AVAILABLE">대여 가능</MenuItem>
                 <MenuItem value="RENTED">대여 중</MenuItem>
                 <MenuItem value="MAINTENANCE">점검 중</MenuItem>
+                <MenuItem value="BROKEN">파손</MenuItem>
                 <MenuItem value="LOST">분실</MenuItem>
-                <MenuItem value="DAMAGED">손상</MenuItem>
+                <MenuItem value="DISPOSED">폐기</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -1103,44 +1151,56 @@ export default function EquipmentManagementPage() {
       )}
 
       {/* 장비 목록 테이블 */}
-      <TableContainer component={Paper} sx={{ mt: 3 }}>
-        <Table>
+      <TableContainer component={Paper} sx={{ mt: 3, maxWidth: '100%', overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 1200 }}>
           <TableHead>
             <TableRow>
-              <TableCell>장비명</TableCell>
+              <TableCell>물품번호</TableCell>
               <TableCell>제조사</TableCell>
               <TableCell>모델명</TableCell>
               <TableCell>유형</TableCell>
               <TableCell>일련번호</TableCell>
+              <TableCell>관리번호</TableCell>
+              <TableCell>설명</TableCell>
               <TableCell>상태</TableCell>
               <TableCell>대여자</TableCell>
               <TableCell>생산년도</TableCell>
               <TableCell>구매일</TableCell>
+              <TableCell>구매가격</TableCell>
               <TableCell>취득일</TableCell>
+              <TableCell>반납예정일</TableCell>
               <TableCell align="right">작업</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={12} align="center">
+                <TableCell colSpan={15} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : filteredEquipment.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} align="center">
+                <TableCell colSpan={15} align="center">
                   장비가 없습니다.
                 </TableCell>
               </TableRow>
             ) : (
               paginatedEquipment.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.asset_number}</TableCell>
                   <TableCell>{item.manufacturer || '-'}</TableCell>
-                  <TableCell>{item.model_name || '-'}</TableCell>
+                  <TableCell sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.model_name || ''}>
+                    {item.model_name || '-'}
+                  </TableCell>
                   <TableCell>{item.equipment_type_display}</TableCell>
-                  <TableCell>{item.serial_number}</TableCell>
+                  <TableCell sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.serial_number}>
+                    {item.serial_number}
+                  </TableCell>
+                  <TableCell>{item.management_number || '-'}</TableCell>
+                  <TableCell sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.description || ''}>
+                    {item.description || '-'}
+                  </TableCell>
                   <TableCell>
                     <Chip 
                       label={item.status_display}
@@ -1148,7 +1208,7 @@ export default function EquipmentManagementPage() {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>
+                  <TableCell sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.rental?.user ? `${item.rental.user.name} (${item.rental.user.username})` : ''}>
                     {item.status === 'AVAILABLE' 
                       ? '-'
                       : item.rental?.user 
@@ -1158,7 +1218,9 @@ export default function EquipmentManagementPage() {
                   </TableCell>
                   <TableCell>{item.manufacture_year || '-'}</TableCell>
                   <TableCell>{item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell>{item.purchase_price ? `₩${Number(item.purchase_price).toLocaleString()}` : '-'}</TableCell>
                   <TableCell>{new Date(item.acquisition_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{item.rental?.due_date ? new Date(item.rental.due_date).toLocaleDateString() : '-'}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="장비 편집">
                       <IconButton 
@@ -1217,9 +1279,9 @@ export default function EquipmentManagementPage() {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="장비명"
-                  name="name"
-                  value={formData.name}
+                  label="물품번호"
+                  name="asset_number"
+                  value={formData.asset_number}
                   onChange={handleFormChange}
                   required
                 />
@@ -1274,30 +1336,38 @@ export default function EquipmentManagementPage() {
                   <Select
                     name="status"
                     value={formData.status}
-                    onChange={handleStatusChange}
+                    onChange={(e) => handleStatusChange(selectedEquipment?.id || 0, e.target.value as Equipment['status'])}
                     label="상태"
                   >
                     <MenuItem value="AVAILABLE">대여 가능</MenuItem>
                     <MenuItem value="RENTED">대여 중</MenuItem>
                     <MenuItem value="MAINTENANCE">점검 중</MenuItem>
+                    <MenuItem value="BROKEN">파손</MenuItem>
                     <MenuItem value="LOST">분실</MenuItem>
-                    <MenuItem value="DAMAGED">손상</MenuItem>
+                    <MenuItem value="DISPOSED">폐기</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="취득일"
-                  name="acquisition_date"
-                  type="date"
-                  value={formData.acquisition_date}
-                  onChange={handleFormChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  required
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ko">
+                  <DatePicker
+                    label="취득일"
+                    value={formData.acquisition_date ? dayjs(formData.acquisition_date) : null}
+                    onChange={(newValue) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        acquisition_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                      }));
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                        helperText: "취득일을 선택해주세요"
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -1316,16 +1386,48 @@ export default function EquipmentManagementPage() {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ko">
+                  <DatePicker
+                    label="구매일"
+                    value={formData.purchase_date ? dayjs(formData.purchase_date) : null}
+                    onChange={(newValue) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        purchase_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                      }));
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        helperText: "구매일을 선택해주세요 (선택사항)"
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="구매일"
-                  name="purchase_date"
-                  type="date"
-                  value={formData.purchase_date || ''}
+                  label="구매가격"
+                  name="purchase_price"
+                  type="number"
+                  value={formData.purchase_price || ''}
                   onChange={handleFormChange}
-                  InputLabelProps={{
-                    shrink: true,
+                  InputProps={{
+                    inputProps: { min: 0, step: 0.01 },
+                    startAdornment: <InputAdornment position="start">₩</InputAdornment>
                   }}
+                  helperText="구매가격을 입력하세요 (선택사항)"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="관리번호"
+                  name="management_number"
+                  value={formData.management_number || ''}
+                  onChange={handleFormChange}
+                  helperText="관리번호를 입력하세요 (선택사항)"
                 />
               </Grid>
               <Grid item xs={12}>
@@ -1475,7 +1577,7 @@ export default function EquipmentManagementPage() {
                   labelId="model-select-label"
                   id="model-select"
                   value={batchUpdateData.model_name}
-                  onChange={(e) => setBatchUpdateData({...batchUpdateData, model_name: e.target.value})}
+                  onChange={(e) => handleModelSelect(e.target.value)}
                   label="모델 선택"
                 >
                   <MenuItem value="">
@@ -1535,6 +1637,21 @@ export default function EquipmentManagementPage() {
                 />
               </LocalizationProvider>
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                name="purchase_price"
+                label="구매가격"
+                type="number"
+                value={batchUpdateData.purchase_price || ''}
+                onChange={handleBatchUpdateChange}
+                fullWidth
+                InputProps={{
+                  inputProps: { min: 0, step: 0.01 },
+                  startAdornment: <InputAdornment position="start">₩</InputAdornment>
+                }}
+                helperText="구매가격을 입력하세요 (선택사항)"
+              />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -1543,7 +1660,7 @@ export default function EquipmentManagementPage() {
             onClick={handleBatchUpdateSubmit} 
             variant="contained" 
             color="primary"
-            disabled={batchUpdateLoading || !batchUpdateData.model_name || (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date)}
+            disabled={batchUpdateLoading || !batchUpdateData.model_name || (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date && batchUpdateData.purchase_price === undefined)}
           >
             {batchUpdateLoading ? <CircularProgress size={24} /> : '업데이트'}
           </Button>

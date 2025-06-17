@@ -459,7 +459,7 @@ export default function RentalsPage() {
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>장비명</TableCell>
+                      <TableCell>물품번호</TableCell>
                       <TableCell>제조사</TableCell>
                       <TableCell>모델명</TableCell>
                       <TableCell>일련번호</TableCell>
@@ -477,10 +477,9 @@ export default function RentalsPage() {
                   <TableBody>
                     {rentals.map((rental) => (
                       <TableRow key={rental.id}>
-                        <TableCell>{(rental as any).equipment_detail?.name || rental.equipment.name}</TableCell>
                         <TableCell>{(rental as any).equipment_detail?.manufacturer || rental.equipment.manufacturer}</TableCell>
                         <TableCell>{(rental as any).equipment_detail?.model_name || rental.equipment.model_name}</TableCell>
-                        <TableCell>{(rental as any).equipment_detail?.serial_number || rental.equipment.serial_number}</TableCell>
+                        <TableCell>{(rental as any).equipment_detail?.asset_number || rental.equipment.asset_number}</TableCell>
                         <TableCell>{(rental as any).equipment_detail?.equipment_type_display || rental.equipment.equipment_type_display}</TableCell>
                         <TableCell>{(rental as any).equipment_detail?.manufacture_year || rental.equipment.manufacture_year || '-'}</TableCell>
                         <TableCell>{(rental as any).equipment_detail?.purchase_date ? dayjs((rental as any).equipment_detail.purchase_date).format('YYYY-MM-DD') : rental.equipment.purchase_date ? dayjs(rental.equipment.purchase_date).format('YYYY-MM-DD') : '-'}</TableCell>
@@ -558,10 +557,9 @@ export default function RentalsPage() {
                   <TableBody>
                     {requests.map((request: RentalRequest) => (
                       <TableRow key={request.id}>
-                        <TableCell>{request.equipment_detail ? request.equipment_detail.name : '정보 없음'}</TableCell>
                         <TableCell>{request.equipment_detail ? request.equipment_detail.manufacturer : '정보 없음'}</TableCell>
                         <TableCell>{request.equipment_detail ? request.equipment_detail.model_name : '정보 없음'}</TableCell>
-                        <TableCell>{request.equipment_detail ? request.equipment_detail.serial_number : '정보 없음'}</TableCell>
+                        <TableCell>{request.equipment_detail ? request.equipment_detail.asset_number : '정보 없음'}</TableCell>
                         <TableCell>{request.equipment_detail ? request.equipment_detail.equipment_type_display : '정보 없음'}</TableCell>
                         <TableCell>{request.equipment_detail ? (request.equipment_detail.manufacture_year || '-') : '-'}</TableCell>
                         <TableCell>{request.equipment_detail && request.equipment_detail.purchase_date ? dayjs(request.equipment_detail.purchase_date).format('YYYY-MM-DD') : '-'}</TableCell>
@@ -621,7 +619,7 @@ export default function RentalsPage() {
                 </MenuItem>
                 {equipment.map((equipment) => (
                   <MenuItem key={equipment.id} value={equipment.id}>
-                    {equipment.name} ({equipment.serial_number})
+                    {equipment.model_name} / {equipment.asset_number}
                   </MenuItem>
                 ))}
               </TextField>

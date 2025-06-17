@@ -22,7 +22,7 @@ class EquipmentMacAddress(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
     
     def __str__(self):
-        return f"{self.equipment.name} - {self.mac_address} ({self.get_interface_type_display()})"
+        return f"{self.equipment.asset_number} - {self.mac_address} ({self.get_interface_type_display()})"
     
     class Meta:
         verbose_name = '장비 MAC 주소'
@@ -55,7 +55,7 @@ class Equipment(models.Model):
         ('DISPOSED', '폐기'),
     ]
     
-    name = models.CharField('장비명', max_length=100)
+    asset_number = models.CharField('물품번호', max_length=100, null=True, blank=True)
     manufacturer = models.CharField('제조사', max_length=100, null=True, blank=True)
     model_name = models.CharField('모델명', max_length=100, null=True, blank=True)
     equipment_type = models.CharField('장비 유형', max_length=20, choices=EQUIPMENT_TYPE_CHOICES)
@@ -65,6 +65,8 @@ class Equipment(models.Model):
     acquisition_date = models.DateField('취득일', default=timezone.now)
     manufacture_year = models.IntegerField('제작년도', null=True, blank=True)
     purchase_date = models.DateTimeField('구입일시', null=True, blank=True)
+    management_number = models.CharField('관리번호', max_length=20, unique=True, null=True, blank=True)
+    purchase_price = models.DecimalField('구입금액', max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField('등록일', auto_now_add=True)
     updated_at = models.DateTimeField('수정일', auto_now=True)
 
@@ -74,7 +76,7 @@ class Equipment(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f'{self.name} ({self.get_equipment_type_display()})'
+        return f'{self.asset_number} ({self.get_equipment_type_display()})'
 
 
 class Rental(models.Model):
@@ -106,7 +108,7 @@ class Rental(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
     
     def __str__(self):
-        return f"{self.user.username} - {self.equipment.name} ({self.status})"
+        return f"{self.user.username} - {self.equipment.asset_number} ({self.status})"
     
     class Meta:
         verbose_name = '대여'

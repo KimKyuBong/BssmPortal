@@ -37,10 +37,10 @@ class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
         fields = [
-            'id', 'name', 'manufacturer', 'model_name', 'equipment_type',
+            'id', 'asset_number', 'manufacturer', 'model_name', 'equipment_type',
             'equipment_type_display', 'serial_number', 'mac_addresses',
             'description', 'status', 'status_display', 'acquisition_date',
-            'manufacture_year', 'purchase_date', 'rental'
+            'manufacture_year', 'purchase_date', 'rental', 'management_number', 'purchase_price'
         ]
         read_only_fields = ['purchase_date']
     
@@ -82,7 +82,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
                     'serial_number': '이미 등록된 시리얼 번호입니다.',
                     'existing_equipment': {
                         'id': existing_equipment.id,
-                        'name': existing_equipment.name,
+                        'asset_number': existing_equipment.asset_number,
                         'equipment_type': existing_equipment.get_equipment_type_display(),
                         'status': existing_equipment.get_status_display(),
                         'rental': self.get_rental(existing_equipment)
@@ -109,7 +109,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
                     'serial_number': '이미 등록된 시리얼 번호입니다.',
                     'existing_equipment': {
                         'id': existing_equipment.id,
-                        'name': existing_equipment.name,
+                        'asset_number': existing_equipment.asset_number,
                         'equipment_type': existing_equipment.get_equipment_type_display(),
                         'status': existing_equipment.get_status_display(),
                         'rental': self.get_rental(existing_equipment)
@@ -160,7 +160,7 @@ class EquipmentLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Equipment
         fields = [
-            'id', 'name', 'manufacturer', 'model_name', 'serial_number', 
+            'id', 'asset_number', 'manufacturer', 'model_name', 'serial_number', 
             'mac_addresses', 'status', 'status_display', 'manufacture_year', 'purchase_date'
         ]
 

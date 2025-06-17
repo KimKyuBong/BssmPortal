@@ -3,11 +3,11 @@ from .models import Equipment, Rental, RentalRequest
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'equipment_type', 'serial_number', 'status', 'acquisition_date')
-    list_filter = ('equipment_type', 'status', 'acquisition_date')
-    search_fields = ('name', 'serial_number', 'description')
-    ordering = ('name', 'acquisition_date')
-    date_hierarchy = 'acquisition_date'
+    list_display = ['asset_number', 'manufacturer', 'model_name', 'equipment_type', 'status', 'acquisition_date']
+    list_filter = ['equipment_type', 'status', 'acquisition_date']
+    search_fields = ['asset_number', 'manufacturer', 'model_name', 'serial_number']
+    ordering = ['asset_number']
+    readonly_fields = ['created_at', 'updated_at']
 
 @admin.register(Rental)
 class RentalAdmin(admin.ModelAdmin):

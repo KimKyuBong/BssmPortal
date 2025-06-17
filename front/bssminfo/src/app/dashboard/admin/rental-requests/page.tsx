@@ -167,7 +167,7 @@ export default function RentalRequestsPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(item => 
         item.user?.username?.toLowerCase().includes(query) ||
-        (item.equipment_detail && item.equipment_detail.name?.toLowerCase().includes(query)) ||
+        (item.equipment_detail && item.equipment_detail.asset_number?.toLowerCase().includes(query)) ||
         (item.request_reason && item.request_reason.toLowerCase().includes(query))
       );
     }
@@ -355,7 +355,7 @@ export default function RentalRequestsPage() {
                   <TableCell>{request.user.username}</TableCell>
                   <TableCell>{request.request_type_display}</TableCell>
                   <TableCell>
-                    {request.equipment_detail ? request.equipment_detail.name : '정보 없음'}
+                    {request.equipment_detail ? request.equipment_detail.asset_number : '정보 없음'}
                   </TableCell>
                   <TableCell>
                     {dayjs(request.created_at).format('YYYY-MM-DD')}
@@ -445,7 +445,7 @@ export default function RentalRequestsPage() {
               <Grid item xs={12} sm={6}>
                 <Typography variant="subtitle2">장비명</Typography>
                 <Typography variant="body1">
-                  {selectedRequest.equipment_detail ? selectedRequest.equipment_detail.name : '정보 없음'}
+                  {selectedRequest.equipment_detail ? selectedRequest.equipment_detail.asset_number : '정보 없음'}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6}>

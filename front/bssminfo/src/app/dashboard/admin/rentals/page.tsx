@@ -121,11 +121,11 @@ export default function AdminRentalsPage() {
   // 대여 요청 테이블 컬럼
   const requestColumns = [
     {
-      title: '장비명',
-      dataIndex: ['equipment_detail', 'name'],
+      title: '물품번호',
+      dataIndex: ['equipment_detail', 'asset_number'],
       key: 'equipment_name',
       render: (_: any, record: RentalRequest) => 
-        record.equipment_detail ? record.equipment_detail.name : '정보 없음',
+        record.equipment_detail ? record.equipment_detail.asset_number : '정보 없음',
     },
     {
       title: '요청자',
@@ -228,7 +228,7 @@ export default function AdminRentalsPage() {
     },
     {
       title: '장비명',
-      dataIndex: ['equipment', 'name'],
+      dataIndex: ['equipment', 'asset_number'],
       key: 'equipment_name',
     },
     {

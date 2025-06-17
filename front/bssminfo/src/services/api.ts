@@ -308,7 +308,7 @@ export const api = {
 // 장비 유형
 export interface Equipment {
   id: number;
-  name: string;
+  asset_number: string;
   manufacturer: string;
   model_name: string | null;
   equipment_type: string;
@@ -319,7 +319,7 @@ export interface Equipment {
   acquisition_date: string;
   manufacture_year?: number;
   purchase_date?: string;
-  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'DISPOSED' | 'LOST' | 'DAMAGED';
+  status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED';
   status_display: string;
   created_at: string;
   mac_addresses: Array<{
@@ -336,6 +336,8 @@ export interface Equipment {
     due_date: string;
     rental_date: string;
   } | null;
+  management_number?: string;
+  purchase_price?: string;
 }
 
 // 대여 상태값 정의
