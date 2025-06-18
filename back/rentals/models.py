@@ -83,18 +83,15 @@ class Equipment(models.Model):
 
     def generate_management_number(self):
         """관리번호 생성 메서드 - 구매년도 기준"""
+        # 구매일이 없으면 관리번호를 생성하지 않음
+        if not self.purchase_date:
+            return None
+            
         # 장비 유형 이니셜 가져오기
         initial = self.EQUIPMENT_TYPE_INITIALS.get(self.equipment_type, 'O')
         
-        # 구매년도 가져오기 (구매일이 있으면 구매일의 연도, 없으면 제작년도 사용)
-        year = None
-        if self.purchase_date:
-            year = self.purchase_date.year
-        elif self.manufacture_year:
-            year = self.manufacture_year
-        else:
-            # 구매년도와 제작년도가 모두 없으면 현재 연도 사용
-            year = timezone.now().year
+        # 구매년도 가져오기
+        year = self.purchase_date.year
         
         # 같은 유형, 같은 연도의 장비 중 가장 큰 일련번호 찾기
         base_number = f"{initial}-{year}"
@@ -118,9 +115,26 @@ class Equipment(models.Model):
         return f"{base_number}-{new_sequence:03d}"
 
     def save(self, *args, **kwargs):
-        """저장 시 관리번호 자동 생성"""
-        if not self.management_number:
-            self.management_number = self.generate_management_number()
+        """저장 시 관리번호 자동 생성/업데이트"""
+        # 기존 인스턴스가 있는지 확인 (수정인지 새로 생성인지)
+        if self.pk:
+            try:
+                old_instance = Equipment.objects.get(pk=self.pk)
+                # 구매일이 변경된 경우에만 관리번호 재생성
+                if old_instance.purchase_date != self.purchase_date:
+                    if self.purchase_date:
+                        self.management_number = self.generate_management_number()
+                    else:
+                        self.management_number = None
+            except Equipment.DoesNotExist:
+                # 새로 생성되는 경우
+                if self.purchase_date and not self.management_number:
+                    self.management_number = self.generate_management_number()
+        else:
+            # 새로 생성되는 경우
+            if self.purchase_date and not self.management_number:
+                self.management_number = self.generate_management_number()
+        
         super().save(*args, **kwargs)
 
     class Meta:
@@ -170,41 +184,69 @@ class Rental(models.Model):
 
 class RentalRequest(models.Model):
     """
-    대여 및 반납 요청 모델
+    대여/반납 요청 모델
     """
-    TYPE_CHOICES = (
-        ('RENT', '대여 신청'),
-        ('RETURN', '반납 신청')
+    REQUEST_TYPE_CHOICES = (
+        ('RENTAL', '대여 요청'),
+        ('RETURN', '반납 요청'),
     )
     
     STATUS_CHOICES = (
-        ('PENDING', '승인 대기'),
+        ('PENDING', '대기 중'),
         ('APPROVED', '승인됨'),
         ('REJECTED', '거부됨'),
-        ('CANCELLED', '취소됨')
+        ('CANCELLED', '취소됨'),
     )
     
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rental_requests', verbose_name='신청자')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='rental_requests', verbose_name='사용자')
     equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='rental_requests', verbose_name='장비')
-    rental = models.ForeignKey(Rental, on_delete=models.SET_NULL, null=True, blank=True, related_name='requests', verbose_name='대여 정보')
-    
-    request_type = models.CharField(max_length=10, choices=TYPE_CHOICES, verbose_name='요청 유형')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING', verbose_name='상태')
-    
-    requested_date = models.DateTimeField(default=timezone.now, verbose_name='신청일')
+    request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES, verbose_name='요청 유형')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', verbose_name='상태')
+    requested_date = models.DateTimeField(default=timezone.now, verbose_name='요청일')
     expected_return_date = models.DateTimeField(blank=True, null=True, verbose_name='반납 예정일')
-    request_reason = models.TextField(blank=True, verbose_name='신청 사유')
-    reject_reason = models.TextField(blank=True, verbose_name='거절 사유')
-    
+    request_reason = models.TextField(blank=True, verbose_name='요청 사유')
+    reject_reason = models.TextField(blank=True, verbose_name='거부 사유')
+    processed_date = models.DateTimeField(blank=True, null=True, verbose_name='처리일')
     processed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_requests', verbose_name='처리자')
-    processed_at = models.DateTimeField(blank=True, null=True, verbose_name='처리일')
+    notes = models.TextField(blank=True, verbose_name='비고')
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
     
     def __str__(self):
-        return f"{self.user.username} - {self.get_request_type_display()} ({self.get_status_display()})"
+        return f"{self.user.username} - {self.equipment.asset_number} ({self.get_request_type_display()})"
     
     class Meta:
-        verbose_name = '대여/반납 요청'
-        verbose_name_plural = '대여/반납 요청들'
+        verbose_name = '대여 요청'
+        verbose_name_plural = '대여 요청들'
+        ordering = ['-requested_date']
+
+
+class EquipmentHistory(models.Model):
+    """
+    장비 상태 변경 이력 모델
+    """
+    ACTION_CHOICES = [
+        ('CREATED', '생성'),
+        ('UPDATED', '수정'),
+        ('STATUS_CHANGED', '상태 변경'),
+        ('RENTED', '대여'),
+        ('RETURNED', '반납'),
+        ('DELETED', '삭제'),
+    ]
+    
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='histories', verbose_name='장비')
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name='작업')
+    old_value = models.JSONField(null=True, blank=True, verbose_name='이전 값')
+    new_value = models.JSONField(null=True, blank=True, verbose_name='새 값')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='작업자')
+    details = models.TextField(blank=True, verbose_name='상세 설명')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='작업일시')
+    
+    def __str__(self):
+        return f"{self.equipment.asset_number} - {self.get_action_display()} ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+    
+    class Meta:
+        verbose_name = '장비 이력'
+        verbose_name_plural = '장비 이력들'
+        ordering = ['-created_at']

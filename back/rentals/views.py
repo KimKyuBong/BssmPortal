@@ -19,8 +19,8 @@ from django.db.models import Prefetch
 from django.db import transaction
 from datetime import datetime
 
-from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
-from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer
+from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress, EquipmentHistory
+from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer, EquipmentHistorySerializer
 from django.contrib.auth import get_user_model
 from devices.models import Device
 
@@ -131,14 +131,24 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def available(self, request):
+        """대여 가능한 장비 목록 조회"""
+        # 대여 가능한 장비만 필터링 (상태가 'AVAILABLE'인 장비)
+        available_equipment = Equipment.objects.filter(status='AVAILABLE').order_by('management_number')
+        
+        # 페이지네이션 없이 배열로 반환
+        serializer = self.get_serializer(available_equipment, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def export_excel(self, request):
         logger = logging.getLogger(__name__)
         try:
             logger.info("엑셀 내보내기 시작")
             
-            # 모든 장비 정보 조회
-            equipment_list = Equipment.objects.all().prefetch_related('rentals')
+            # 모든 장비 정보 조회 (관리번호 오름차순 정렬)
+            equipment_list = Equipment.objects.all().prefetch_related('rentals').order_by('management_number')
             logger.info(f"조회된 장비 수: {equipment_list.count()}")
             
             # 데이터 준비
@@ -159,13 +169,13 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                     equipment_data = {
                         '연번': idx,
                         '종류': equipment.get_equipment_type_display(),
-                        '물품번호': equipment.asset_number,
                         '관리번호': equipment.management_number,
                         '제조사': equipment.manufacturer,
                         '모델명': equipment.model_name,
                         '구매일자': equipment.purchase_date.strftime('%Y-%m-%d') if equipment.purchase_date else '',
                         '구매금액': f"₩{int(equipment.purchase_price):,}" if equipment.purchase_price else '',
                         '대여자': user_name,
+                        '대여자 아이디': current_rental.user.username if current_rental and current_rental.user else '',
                         '대여일자': current_rental.rental_date.strftime('%Y-%m-%d') if current_rental else '',
                         '관리자 확인': ''
                     }
@@ -380,7 +390,12 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             if rental_info:
                 result['rental_info'] = rental_info
             
-            return Response(result, status=status.HTTP_201_CREATED)
+            logger.info(f"대여 생성 성공: {rental.id}")
+            return Response({
+                "success": True,
+                "data": result,
+                "message": "대여가 성공적으로 생성되었습니다."
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get', 'post'], permission_classes=[AllowAny])
@@ -513,10 +528,24 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         
         # 일괄 업데이트 수행
         count = equipments.count()
-        equipments.update(**update_data)
+        
+        # 각 장비를 개별적으로 저장하여 관리번호 업데이트 로직이 작동하도록 함
+        updated_equipments = []
+        for equipment in equipments:
+            # 업데이트할 필드들을 설정
+            if 'manufacture_year' in update_data:
+                equipment.manufacture_year = update_data['manufacture_year']
+            if 'purchase_date' in update_data:
+                equipment.purchase_date = update_data['purchase_date']
+            if 'purchase_price' in update_data:
+                equipment.purchase_price = update_data['purchase_price']
+            
+            # save() 메서드를 호출하여 관리번호 업데이트 로직이 작동하도록 함
+            equipment.save()
+            updated_equipments.append(equipment)
         
         # 업데이트된 장비 목록 반환
-        serializer = self.get_serializer(equipments, many=True)
+        serializer = self.get_serializer(updated_equipments, many=True)
         
         return Response({
             "success": True,
@@ -556,6 +585,127 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                 "purchase_price": equipment.purchase_price
             }
         })
+
+    @action(detail=True, methods=['get'], url_path='history')
+    def get_equipment_history(self, request, pk=None):
+        """특정 장비의 이력 조회"""
+        if not request.user.is_staff:
+            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+            
+        try:
+            equipment = self.get_object()
+            history = EquipmentHistory.objects.filter(equipment=equipment).order_by('-created_at')
+            serializer = EquipmentHistorySerializer(history, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"장비 이력 조회 중 오류: {e}")
+            return Response({"detail": f"장비 이력 조회 중 오류가 발생했습니다: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def perform_create(self, serializer):
+        """장비 생성 시 이력 기록"""
+        equipment = serializer.save()
+        
+        # 이력 기록
+        EquipmentHistory.objects.create(
+            equipment=equipment,
+            action='CREATED',
+            user=self.request.user,
+            new_value={
+                'asset_number': equipment.asset_number,
+                'manufacturer': equipment.manufacturer,
+                'model_name': equipment.model_name,
+                'equipment_type': equipment.equipment_type,
+                'serial_number': equipment.serial_number,
+                'status': equipment.status,
+                'acquisition_date': equipment.acquisition_date.isoformat() if equipment.acquisition_date else None,
+                'manufacture_year': equipment.manufacture_year,
+                'purchase_date': equipment.purchase_date.isoformat() if equipment.purchase_date else None,
+                'purchase_price': str(equipment.purchase_price) if equipment.purchase_price else None,
+                'management_number': equipment.management_number
+            },
+            details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 생성"
+        )
+        
+        logger.info(f"장비 생성: {equipment.asset_number} by {self.request.user.username}")
+
+    def perform_update(self, serializer):
+        """장비 수정 시 이력 기록"""
+        old_instance = Equipment.objects.get(pk=serializer.instance.pk)
+        old_data = {
+            'asset_number': old_instance.asset_number,
+            'manufacturer': old_instance.manufacturer,
+            'model_name': old_instance.model_name,
+            'equipment_type': old_instance.equipment_type,
+            'serial_number': old_instance.serial_number,
+            'status': old_instance.status,
+            'acquisition_date': old_instance.acquisition_date.isoformat() if old_instance.acquisition_date else None,
+            'manufacture_year': old_instance.manufacture_year,
+            'purchase_date': old_instance.purchase_date.isoformat() if old_instance.purchase_date else None,
+            'purchase_price': str(old_instance.purchase_price) if old_instance.purchase_price else None,
+            'management_number': old_instance.management_number
+        }
+        
+        equipment = serializer.save()
+        
+        new_data = {
+            'asset_number': equipment.asset_number,
+            'manufacturer': equipment.manufacturer,
+            'model_name': equipment.model_name,
+            'equipment_type': equipment.equipment_type,
+            'serial_number': equipment.serial_number,
+            'status': equipment.status,
+            'acquisition_date': equipment.acquisition_date.isoformat() if equipment.acquisition_date else None,
+            'manufacture_year': equipment.manufacture_year,
+            'purchase_date': equipment.purchase_date.isoformat() if equipment.purchase_date else None,
+            'purchase_price': str(equipment.purchase_price) if equipment.purchase_price else None,
+            'management_number': equipment.management_number
+        }
+        
+        # 상태 변경 여부 확인
+        action = 'STATUS_CHANGED' if old_data['status'] != new_data['status'] else 'UPDATED'
+        
+        # 이력 기록
+        EquipmentHistory.objects.create(
+            equipment=equipment,
+            action=action,
+            user=self.request.user,
+            old_value=old_data,
+            new_value=new_data,
+            details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' {action.lower()} by {self.request.user.username}"
+        )
+        
+        logger.info(f"장비 수정: {equipment.asset_number} by {self.request.user.username}")
+
+    def perform_destroy(self, instance):
+        """장비 삭제 시 이력 기록"""
+        # 삭제 전 데이터 저장
+        old_data = {
+            'asset_number': instance.asset_number,
+            'manufacturer': instance.manufacturer,
+            'model_name': instance.model_name,
+            'equipment_type': instance.equipment_type,
+            'serial_number': instance.serial_number,
+            'status': instance.status,
+            'acquisition_date': instance.acquisition_date.isoformat() if instance.acquisition_date else None,
+            'manufacture_year': instance.manufacture_year,
+            'purchase_date': instance.purchase_date.isoformat() if instance.purchase_date else None,
+            'purchase_price': str(instance.purchase_price) if instance.purchase_price else None,
+            'management_number': instance.management_number
+        }
+        
+        # 이력 기록
+        EquipmentHistory.objects.create(
+            equipment=instance,
+            action='DELETED',
+            user=self.request.user,
+            old_value=old_data,
+            details=f"장비 '{instance.asset_number or instance.model_name or instance.serial_number}' 삭제 by {self.request.user.username}"
+        )
+        
+        logger.info(f"장비 삭제: {instance.asset_number} by {self.request.user.username}")
+        
+        # 장비 삭제
+        instance.delete()
 
 
 class RentalViewSet(viewsets.ModelViewSet):
@@ -636,24 +786,36 @@ class RentalViewSet(viewsets.ModelViewSet):
                 # 새 대여 정보 생성
                 rental = serializer.save(
                     user=user,
-                    approved_by=request.user,
-                    status='RENTED',
-                    rental_date=timezone.now()
+                    approved_by=request.user if request.user.is_staff else None
                 )
                 
-                logger.info(f"대여 정보 생성 성공: {rental.id}")
+                # 장비 대여 이력 기록
+                EquipmentHistory.objects.create(
+                    equipment=equipment,
+                    action='RENTED',
+                    user=request.user,
+                    new_value={
+                        'rental_id': rental.id,
+                        'user_id': user.id,
+                        'username': user.username,
+                        'rental_date': rental.rental_date.isoformat(),
+                        'due_date': rental.due_date.isoformat(),
+                        'status': 'RENTED'
+                    },
+                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 to {user.username}"
+                )
                 
-                headers = self.get_success_headers(serializer.data)
+                logger.info(f"대여 생성 성공: {rental.id}")
                 return Response({
                     "success": True,
                     "data": serializer.data,
-                    "message": "장비가 성공적으로 대여되었습니다."
-                }, status=status.HTTP_201_CREATED, headers=headers)
+                    "message": "대여가 성공적으로 생성되었습니다."
+                }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
-            logger.exception(f"대여 정보 생성 중 오류 발생: {str(e)}")
+            logger.error(f"대여 생성 중 오류: {e}")
             return Response(
-                {"detail": f"대여 정보 생성 중 오류가 발생했습니다: {str(e)}"},
+                {"detail": f"대여 생성 중 오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
@@ -731,6 +893,25 @@ class RentalViewSet(viewsets.ModelViewSet):
                 if not other_active_rentals.exists():
                     equipment.status = 'AVAILABLE'
                     equipment.save()
+                    
+                    # 장비 반납 이력 기록
+                    EquipmentHistory.objects.create(
+                        equipment=equipment,
+                        action='RETURNED',
+                        user=request.user,
+                        old_value={
+                            'rental_id': rental.id,
+                            'user_id': rental.user.id,
+                            'username': rental.user.username,
+                            'status': 'RENTED'
+                        },
+                        new_value={
+                            'status': 'AVAILABLE',
+                            'return_date': rental.return_date.isoformat(),
+                            'returned_to': request.user.username if request.user.is_staff else None
+                        },
+                        details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+                    )
                 
                 serializer = self.get_serializer(rental)
                 return Response({
@@ -743,66 +924,6 @@ class RentalViewSet(viewsets.ModelViewSet):
                 {"detail": f"반납 처리 중 오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
-    @action(detail=False, methods=['get'])
-    def export_excel(self, request):
-        """대여 목록 엑셀 출력"""
-        if not request.user.is_staff:
-            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
-            
-        rental_list = Rental.objects.all()
-        
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "대여 내역"
-        
-        # 헤더 스타일 설정
-        header_font = Font(bold=True)
-        header_alignment = Alignment(horizontal='center')
-        
-        # 컬럼 헤더 설정
-        columns = ['ID', '대여자 아이디', '대여자 이름', '장비명', '대여일', '반납예정일', '반납일', '상태']
-        for col_num, column_title in enumerate(columns, 1):
-            cell = ws.cell(row=1, column=col_num, value=column_title)
-            cell.font = header_font
-            cell.alignment = header_alignment
-        
-        # 데이터 입력
-        for row_num, rental in enumerate(rental_list, 2):
-            ws.cell(row=row_num, column=1, value=rental.id)
-            ws.cell(row=row_num, column=2, value=rental.user.username)
-            ws.cell(row=row_num, column=3, value=f"{rental.user.last_name}{rental.user.first_name}")
-            ws.cell(row=row_num, column=4, value=rental.equipment.asset_number)
-            ws.cell(row=row_num, column=5, value=str(rental.rental_date))
-            ws.cell(row=row_num, column=6, value=str(rental.due_date))
-            ws.cell(row=row_num, column=7, value=str(rental.return_date) if rental.return_date else "미반납")
-            ws.cell(row=row_num, column=8, value=rental.get_status_display())
-        
-        # 컬럼 너비 자동 조정
-        for column in ws.columns:
-            max_length = 0
-            column_letter = column[0].column_letter
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = (max_length + 2)
-            ws.column_dimensions[column_letter].width = adjusted_width
-        
-        # 파일 저장
-        output = BytesIO()
-        wb.save(output)
-        output.seek(0)
-        
-        response = HttpResponse(
-            output.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="rental_list.xlsx"'
-        
-        return response
 
 
 class RentalRequestViewSet(viewsets.ModelViewSet):
@@ -1305,6 +1426,7 @@ class EquipmentMacAddressViewSet(viewsets.ModelViewSet):
     serializer_class = EquipmentMacAddressSerializer
     permission_classes = [AllowAny]  # 기본 권한을 AllowAny로 설정
     parser_classes = [JSONParser, FormParser, MultiPartParser]  # 파서 클래스 추가
+    
     
     @action(detail=False, methods=['post'])
     def login_and_rent(self, request):

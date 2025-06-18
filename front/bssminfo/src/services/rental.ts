@@ -23,7 +23,7 @@ export type RentalRequestStatusDisplay = typeof RENTAL_REQUEST_STATUS_DISPLAY[Re
 
 export interface CreateRentalRequest {
   equipment: number;
-  request_type: 'RENT' | 'RETURN';
+  request_type: 'RENTAL' | 'RETURN';
   expected_return_date?: string;
   request_reason?: string;
 }
@@ -44,7 +44,7 @@ export interface User {
 const rentalService = {
   // 사용자용 API
   async getAvailableEquipment(): Promise<ApiResponse<Equipment[]>> {
-    const response = await api.get('/equipment/available/');
+    const response = await api.get('/rentals/equipment/available/');
     return response.data;
   },
 

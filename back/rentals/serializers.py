@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress
+from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress, EquipmentHistory
 from django.contrib.auth import get_user_model
 import logging
 
@@ -27,12 +27,49 @@ class EquipmentMacAddressSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class EmptyStringToNoneDateTimeField(serializers.DateTimeField):
+    def to_internal_value(self, value):
+        if value == '' or value is None:
+            return None
+        return super().to_internal_value(value)
+
+
+class EquipmentHistorySerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    equipment_info = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = EquipmentHistory
+        fields = ['id', 'equipment', 'equipment_info', 'action', 'action_display', 'old_value', 'new_value', 'user', 'details', 'created_at']
+        read_only_fields = fields
+    
+    def get_user(self, obj):
+        if not obj.user:
+            return None
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+            'email': obj.user.email,
+            'is_staff': obj.user.is_staff
+        }
+    
+    def get_equipment_info(self, obj):
+        return {
+            'id': obj.equipment.id,
+            'asset_number': obj.equipment.asset_number,
+            'model_name': obj.equipment.model_name
+        }
+
+
 class EquipmentSerializer(serializers.ModelSerializer):
     equipment_type_display = serializers.CharField(source='get_equipment_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     mac_addresses = EquipmentMacAddressSerializer(many=True, required=False)
     rental = serializers.SerializerMethodField()
     purchase_date = serializers.DateTimeField(required=False, allow_null=True)
+    manufacture_year = serializers.IntegerField(required=False, allow_null=True)
+    purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     
     class Meta:
         model = Equipment
@@ -147,6 +184,16 @@ class EquipmentSerializer(serializers.ModelSerializer):
         return instance
 
     def validate_purchase_date(self, value):
+        if value == '' or value is None:
+            return None
+        return value
+
+    def validate_manufacture_year(self, value):
+        if value == '':
+            return None
+        return value
+
+    def validate_purchase_price(self, value):
         if value == '':
             return None
         return value
@@ -206,6 +253,6 @@ class RentalRequestSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'equipment', 'equipment_detail', 'request_type', 'request_type_display',
             'requested_date', 'expected_return_date', 'status', 'status_display',
-            'request_reason', 'reject_reason', 'processed_by', 'processed_at', 'created_at'
+            'request_reason', 'reject_reason', 'processed_by', 'processed_date', 'created_at'
         ]
-        read_only_fields = ['user', 'processed_by', 'processed_at', 'created_at'] 
+        read_only_fields = ['user', 'processed_by', 'processed_date', 'created_at'] 

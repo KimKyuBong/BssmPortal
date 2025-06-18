@@ -48,6 +48,26 @@ export interface ModelBatchUpdateResponse {
   updated_equipments: UpdatedEquipment[];
 }
 
+// 장비 이력 타입 정의
+export interface EquipmentHistory {
+  id: number;
+  equipment: {
+    id: number;
+    asset_number: string;
+    model_name: string;
+  };
+  action: string;
+  old_value: any;
+  new_value: any;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+  };
+  created_at: string;
+  details: string;
+}
+
 // 장비 서비스 - 장비 관련 API 통신
 export const equipmentService = {
   // 장비 목록 조회
@@ -96,10 +116,23 @@ export const equipmentService = {
     try {
       const response = await api.get<Equipment[]>('/rentals/equipment/available/');
       
-      // 응답 데이터가 배열인지 확인
+      console.log('대여 가능한 장비 API 응답:', response);
+      
+      // 응답 데이터 처리
       if (response.success) {
-        if (!response.data || !Array.isArray(response.data)) {
-          console.error('대여 가능 장비 목록 API 응답 데이터가 배열이 아닙니다:', response.data);
+        let equipmentData: Equipment[] = [];
+        
+        // 배열 형태인 경우
+        if (Array.isArray(response.data)) {
+          equipmentData = response.data;
+        }
+        // 페이지네이션 형태인 경우
+        else if (response.data && typeof response.data === 'object' && 'results' in response.data && Array.isArray((response.data as any).results)) {
+          equipmentData = (response.data as any).results;
+        }
+        // 다른 형태인 경우
+        else {
+          console.error('대여 가능 장비 목록 API 응답 데이터 형식이 예상과 다릅니다:', response.data);
           return {
             success: true,
             data: [] as Equipment[],
@@ -107,8 +140,13 @@ export const equipmentService = {
           };
         }
         
-        // 정상적인 배열 데이터
-        return response;
+        console.log('처리된 장비 데이터:', equipmentData);
+        
+        return {
+          success: true,
+          data: equipmentData,
+          message: response.message
+        };
       }
       
       return {
@@ -175,6 +213,23 @@ export const equipmentService = {
   // 장비 정보 삭제 (관리자용)
   async deleteEquipment(id: number) {
     return await api.delete(`/rentals/equipment/${id}/`);
+  },
+
+  // 장비 이력 조회
+  async getEquipmentHistory(equipmentId: number) {
+    try {
+      const response = await api.get<EquipmentHistory[]>(`/rentals/equipment/${equipmentId}/history/`);
+      return response;
+    } catch (error) {
+      console.error('장비 이력 조회 중 오류:', error);
+      return {
+        success: false,
+        data: [] as EquipmentHistory[],
+        error: {
+          message: '장비 이력을 조회하는 중 오류가 발생했습니다.'
+        }
+      };
+    }
   },
 
   // 엑셀 파일로 장비 일괄 추가 (관리자용)
@@ -279,7 +334,7 @@ export const equipmentService = {
 
   updateEquipmentStatus: async (id: number, status: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED'): Promise<ApiResponse<Equipment>> => {
     try {
-      const response = await api.patch<Equipment>(`/equipment/${id}/`, { status });
+      const response = await api.patch<Equipment>(`/rentals/equipment/${id}/`, { status });
       return {
         success: true,
         data: response.data

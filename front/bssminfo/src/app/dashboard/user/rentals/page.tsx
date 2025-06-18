@@ -170,14 +170,22 @@ export default function RentalsPage() {
   // 장비 데이터 로드
   const loadEquipmentData = async () => {
     try {
+      console.log('대여 가능한 장비 조회 시작...');
       // 대여 가능한 장비 목록 조회
       const equipmentResult = await equipmentService.getAvailableEquipment();
+      console.log('대여 가능한 장비 조회 결과:', equipmentResult);
+      
       if (equipmentResult.success && equipmentResult.data) {
+        console.log('대여 가능한 장비 수:', equipmentResult.data.length);
         setEquipment(equipmentResult.data);
+      } else {
+        console.error('대여 가능한 장비 조회 실패:', equipmentResult);
+        setEquipment([]);
       }
     } catch (error) {
       console.error('장비 데이터 로드 중 오류 발생:', error);
       message.error('장비 데이터를 불러오는 중 오류가 발생했습니다.');
+      setEquipment([]);
     }
   };
   
@@ -251,13 +259,14 @@ export default function RentalsPage() {
       console.log('대여 신청 API 요청 전송');
       const result = await rentalService.createRentalRequest({
         equipment: selectedEquipment,
-        request_type: "RENT",
+        request_type: "RENTAL",
         expected_return_date: returnDate.toISOString(),
         request_reason: notes
       });
       console.log('대여 신청 API 응답:', result);
 
-      if (result.success) {
+      // 응답 처리 개선 - success 필드가 없어도 성공으로 처리
+      if (result && (result.success || result.data)) {
         message.success('대여 신청이 완료되었습니다.');
         setOpenRentDialog(false);
         resetDialogFields();
@@ -271,11 +280,11 @@ export default function RentalsPage() {
           ? result.error 
           : result.error?.detail || '대여 신청 중 오류가 발생했습니다.';
         message.error(errorMessage);
-        setLoading(false);
       }
     } catch (error) {
       console.error('대여 신청 중 오류 발생:', error);
       message.error('대여 신청 중 오류가 발생했습니다.');
+    } finally {
       setLoading(false);
     }
   };
@@ -321,8 +330,8 @@ export default function RentalsPage() {
       const response = await rentalService.createRentalRequest(rentalRequestData);
       console.log('반납 신청 응답:', response);
 
-      // 백엔드에서 success 필드를 사용하여 응답
-      if (response && response.success) {
+      // 응답 처리 개선 - success 필드가 없어도 성공으로 처리
+      if (response && (response.success || response.data)) {
         // 성공 메시지 표시
         console.log('성공 메시지 표시...');
         message.success('반납 요청이 성공적으로 제출되었습니다.');
@@ -343,6 +352,7 @@ export default function RentalsPage() {
     } catch (error) {
       console.error('반납 신청 오류:', error);
       message.error('반납 요청 중 오류가 발생했습니다.');
+    } finally {
       setLoading(false);
     }
   };
@@ -413,9 +423,10 @@ export default function RentalsPage() {
             color="primary"
             startIcon={<AddIcon />}
             onClick={handleOpenRentDialog}
-            disabled={loading || equipment.length === 0}
+            disabled={loading}
+            title={equipment.length === 0 ? '대여 가능한 장비가 없습니다.' : '대여 신청'}
           >
-            대여 신청
+            대여 신청 {equipment.length > 0 && `(${equipment.length})`}
           </Button>
           <IconButton onClick={syncData} disabled={loading}>
             <RefreshIcon />
@@ -606,23 +617,29 @@ export default function RentalsPage() {
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12}>
-              <TextField
-                select
-                label="대여할 장비"
-                fullWidth
-                value={selectedEquipment || ''}
-                onChange={(e) => setSelectedEquipment(Number(e.target.value))}
-                required
-              >
-                <MenuItem value="">
-                  <em>장비를 선택하세요</em>
-                </MenuItem>
-                {equipment.map((equipment) => (
-                  <MenuItem key={equipment.id} value={equipment.id}>
-                    {equipment.model_name} / {equipment.asset_number}
+              {equipment.length === 0 ? (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  현재 대여 가능한 장비가 없습니다.
+                </Alert>
+              ) : (
+                <TextField
+                  select
+                  label="대여할 장비"
+                  fullWidth
+                  value={selectedEquipment || ''}
+                  onChange={(e) => setSelectedEquipment(Number(e.target.value))}
+                  required
+                >
+                  <MenuItem value="">
+                    <em>장비를 선택하세요</em>
                   </MenuItem>
-                ))}
-              </TextField>
+                  {equipment.map((equipment) => (
+                    <MenuItem key={equipment.id} value={equipment.id}>
+                      {equipment.manufacturer} {equipment.model_name} ({equipment.equipment_type_display}) - {equipment.asset_number || equipment.serial_number}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Grid>
             <Grid item xs={12}>
               <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ko">
@@ -656,7 +673,7 @@ export default function RentalsPage() {
             onClick={handleSubmitRentRequest} 
             color="primary" 
             variant="contained"
-            disabled={loading}
+            disabled={loading || equipment.length === 0}
           >
             신청하기
           </Button>

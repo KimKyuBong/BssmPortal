@@ -43,12 +43,13 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import UpdateIcon from '@mui/icons-material/Update';
+import HistoryIcon from '@mui/icons-material/History';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import 'dayjs/locale/ko';
 import { Equipment, ApiResponse } from '@/services/api';
-import equipment, { ImportEquipmentResponse, ModelBatchUpdateData } from '@/services/equipment';
+import equipmentService, { ImportEquipmentResponse, ModelBatchUpdateData, EquipmentHistory } from '@/services/equipment';
 import rentalService from '@/services/rental';
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
@@ -196,6 +197,12 @@ export default function EquipmentManagementPage() {
   });
   const [batchUpdateLoading, setBatchUpdateLoading] = useState(false);
 
+  // 장비 이력 모달 상태
+  const [openHistoryDialog, setOpenHistoryDialog] = useState(false);
+  const [selectedEquipmentForHistory, setSelectedEquipmentForHistory] = useState<Equipment | null>(null);
+  const [equipmentHistory, setEquipmentHistory] = useState<EquipmentHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   // 페이지네이션 처리된 장비 목록
   const paginatedEquipment = useMemo(() => {
     // 필터링된 장비가 없거나 배열이 아닌 경우 빈 배열 반환
@@ -224,7 +231,7 @@ export default function EquipmentManagementPage() {
   const loadEquipment = async () => {
     try {
       setLoading(true);
-      const result = await equipment.getAllEquipment();
+      const result = await equipmentService.getAllEquipment();
       if (result.success && result.data) {
         console.log('장비 목록 로드:', result.data.map(item => ({
           id: item.id,
@@ -366,14 +373,31 @@ export default function EquipmentManagementPage() {
 
     try {
       setLoading(true);
-      const submitData = {
+      let submitData: any = {
         ...formData,
         acquisition_date: acquisitionDate ? acquisitionDate.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
-        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
-        purchase_price: formData.purchase_price || undefined
       };
+      if (formData.manufacture_year) {
+        submitData.manufacture_year = parseInt(formData.manufacture_year);
+      }
+      if (formData.purchase_price) {
+        submitData.purchase_price = formData.purchase_price;
+      }
+      if (formData.purchase_date) {
+        submitData.purchase_date = formData.purchase_date;
+      }
+      // 값이 없으면 아예 필드에서 제거
+      if (!formData.manufacture_year) {
+        delete submitData.manufacture_year;
+      }
+      if (!formData.purchase_price) {
+        delete submitData.purchase_price;
+      }
+      if (!formData.purchase_date) {
+        delete submitData.purchase_date;
+      }
       
-      const result = await equipment.createEquipment(submitData);
+      const result = await equipmentService.createEquipment(submitData);
       if (result.success) {
         setNotification({
           open: true,
@@ -403,15 +427,32 @@ export default function EquipmentManagementPage() {
 
     try {
       setLoading(true);
-      const submitData = {
+      let submitData: any = {
         ...formData,
         acquisition_date: acquisitionDate ? acquisitionDate.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'),
-        manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
-        purchase_price: formData.purchase_price || undefined
       };
+      if (formData.manufacture_year) {
+        submitData.manufacture_year = parseInt(formData.manufacture_year);
+      }
+      if (formData.purchase_price) {
+        submitData.purchase_price = formData.purchase_price;
+      }
+      if (formData.purchase_date) {
+        submitData.purchase_date = formData.purchase_date;
+      }
+      // 값이 없으면 아예 필드에서 제거
+      if (!formData.manufacture_year) {
+        delete submitData.manufacture_year;
+      }
+      if (!formData.purchase_price) {
+        delete submitData.purchase_price;
+      }
+      if (!formData.purchase_date) {
+        delete submitData.purchase_date;
+      }
       
       // 장비 정보 업데이트
-      const result = await equipment.updateEquipment(selectedEquipment.id, submitData);
+      const result = await equipmentService.updateEquipment(selectedEquipment.id, submitData);
       if (result.success) {
         setNotification({
           open: true,
@@ -441,7 +482,7 @@ export default function EquipmentManagementPage() {
 
     try {
       setLoading(true);
-      const result = await equipment.deleteEquipment(equipmentToDelete);
+      const result = await equipmentService.deleteEquipment(equipmentToDelete);
       if (result.success) {
         setNotification({
           open: true,
@@ -470,7 +511,7 @@ export default function EquipmentManagementPage() {
   // 장비 목록을 엑셀로 내보내기
   const handleExportExcel = async () => {
     try {
-      await equipment.exportEquipmentToExcel();
+      await equipmentService.exportEquipmentToExcel();
       setNotification({
         open: true,
         message: '장비 목록이 엑셀 파일로 내보내졌습니다.',
@@ -507,7 +548,7 @@ export default function EquipmentManagementPage() {
 
     try {
       setUploadLoading(true);
-      const responseData = await equipment.importEquipmentFromExcel(uploadFile);
+      const responseData = await equipmentService.importEquipmentFromExcel(uploadFile);
       if (responseData.success && responseData.data) {
         const { total_created = 0, total_errors = 0 } = responseData.data;
         setUploadResult({
@@ -625,18 +666,21 @@ export default function EquipmentManagementPage() {
         });
         
         // API 응답에서 받은 데이터로 상태 업데이트
-        setEquipmentList(prev => 
-          prev.map(item => 
-            item.id === result.data!.equipment.id ? result.data!.equipment : item
-          )
-        );
-        
-        // 필터링된 목록도 업데이트
-        setFilteredEquipment(prev => 
-          prev.map(item => 
-            item.id === result.data!.equipment.id ? result.data!.equipment : item
-          )
-        );
+        if (result.data && (result.data as any).equipment_detail) {
+          const equipmentDetail = (result.data as any).equipment_detail;
+          setEquipmentList(prev => 
+            prev.map(item => 
+              item.id === equipmentDetail.id ? equipmentDetail : item
+            )
+          );
+          
+          // 필터링된 목록도 업데이트
+          setFilteredEquipment(prev => 
+            prev.map(item => 
+              item.id === equipmentDetail.id ? equipmentDetail : item
+            )
+          );
+        }
       } else {
         const errorMessage = typeof result.error === 'string' 
           ? result.error 
@@ -694,7 +738,7 @@ export default function EquipmentManagementPage() {
   // 모델 선택 핸들러
   const handleModelSelect = async (modelName: string) => {
     try {
-      const response = await equipment.getModelInfo(modelName);
+      const response = await equipmentService.getModelInfo(modelName);
       if (response.success && response.data) {
         const modelData = response.data;
         setBatchUpdateData(prev => ({
@@ -745,25 +789,15 @@ export default function EquipmentManagementPage() {
       });
       return;
     }
-    
-    if (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date && batchUpdateData.purchase_price === undefined) {
-      setNotification({
-        open: true,
-        message: '생산년도, 구매일 또는 구매가격 중 하나는 입력해주세요.',
-        severity: 'error'
-      });
-      return;
-    }
-    
-    setBatchUpdateLoading(true);
+
     try {
-      const response = await equipment.updateByModel(batchUpdateData);
-      console.log('일괄 업데이트 응답:', response);
+      setBatchUpdateLoading(true);
+      const result = await equipmentService.updateByModel(batchUpdateData);
       
-      if (response.success) {
+      if (result.success) {
         setNotification({
           open: true,
-          message: response.message || `${response.updated_count}개의 장비가 성공적으로 수정되었습니다.`,
+          message: result.message || '모델별 일괄 업데이트가 완료되었습니다.',
           severity: 'success'
         });
         setOpenBatchUpdateDialog(false);
@@ -773,24 +807,73 @@ export default function EquipmentManagementPage() {
           purchase_date: '',
           purchase_price: undefined
         });
-        // 목록 새로고침
         loadEquipment();
       } else {
         setNotification({
           open: true,
-          message: response.message || '일괄 업데이트에 실패했습니다.',
+          message: '모델별 일괄 업데이트에 실패했습니다.',
           severity: 'error'
         });
       }
     } catch (error) {
-      console.error('일괄 업데이트 실패:', error);
+      console.error('모델별 일괄 업데이트 실패:', error);
       setNotification({
         open: true,
-        message: '일괄 업데이트 처리 중 오류가 발생했습니다.',
+        message: '모델별 일괄 업데이트 중 오류가 발생했습니다.',
         severity: 'error'
       });
     } finally {
       setBatchUpdateLoading(false);
+    }
+  };
+
+  // 장비 이력 조회 함수
+  const handleOpenHistoryDialog = async (equipment: Equipment) => {
+    setSelectedEquipmentForHistory(equipment);
+    setOpenHistoryDialog(true);
+    setHistoryLoading(true);
+    
+    try {
+      const result = await equipmentService.getEquipmentHistory(equipment.id);
+      if (result.success) {
+        setEquipmentHistory(result.data || []);
+      } else {
+        setNotification({
+          open: true,
+          message: '장비 이력을 불러오는데 실패했습니다.',
+          severity: 'error'
+        });
+        setEquipmentHistory([]);
+      }
+    } catch (error) {
+      console.error('장비 이력 조회 실패:', error);
+      setNotification({
+        open: true,
+        message: '장비 이력 조회 중 오류가 발생했습니다.',
+        severity: 'error'
+      });
+      setEquipmentHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleCloseHistoryDialog = () => {
+    setOpenHistoryDialog(false);
+    setSelectedEquipmentForHistory(null);
+    setEquipmentHistory([]);
+  };
+
+  // 액션 이름 한글화
+  const getActionDisplayName = (action: string) => {
+    switch (action) {
+      case 'CREATED': return '생성';
+      case 'UPDATED': return '수정';
+      case 'STATUS_CHANGED': return '상태 변경';
+      case 'RENTED': return '대여';
+      case 'RETURNED': return '반납';
+      case 'DELETED': return '삭제';
+      default: return action;
     }
   };
 
@@ -813,10 +896,18 @@ export default function EquipmentManagementPage() {
     setTypeFilter('');
   };
 
+  // 상태 선택 핸들러 (모달에서만 사용)
+  const handleStatusSelect = (event: SelectChangeEvent<string>) => {
+    setFormData(prev => ({
+      ...prev,
+      status: event.target.value as 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED'
+    }));
+  };
+
   // 상태 변경 핸들러
   const handleStatusChange = async (id: number, newStatus: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED') => {
     try {
-      const response = await equipment.updateEquipmentStatus(id, newStatus);
+      const response = await equipmentService.updateEquipmentStatus(id, newStatus);
       if (response.success) {
         setEquipmentList(prev => prev.map(item => 
           item.id === id ? { ...item, status: newStatus, status_display: getStatusDisplay(newStatus) } : item
@@ -1182,6 +1273,15 @@ export default function EquipmentManagementPage() {
                   <TableCell>{new Date(item.acquisition_date).toLocaleDateString()}</TableCell>
                   <TableCell>{item.rental?.due_date ? new Date(item.rental.due_date).toLocaleDateString() : '-'}</TableCell>
                   <TableCell align="right">
+                    <Tooltip title="장비 이력">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleOpenHistoryDialog(item)}
+                        color="info"
+                      >
+                        <HistoryIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="장비 편집">
                       <IconButton 
                         size="small" 
@@ -1299,7 +1399,7 @@ export default function EquipmentManagementPage() {
                   <Select
                     name="status"
                     value={formData.status}
-                    onChange={(e) => handleStatusChange(selectedEquipment?.id || 0, e.target.value as Equipment['status'])}
+                    onChange={handleStatusSelect}
                     label="상태"
                   >
                     <MenuItem value="AVAILABLE">대여 가능</MenuItem>
@@ -1616,6 +1716,74 @@ export default function EquipmentManagementPage() {
             disabled={batchUpdateLoading || !batchUpdateData.model_name || (!batchUpdateData.manufacture_year && !batchUpdateData.purchase_date && batchUpdateData.purchase_price === undefined)}
           >
             {batchUpdateLoading ? <CircularProgress size={24} /> : '업데이트'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 장비 이력 모달 */}
+      <Dialog open={openHistoryDialog} onClose={handleCloseHistoryDialog} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          장비 이력 - {selectedEquipmentForHistory?.asset_number} ({selectedEquipmentForHistory?.model_name})
+        </DialogTitle>
+        <DialogContent>
+          {historyLoading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress />
+            </Box>
+          ) : equipmentHistory.length === 0 ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <Typography variant="body1" color="text.secondary">
+                이력이 없습니다.
+              </Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>작업</TableCell>
+                    <TableCell>작업자</TableCell>
+                    <TableCell>작업일시</TableCell>
+                    <TableCell>상세내용</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {equipmentHistory.map((history) => (
+                    <TableRow key={history.id}>
+                      <TableCell>
+                        <Chip 
+                          label={getActionDisplayName(history.action)}
+                          color={
+                            history.action === 'CREATED' ? 'success' :
+                            history.action === 'DELETED' ? 'error' :
+                            history.action === 'STATUS_CHANGED' ? 'warning' :
+                            history.action === 'RENTED' ? 'primary' :
+                            history.action === 'RETURNED' ? 'info' : 'default'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {history.user?.username || '알 수 없음'}
+                      </TableCell>
+                      <TableCell>
+                        {new Date(history.created_at).toLocaleString('ko-KR')}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ maxWidth: 300, wordBreak: 'break-word' }}>
+                          {history.details}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseHistoryDialog} color="primary">
+            닫기
           </Button>
         </DialogActions>
       </Dialog>
