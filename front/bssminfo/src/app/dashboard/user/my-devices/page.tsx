@@ -7,6 +7,15 @@ import ipService from '@/services/ip';
 import { Device } from '@/services/ip';
 import Link from 'next/link';
 import { LogOut, User, Search, Plus, Edit, Trash2, Laptop, ArrowLeft } from 'lucide-react';
+import { Box, Button } from '@mui/material';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import dnsService from '@/services/dns';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 export default function MyDevicesPage() {
   const router = useRouter();
@@ -15,6 +24,8 @@ export default function MyDevicesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // DNS 관련 상태 (백엔드에서 device.dns_info로 제공하므로 별도 상태 불필요)
   
   // 다중 선택 상태
   const [selectedDevices, setSelectedDevices] = useState<number[]>([]);
@@ -41,6 +52,15 @@ export default function MyDevicesPage() {
   const [showModal, setShowModal] = useState(false);
   const [registering, setRegistering] = useState(false);
   
+  // DNS 등록 신청 다이얼로그 상태
+  const [dnsDialog, setDnsDialog] = useState<{ open: boolean; ip: string; mac: string; deviceName: string; isResubmit?: boolean; requestId?: number } | null>(null);
+  const [dnsForm, setDnsForm] = useState({ domain: '', reason: '' });
+  const [dnsSubmitting, setDnsSubmitting] = useState(false);
+  const [dnsSnackbar, setDnsSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
+  
+  // 거절 사유 보기 다이얼로그 상태
+  const [rejectReasonDialog, setRejectReasonDialog] = useState<{ open: boolean; reason: string; domain: string; ip: string } | null>(null);
+
   // MAC 주소 입력 관련 핸들러
   const handleMacPartChange = (index: number, value: string) => {
     // 16진수 문자만 허용 (0-9, A-F, a-f)
@@ -82,7 +102,7 @@ export default function MyDevicesPage() {
   
   // 키 입력 핸들러 (백스페이스 처리)
   const handleMacPartKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // 백스페이스 키를 누르고 현재 입력 필드가 비어있을 때 이전 필드로 이동
+    // 백스페이스 키를 누른 상태로 현재 입력 필드가 비어있을 때 이전 필드로 이동
     if (e.key === 'Backspace' && macParts[index] === '' && index > 0) {
       const prevInput = document.getElementById(`macPart-${index - 1}`);
       if (prevInput) {
@@ -95,6 +115,43 @@ export default function MyDevicesPage() {
   const validateMacAddress = (mac: string): boolean => {
     const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
     return macRegex.test(mac);
+  };
+
+  // DNS 상태 확인 함수 (백엔드 dns_info 사용)
+  const getDnsInfo = (device: Device) => {
+    return device.dns_info || { status: 'none' };
+  };
+
+  // DNS 도메인 삭제 함수
+  const handleDeleteDomain = async (recordId: number) => {
+    try {
+      const response = await dnsService.deleteMyRecord(recordId);
+      if (response.success) {
+        setDnsSnackbar({ open: true, message: '도메인이 삭제되었습니다.', severity: 'success' });
+        
+        // 삭제된 레코드 ID와 일치하는 기기의 DNS 정보를 즉시 업데이트
+        setDevices(prevDevices => 
+          prevDevices.map(device => {
+            if (device.dns_info?.record_id === recordId) {
+              return {
+                ...device,
+                dns_info: { status: 'none' }
+              };
+            }
+            return device;
+          })
+        );
+      } else {
+        setDnsSnackbar({ open: true, message: '도메인 삭제에 실패했습니다.', severity: 'error' });
+      }
+    } catch (error: any) {
+      console.error('도메인 삭제 오류:', error);
+      let errorMessage = '도메인 삭제 중 오류가 발생했습니다.';
+      if (error?.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      setDnsSnackbar({ open: true, message: errorMessage, severity: 'error' });
+    }
   };
   
   // 기기 등록 모달 열기
@@ -186,6 +243,8 @@ export default function MyDevicesPage() {
             activeDevices
           });
         }
+
+        // DNS 정보는 백엔드에서 dns_info 필드로 제공됨
       } catch (err) {
         setError('데이터를 불러오는 중 오류가 발생했습니다.');
         console.error('Dashboard error:', err);
@@ -495,6 +554,8 @@ export default function MyDevicesPage() {
           </div>
         </div>
         
+
+        
         {/* 기기 통계 */}
         <div className="bg-white shadow rounded-lg p-6 mb-8">
           <h2 className="text-lg font-medium text-gray-900 mb-4">기기 현황</h2>
@@ -648,8 +709,53 @@ export default function MyDevicesPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {device.mac_address || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {device.assigned_ip || '-'}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div>
+                          <div className="text-gray-900 font-medium">{device.assigned_ip || '-'}</div>
+                          {device.assigned_ip && (() => {
+                            const dnsInfo = getDnsInfo(device);
+                            if (dnsInfo.status === 'approved') {
+                              return (
+                                <div className="text-green-600 text-xs">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    등록된 도메인
+                                  </span>
+                                  <div className="mt-1">({dnsInfo.domain})</div>
+                                </div>
+                              );
+                            } else if (dnsInfo.status === '거절') {
+                              return (
+                                <div className="text-red-600 text-xs">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRejectReasonDialog({
+                                        open: true,
+                                        reason: dnsInfo.reject_reason || '거절 사유 없음',
+                                        domain: dnsInfo.domain || '',
+                                        ip: device.assigned_ip || ''
+                                      });
+                                    }}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer"
+                                  >
+                                    거절된 도메인
+                                  </button>
+                                  <div className="mt-1">({dnsInfo.domain})</div>
+                                </div>
+                              );
+                            } else if (dnsInfo.status === '대기') {
+                              return (
+                                <div className="text-yellow-600 text-xs">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    신청 대기 중
+                                  </span>
+                                  <div className="mt-1">({dnsInfo.domain})</div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -662,20 +768,79 @@ export default function MyDevicesPage() {
                         {device.last_seen || '기록 없음'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
+                                                  {device.assigned_ip && (() => {
+                            const dnsInfo = getDnsInfo(device);
+                            if (dnsInfo.status === 'approved') {
+                            // 승인된 도메인에 대해 삭제 버튼 표시
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`정말로 도메인 "${dnsInfo.domain}"을(를) 삭제하시겠습니까?`)) {
+                                    handleDeleteDomain(dnsInfo.record_id!);
+                                  }
+                                }}
+                                className="ml-2 px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-xs font-semibold"
+                              >
+                                도메인 삭제
+                              </button>
+                            );
+                          } else if (dnsInfo.status === '거절') {
+                            // 거절된 경우 재신청 버튼
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDnsDialog({ 
+                                    open: true, 
+                                    ip: device.assigned_ip || '', 
+                                    mac: device.mac_address, 
+                                    deviceName: device.device_name,
+                                    isResubmit: true,
+                                    requestId: dnsInfo.request_id
+                                  });
+                                }}
+                                className="ml-2 px-3 py-1 rounded bg-orange-500 text-white hover:bg-orange-600 text-xs font-semibold"
+                              >
+                                DNS 재신청
+                              </button>
+                            );
+                          } else if (dnsInfo.status === '대기') {
+                            // 대기 중인 경우 버튼 비활성화
+                            return (
+                              <button
+                                disabled
+                                className="ml-2 px-3 py-1 rounded bg-gray-400 text-white text-xs font-semibold cursor-not-allowed"
+                              >
+                                신청 대기 중
+                              </button>
+                            );
+                          } else {
+                            // 신청한 적이 없는 경우 일반 신청 버튼
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDnsDialog({ open: true, ip: device.assigned_ip || '', mac: device.mac_address, deviceName: device.device_name });
+                                }}
+                                className="ml-2 px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-xs font-semibold"
+                              >
+                                DNS 등록 신청
+                              </button>
+                            );
+                          }
+                        })()}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleToggleDeviceActive(device.id, device.is_active);
                           }}
-                          className={`mr-2 px-2 py-1 rounded text-xs font-medium ${
-                            device.is_active 
-                              ? 'bg-red-50 text-red-700 hover:bg-red-100' 
-                              : 'bg-green-50 text-green-700 hover:bg-green-100'
-                          }`}
+                          className={`mr-2 px-2 py-1 rounded text-xs font-medium ${device.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                          title={device.is_active ? '비활성화' : '활성화'}
                         >
                           {device.is_active ? '비활성화' : '활성화'}
                         </button>
-                        <Link 
+                        <Link
                           href={`/dashboard/teacher/my-devices/${device.id}/edit`}
                           className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
                           onClick={(e) => e.stopPropagation()}
@@ -825,6 +990,156 @@ export default function MyDevicesPage() {
                   </div>
                 </form>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DNS 등록 신청 다이얼로그 */}
+      {dnsDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              {dnsDialog?.isResubmit ? 'DNS 재신청' : 'DNS 등록 신청'}
+            </h3>
+            
+            {/* 도메인 형식 안내 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 도메인 형식 안내</h4>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p><strong>올바른 형식:</strong></p>
+                <ul className="list-disc list-inside ml-2 space-y-1">
+                  <li><code>example.com</code> - 영문 도메인</li>
+                  <li><code>사이트.kr</code> - 한글 + 영문 확장자</li>
+                  <li><code>도메인.한국</code> - 한글 도메인</li>
+                  <li><code>my-site.info</code> - 하이픈 포함 (시작/끝 제외)</li>
+                </ul>
+                <p className="mt-2"><strong>지원 확장자:</strong></p>
+                <p className="text-xs">.com, .net, .org, .kr, .한국, .info, .app, .dev, .io, .tech 등</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  도메인 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={dnsForm.domain}
+                  onChange={e => setDnsForm({ ...dnsForm, domain: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  placeholder="예: example.com, 사이트.kr"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">IP 주소</label>
+                <input
+                  type="text"
+                  value={dnsDialog?.ip || ''}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                  disabled
+                />
+                <p className="text-xs text-gray-500 mt-1">이 기기의 IP 주소가 자동으로 설정됩니다.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  신청 사유 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={dnsForm.reason}
+                  onChange={e => setDnsForm({ ...dnsForm, reason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  placeholder="도메인이 필요한 이유를 간단히 설명해주세요"
+                  rows={3}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setDnsDialog(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  if (!dnsDialog) return;
+                  setDnsSubmitting(true);
+                  try {
+                    await dnsService.requestDomain({ domain: dnsForm.domain, ip: dnsDialog.ip, reason: dnsForm.reason });
+                    const message = dnsDialog.isResubmit ? 'DNS 재신청 완료' : 'DNS 등록 신청 완료';
+                    setDnsSnackbar({ open: true, message, severity: 'success' });
+                    setDnsDialog(null);
+                    setDnsForm({ domain: '', reason: '' });
+                    // 기기 목록 다시 로드 (DNS 정보 포함)
+                    const devicesResponse = await ipService.getMyIps();
+                    if (devicesResponse.success) {
+                      setDevices(devicesResponse.data || []);
+                    }
+                  } catch (error: any) {
+                    let errorMessage = '신청 실패';
+                    if (error?.response?.data?.domain) {
+                      errorMessage = error.response.data.domain[0] || error.response.data.domain;
+                    } else if (error?.response?.data?.detail) {
+                      errorMessage = error.response.data.detail;
+                    }
+                    setDnsSnackbar({ open: true, message: errorMessage, severity: 'error' });
+                  } finally {
+                    setDnsSubmitting(false);
+                  }
+                }}
+                disabled={dnsSubmitting || !dnsForm.domain || !dnsForm.reason}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {dnsSubmitting ? '처리 중...' : '신청'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Snackbar open={dnsSnackbar.open} autoHideDuration={3000} onClose={() => setDnsSnackbar({ ...dnsSnackbar, open: false })}>
+        <Alert severity={dnsSnackbar.severity} sx={{ width: '100%' }}>{dnsSnackbar.message}</Alert>
+      </Snackbar>
+
+      {/* 거절 사유 보기 다이얼로그 */}
+      {rejectReasonDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">거절 사유</h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">도메인</label>
+                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded border">
+                  {rejectReasonDialog.domain}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">IP 주소</label>
+                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded border">
+                  {rejectReasonDialog.ip}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">거절 사유</label>
+                <div className="text-sm text-gray-900 bg-red-50 p-3 rounded border border-red-200">
+                  {rejectReasonDialog.reason || '거절 사유가 없습니다.'}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setRejectReasonDialog(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                닫기
+              </button>
             </div>
           </div>
         </div>

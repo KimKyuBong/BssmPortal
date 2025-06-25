@@ -71,11 +71,12 @@ class DeviceDetailSerializer(serializers.ModelSerializer):
 class DeviceSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
     user_full_name = serializers.SerializerMethodField()
+    dns_info = serializers.SerializerMethodField()
     
     class Meta:
         model = Device
-        fields = ['id', 'mac_address', 'device_name', 'assigned_ip', 'is_active', 'created_at', 'last_access', 'user', 'username', 'user_full_name']
-        read_only_fields = ['user', 'username', 'user_full_name', 'last_access', 'is_active', 'created_at']
+        fields = ['id', 'mac_address', 'device_name', 'assigned_ip', 'is_active', 'created_at', 'last_access', 'user', 'username', 'user_full_name', 'dns_info']
+        read_only_fields = ['user', 'username', 'user_full_name', 'last_access', 'is_active', 'created_at', 'dns_info']
         extra_kwargs = {
             'assigned_ip': {'required': False},  # IP 주소를 선택적으로 설정
             'mac_address': {'required': True},  # MAC 주소는 필수
@@ -90,4 +91,9 @@ class DeviceSerializer(serializers.ModelSerializer):
             return None
         first_name = obj.user.first_name or ''
         last_name = obj.user.last_name or ''
-        return f"{last_name}{first_name}".strip() or None 
+        return f"{last_name}{first_name}".strip() or None
+        
+    def get_dns_info(self, obj):
+        """해당 IP의 DNS 정보를 반환"""
+        from dns.utils import get_dns_info_for_device
+        return get_dns_info_for_device(obj) 

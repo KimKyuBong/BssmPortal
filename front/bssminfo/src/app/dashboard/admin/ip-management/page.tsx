@@ -28,6 +28,7 @@ import { BlacklistedIPResponse } from '@/services/admin';
 import adminService from '@/services/admin';
 import DeviceManagement from '@/components/admin/IpManagement';
 import useIps from '@/hooks/useIps';
+import { useRouter } from 'next/navigation';
 
 export default function IpManagementPage() {
   // 탭 상태
@@ -64,6 +65,8 @@ export default function IpManagementPage() {
     exportToExcel,
     fetchDevices
   } = useIps();
+
+  const router = useRouter();
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     setSnackbar({

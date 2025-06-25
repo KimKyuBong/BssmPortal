@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'devices',
     'system',
     'rentals',
+    'dns',
 ]
 
 # CORS 설정 추가

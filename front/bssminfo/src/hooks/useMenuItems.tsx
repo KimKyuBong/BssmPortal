@@ -103,6 +103,12 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
       isActive: (pathname: string) => isActive('/dashboard/admin/ip-management', pathname)
     },
     { 
+      name: 'DNS 관리',
+      icon: <Network className="mr-3 h-5 w-5" />,
+      href: '/dashboard/admin/dns',
+      isActive: (pathname: string) => isActive('/dashboard/admin/dns', pathname)
+    },
+    { 
       name: 'IP 할당 내역', 
       icon: <Network className="mr-3 h-5 w-5" />, 
       href: '/dashboard/admin/ip-assignments', 

@@ -6,7 +6,9 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./back:/app
-      - ./backups:/backups
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+      - ./pihole/etc-pihole/hosts:/etc/pihole/hosts
     env_file:
       - .env
     depends_on:
@@ -125,11 +127,41 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
 
-  dns:
-    image: mvance/unbound:latest
-    network_mode: "host"
+  # dns:
+  #   image: mvance/unbound:latest
+  #   ports:
+  #     - "1053:53/udp"
+  #     - "1053:53/tcp"
+  #   volumes:
+  #     - ./dns:/opt/unbound/etc/unbound
+  #   restart: unless-stopped
+
+  dns2:
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "127.0.0.1:8888:80/tcp"
+    environment:
+      TZ: 'Asia/Seoul'
+      DNSMASQ_USER: pihole
+      VIRTUAL_HOST: pihole.local
+      PROXY_LOCATION: pihole
+      ServerIP: 10.129.55.253
+      DNSMASQ_LISTENING: all
+      PIHOLE_DNSMASQ_USER: pihole
     volumes:
-      - ./dns:/opt/unbound/etc/unbound
+      - ./pihole/etc-pihole:/etc/pihole
+      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+      - ./pihole/watch_custom_list.sh:/etc/pihole/watch_custom_list.sh
     restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    command: >
+      sh -c "
+        chmod +x /etc/pihole/watch_custom_list.sh &&
+        nohup /etc/pihole/watch_custom_list.sh > /dev/null 2>&1 &
+        /start.sh
+      "
 
   

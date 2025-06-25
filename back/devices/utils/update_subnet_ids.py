@@ -111,7 +111,7 @@ def update_subnet_ids():
                                         WHEN LEFT(%s, 10) = '10.129.59.' THEN '10.129.59.1'
                                         ELSE '10.129.50.1'
                                     END
-                                WHEN %s = 6 THEN '211.182.233.2,168.126.63.1'
+                                WHEN %s = 6 THEN '10.129.55.253'
                                 ELSE NULL
                             END,
                             'dhcp4', 1, %s, 3

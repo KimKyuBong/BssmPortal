@@ -2,11 +2,11 @@ db/mysql/*
 old/
 smb/setup/*
 smb/bssmdata/*
-
+pihole/*
 __pycache__
 nginx/data/winpe/*
 nginx/data/ubuntu/*
-
+backup/*
 
 # 백업 관련
 *.sql.gz

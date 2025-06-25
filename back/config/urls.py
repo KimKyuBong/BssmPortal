@@ -44,4 +44,5 @@ urlpatterns = [
     path('api/ip/', include('devices.urls')),  
     path('api/system/', include('system.urls')),
     path('api/rentals/', include('rentals.urls')),  # 일반 사용자용 대여 관련 URL
+    path('api/dns/', include('dns.urls')),
 ]

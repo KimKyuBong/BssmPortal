@@ -20,6 +20,14 @@ export interface Device {
   username?: string;
   user_full_name?: string;
   last_seen?: string; // 마지막 접속 시간 (UI 표시용)
+  dns_info?: {
+    status: string;
+    domain?: string;
+    record_id?: number;
+    request_id?: number;
+    reject_reason?: string;
+    created_at?: string;
+  };
 }
 
 /**
