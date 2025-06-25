@@ -369,6 +369,15 @@ export interface Rental {
   status: 'RENTED' | 'RETURNED' | 'OVERDUE';
   status_display: string;
   notes?: string;
+  pending_request?: {
+    id: number;
+    request_type: string;
+    request_type_display: string;
+    status: string;
+    status_display: string;
+    requested_date: string;
+    request_reason?: string;
+  } | null;
 }
 
 // IP 할당 내역 인터페이스 추가

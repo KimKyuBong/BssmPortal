@@ -295,6 +295,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], parser_classes=[JSONParser, MultiPartParser, FormParser])
     def register(self, request):
         """MAC 주소로 장비를 등록하고 대여 정보도 생성"""
+        logger = logging.getLogger(__name__)
+        
         # 시리얼 번호 체크
         serial_number = request.data.get('serial_number')
         if serial_number:
@@ -603,6 +605,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """장비 생성 시 이력 기록"""
+        logger = logging.getLogger(__name__)
+        
         equipment = serializer.save()
         
         # 이력 기록
@@ -630,6 +634,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """장비 수정 시 이력 기록"""
+        logger = logging.getLogger(__name__)
+        
         old_instance = Equipment.objects.get(pk=serializer.instance.pk)
         old_data = {
             'asset_number': old_instance.asset_number,
@@ -678,6 +684,8 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         """장비 삭제 시 이력 기록"""
+        logger = logging.getLogger(__name__)
+        
         # 삭제 전 데이터 저장
         old_data = {
             'asset_number': instance.asset_number,
@@ -842,7 +850,12 @@ class RentalViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='active')
     def my_rentals(self, request):
         """내 대여 목록 조회 (현재 대여 중인 것만)"""
-        my_rentals = Rental.objects.filter(user=request.user, status='RENTED').select_related('equipment', 'user').order_by('-rental_date')
+        my_rentals = Rental.objects.filter(
+            user=request.user, 
+            status='RENTED'
+        ).select_related('equipment', 'user').prefetch_related(
+            'equipment__rental_requests'
+        ).order_by('-rental_date')
         page = self.paginate_queryset(my_rentals)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

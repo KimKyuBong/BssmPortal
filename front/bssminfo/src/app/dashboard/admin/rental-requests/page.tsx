@@ -345,6 +345,7 @@ export default function RentalRequestsPage() {
                 <TableCell>요청 유형</TableCell>
                 <TableCell>장비명</TableCell>
                 <TableCell>요청일</TableCell>
+                <TableCell>요청 사유</TableCell>
                 <TableCell>상태</TableCell>
                 <TableCell>작업</TableCell>
               </TableRow>
@@ -359,6 +360,22 @@ export default function RentalRequestsPage() {
                   </TableCell>
                   <TableCell>
                     {dayjs(request.created_at).format('YYYY-MM-DD')}
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title={request.request_reason || '사유 없음'}>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          maxWidth: 200, 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap',
+                          color: request.request_reason ? 'text.primary' : 'text.secondary'
+                        }}
+                      >
+                        {request.request_reason || '-'}
+                      </Typography>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     <Chip 
@@ -407,7 +424,7 @@ export default function RentalRequestsPage() {
               ))}
               {filteredRequests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={7} align="center">
                     {loading ? '로딩 중...' : '요청이 없습니다.'}
                   </TableCell>
                 </TableRow>
@@ -495,8 +512,29 @@ export default function RentalRequestsPage() {
               {selectedRequest.request_reason && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2">요청사유</Typography>
-                  <Typography variant="body1">
+                  <Typography variant="body1" sx={{ 
+                    backgroundColor: 'grey.50', 
+                    p: 2, 
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'grey.200'
+                  }}>
                     {selectedRequest.request_reason}
+                  </Typography>
+                </Grid>
+              )}
+              {selectedRequest.reject_reason && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ color: 'error.main' }}>거부 사유</Typography>
+                  <Typography variant="body1" sx={{ 
+                    backgroundColor: 'error.50', 
+                    p: 2, 
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'error.200',
+                    color: 'error.main'
+                  }}>
+                    {selectedRequest.reject_reason}
                   </Typography>
                 </Grid>
               )}

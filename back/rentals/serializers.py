@@ -226,6 +226,7 @@ class RentalSerializer(serializers.ModelSerializer):
     approved_by = UserSerializer(read_only=True)
     returned_to = UserSerializer(read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    pending_request = serializers.SerializerMethodField()
 
     class Meta:
         model = Rental
@@ -233,9 +234,33 @@ class RentalSerializer(serializers.ModelSerializer):
             'id', 'user', 'user_detail', 'equipment', 'equipment_detail', 
             'rental_date', 'due_date', 'return_date',
             'status', 'status_display', 'notes', 'approved_by', 'returned_to',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'pending_request'
         ]
         read_only_fields = ['approved_by', 'returned_to', 'created_at', 'updated_at']
+
+    def get_pending_request(self, obj):
+        """해당 장비에 대한 진행 중인 요청 정보 반환"""
+        from .models import RentalRequest
+        
+        # 현재 대여와 같은 장비에 대한 진행 중인 요청 찾기
+        # 장비와 사용자가 모두 일치하는 PENDING 상태의 요청
+        pending_request = RentalRequest.objects.filter(
+            equipment=obj.equipment,
+            user=obj.user,
+            status='PENDING'
+        ).order_by('-requested_date').first()
+        
+        if pending_request:
+            return {
+                'id': pending_request.id,
+                'request_type': pending_request.request_type,
+                'request_type_display': pending_request.get_request_type_display(),
+                'status': pending_request.status,
+                'status_display': pending_request.get_status_display(),
+                'requested_date': pending_request.requested_date,
+                'request_reason': pending_request.request_reason
+            }
+        return None
 
 
 class RentalRequestSerializer(serializers.ModelSerializer):
