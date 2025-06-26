@@ -155,6 +155,7 @@ services:
       - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
       - ./pihole/watch_custom_list.sh:/etc/pihole/watch_custom_list.sh
     restart: unless-stopped
+    shm_size: 512mb
     cap_add:
       - NET_ADMIN
     command: >

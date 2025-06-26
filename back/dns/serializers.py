@@ -1,26 +1,37 @@
 from rest_framework import serializers
-from .models import CustomDnsRequest, CustomDnsRecord
-from .utils import from_punycode
+from .models import CustomDnsRequest, CustomDnsRecord, SslCertificate, CertificateAuthority
 
 class CustomDnsRequestSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField(read_only=True)
-    original_domain = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source='user.name', read_only=True)
     
     class Meta:
         model = CustomDnsRequest
-        fields = '__all__'
+        fields = ['id', 'domain', 'ip', 'reason', 'status', 'reject_reason', 'ssl_enabled', 'created_at', 'processed_at', 'user_name']
+        read_only_fields = ['status', 'reject_reason', 'created_at', 'processed_at', 'user_name']
+
+class SslCertificateSerializer(serializers.ModelSerializer):
+    days_until_expiry = serializers.ReadOnlyField()
+    is_expired = serializers.ReadOnlyField()
     
-    def get_original_domain(self, obj):
-        """punycode를 원본 한글로 변환"""
-        return from_punycode(obj.domain)
+    class Meta:
+        model = SslCertificate
+        fields = ['id', 'domain', 'status', 'issued_at', 'expires_at', 'days_until_expiry', 'is_expired']
+        read_only_fields = ['id', 'domain', 'status', 'issued_at', 'expires_at', 'days_until_expiry', 'is_expired']
 
 class CustomDnsRecordSerializer(serializers.ModelSerializer):
-    original_domain = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    ssl_certificate = SslCertificateSerializer(read_only=True)
     
     class Meta:
         model = CustomDnsRecord
-        fields = '__all__'
-    
-    def get_original_domain(self, obj):
-        """punycode를 원본 한글로 변환"""
-        return from_punycode(obj.domain) 
+        fields = ['id', 'domain', 'ip', 'ssl_enabled', 'created_at', 'user_name', 'ssl_certificate']
+        read_only_fields = ['created_at', 'user_name', 'ssl_certificate']
+
+class CertificateAuthoritySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CertificateAuthority
+        fields = ['id', 'name', 'certificate', 'is_active', 'created_at']
+        read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'private_key': {'write_only': True}  # 개인키는 반환하지 않음
+        } 

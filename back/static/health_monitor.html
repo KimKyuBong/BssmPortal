@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 헬스체크 모니터</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            margin-left: 10px;
+        }
+
+        .status-healthy { background: #27ae60; color: white; }
+        .status-warning { background: #f39c12; color: white; }
+        .status-error { background: #e74c3c; color: white; }
+        .status-offline { background: #95a5a6; color: white; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+        }
+
+        .card-title .icon {
+            margin-right: 10px;
+            font-size: 1.5rem;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-weight: 500;
+            color: #34495e;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-cpu { background: #3498db; }
+        .progress-memory { background: #e74c3c; }
+        .progress-disk { background: #f39c12; }
+
+        .connection-status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .connected { background: #d5f4e6; color: #27ae60; }
+        .disconnected { background: #fadbd8; color: #e74c3c; }
+
+        .log {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .log-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+
+        .log-timestamp {
+            color: #6c757d;
+            margin-right: 10px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .updating {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖥️ 실시간 시스템 헬스체크 모니터</h1>
+            <div id="overall-status">
+                <span>시스템 상태:</span>
+                <span id="status-badge" class="status-indicator status-offline">연결 중...</span>
+            </div>
+        </div>
+
+        <div id="connection-status" class="connection-status disconnected">
+            WebSocket 연결 중...
+        </div>
+
+        <div class="dashboard">
+            <!-- 시스템 정보 카드 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">💻</span>
+                    시스템 리소스
+                </div>
+                <div class="metric">
+                    <span class="metric-label">CPU 사용률</span>
+                    <span id="cpu-usage" class="metric-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="cpu-progress" class="progress-fill progress-cpu" style="width: 0%"></div>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">메모리 사용률</span>
+                    <span id="memory-usage" class="metric-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="memory-progress" class="progress-fill progress-memory" style="width: 0%"></div>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">디스크 사용률</span>
+                    <span id="disk-usage" class="metric-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="disk-progress" class="progress-fill progress-disk" style="width: 0%"></div>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">활성 프로세스</span>
+                    <span id="process-count" class="metric-value">--</span>
+                </div>
+                
+                <div class="metric">
+                    <span class="metric-label">시스템 가동시간</span>
+                    <span id="uptime" class="metric-value">--</span>
+                </div>
+            </div>
+
+            <!-- Pi-hole 정보 카드 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🛡️</span>
+                    Pi-hole 통계
+                </div>
+                <div class="metric">
+                    <span class="metric-label">상태</span>
+                    <span id="pihole-status" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">오늘 쿼리</span>
+                    <span id="queries-today" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">오늘 차단</span>
+                    <span id="blocked-today" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">차단률</span>
+                    <span id="block-percentage" class="metric-value">--%</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">차단 도메인</span>
+                    <span id="domains-blocked" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">클라이언트</span>
+                    <span id="clients" class="metric-value">--</span>
+                </div>
+            </div>
+
+            <!-- 네트워크 정보 카드 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🌐</span>
+                    네트워크 상태
+                </div>
+                <div class="metric">
+                    <span class="metric-label">연결 상태</span>
+                    <span id="network-status" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">송신 바이트</span>
+                    <span id="bytes-sent" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">수신 바이트</span>
+                    <span id="bytes-recv" class="metric-value">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">마지막 업데이트</span>
+                    <span id="last-update" class="metric-value">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 업데이트 로그 -->
+        <div class="log">
+            <div class="log-title">📋 실시간 업데이트 로그</div>
+            <div id="log-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let websocket = null;
+        let updateCount = 0;
+        let lastUpdateTime = null;
+
+        // WebSocket 연결
+        function connectWebSocket() {
+            // 현재 호스트와 포트를 사용
+            const wsUrl = `ws://${window.location.host}/ws/system/health/`;
+            
+            try {
+                websocket = new WebSocket(wsUrl);
+                
+                websocket.onopen = function(event) {
+                    console.log('WebSocket 연결 성공');
+                    updateConnectionStatus(true);
+                    addLog('WebSocket 연결 성공', 'success');
+                };
+                
+                websocket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (error) {
+                        console.error('메시지 파싱 오류:', error);
+                        addLog('메시지 파싱 오류: ' + error.message, 'error');
+                    }
+                };
+                
+                websocket.onclose = function(event) {
+                    console.log('WebSocket 연결 종료');
+                    updateConnectionStatus(false);
+                    addLog('WebSocket 연결 종료', 'warning');
+                    
+                    // 5초 후 재연결 시도
+                    setTimeout(connectWebSocket, 5000);
+                };
+                
+                websocket.onerror = function(error) {
+                    console.error('WebSocket 오류:', error);
+                    updateConnectionStatus(false);
+                    addLog('WebSocket 오류', 'error');
+                };
+            } catch (error) {
+                console.error('WebSocket 연결 실패:', error);
+                updateConnectionStatus(false);
+                addLog('WebSocket 연결 실패: ' + error.message, 'error');
+            }
+        }
+
+        // WebSocket 메시지 처리
+        function handleWebSocketMessage(data) {
+            const messageType = data.type;
+            
+            if (messageType === 'health_update') {
+                updateDashboard(data.data);
+                updateCount++;
+                addLog(`업데이트 #${updateCount} 수신`, 'info');
+            } else if (messageType === 'pong') {
+                addLog('Pong 수신', 'info');
+            } else if (messageType === 'error') {
+                addLog('오류: ' + data.message, 'error');
+            }
+        }
+
+        // 대시보드 업데이트
+        function updateDashboard(healthData) {
+            const now = new Date();
+            lastUpdateTime = now;
+            
+            // 전체 상태 업데이트
+            updateOverallStatus(healthData.status);
+            
+            // 시스템 데이터 업데이트
+            if (healthData.system) {
+                updateSystemMetrics(healthData.system);
+            }
+            
+            // Pi-hole 데이터 업데이트
+            if (healthData.pihole) {
+                updatePiholeMetrics(healthData.pihole);
+            }
+            
+            // 마지막 업데이트 시간
+            document.getElementById('last-update').textContent = now.toLocaleTimeString();
+        }
+
+        // 전체 상태 업데이트
+        function updateOverallStatus(status) {
+            const statusBadge = document.getElementById('status-badge');
+            statusBadge.className = `status-indicator status-${status}`;
+            
+            const statusText = {
+                'healthy': '정상',
+                'warning': '경고',
+                'error': '오류',
+                'offline': '오프라인'
+            };
+            
+            statusBadge.textContent = statusText[status] || status;
+        }
+
+        // 시스템 메트릭 업데이트
+        function updateSystemMetrics(system) {
+            // CPU
+            if (system.cpu) {
+                const cpuUsage = system.cpu.usage_percent;
+                document.getElementById('cpu-usage').textContent = `${cpuUsage}%`;
+                document.getElementById('cpu-progress').style.width = `${cpuUsage}%`;
+            }
+            
+            // 메모리
+            if (system.memory) {
+                const memoryUsage = system.memory.percent;
+                document.getElementById('memory-usage').textContent = `${memoryUsage}%`;
+                document.getElementById('memory-progress').style.width = `${memoryUsage}%`;
+            }
+            
+            // 디스크
+            if (system.disk) {
+                const diskUsage = system.disk.percent;
+                document.getElementById('disk-usage').textContent = `${diskUsage}%`;
+                document.getElementById('disk-progress').style.width = `${diskUsage}%`;
+            }
+            
+            // 시스템 정보
+            if (system.system) {
+                document.getElementById('process-count').textContent = system.system.processes?.toLocaleString() || '--';
+                
+                if (system.system.uptime) {
+                    const uptime = system.system.uptime;
+                    document.getElementById('uptime').textContent = 
+                        `${uptime.days}일 ${uptime.hours}시간 ${uptime.minutes}분`;
+                }
+            }
+            
+            // 네트워크
+            if (system.network) {
+                const network = system.network;
+                document.getElementById('network-status').textContent = network.status?.status || '--';
+                
+                if (network.io) {
+                    document.getElementById('bytes-sent').textContent = formatBytes(network.io.bytes_sent);
+                    document.getElementById('bytes-recv').textContent = formatBytes(network.io.bytes_recv);
+                }
+            }
+        }
+
+        // Pi-hole 메트릭 업데이트
+        function updatePiholeMetrics(pihole) {
+            document.getElementById('pihole-status').textContent = pihole.status || '--';
+            document.getElementById('queries-today').textContent = (pihole.queries_today || 0).toLocaleString();
+            document.getElementById('blocked-today').textContent = (pihole.blocked_today || 0).toLocaleString();
+            document.getElementById('block-percentage').textContent = `${pihole.blocked_percentage || 0}%`;
+            document.getElementById('domains-blocked').textContent = (pihole.domains_blocked || 0).toLocaleString();
+            document.getElementById('clients').textContent = pihole.clients || '--';
+        }
+
+        // 연결 상태 업데이트
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connection-status');
+            if (connected) {
+                statusDiv.className = 'connection-status connected';
+                statusDiv.textContent = '✅ WebSocket 연결됨 - 실시간 업데이트 중';
+            } else {
+                statusDiv.className = 'connection-status disconnected';
+                statusDiv.textContent = '❌ WebSocket 연결 끊어짐 - 재연결 중...';
+            }
+        }
+
+        // 로그 추가
+        function addLog(message, type = 'info') {
+            const logContent = document.getElementById('log-content');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const typeIcon = {
+                'success': '✅',
+                'info': 'ℹ️',
+                'warning': '⚠️',
+                'error': '❌'
+            };
+            
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                ${typeIcon[type] || 'ℹ️'} ${message}
+            `;
+            
+            logContent.appendChild(logEntry);
+            
+            // 최대 50개 로그만 유지
+            while (logContent.children.length > 50) {
+                logContent.removeChild(logContent.firstChild);
+            }
+            
+            // 자동 스크롤
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        // 바이트 포맷팅
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 페이지 로드 시 WebSocket 연결
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('헬스체크 모니터 시작', 'info');
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html> 

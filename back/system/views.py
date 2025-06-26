@@ -16,193 +16,424 @@ from users.views import IsStaffUser
 from django.core.cache import cache
 from functools import lru_cache
 import threading
+import logging
 
-# 시스템 상태 캐시 키
-SYSTEM_STATUS_CACHE_KEY = 'system_status_data'
-# 캐시 유효 시간 (초)
-CACHE_TIMEOUT = 30
+logger = logging.getLogger(__name__)
 
-# 백그라운드에서 네트워크 상태 확인하는 함수
-def check_network_status_async():
-    network_checks = []
-    network_status = 'offline'
-    
-    # 1. HTTP 요청으로 확인 (더 안정적인 방법)
-    http_sites = [
-        ('https://www.google.com', 'Google'),
-        ('https://www.naver.com', 'Naver')
-    ]
-    
-    # HTTP 요청 테스트 - 하나만 성공해도 충분
-    for url, name in http_sites:
-        try:
-            start_time = time.time()
-            response = requests.get(url, timeout=2)  # 타임아웃 감소
-            response_time = round((time.time() - start_time) * 1000, 2)
-            
-            status = 'online' if response.status_code == 200 else 'error'
-            if status == 'online':
-                network_status = 'online'
-                # 하나라도 성공하면 나머지 테스트 중단
-                network_checks.append({
-                    'server': name,
-                    'status': status,
-                    'response_time': f"{response_time}ms"
-                })
-                break
-            
-            network_checks.append({
-                'server': name,
-                'status': status,
-                'response_time': f"{response_time}ms"
-            })
-        except Exception as e:
-            network_checks.append({
-                'server': name,
-                'status': 'error'
-            })
-    
-    # 2. 소켓 연결 테스트 (백업 방법) - HTTP 테스트가 실패한 경우에만 실행
-    if network_status == 'offline':
-        socket_servers = [
-            ('8.8.8.8', 53, 'Google DNS')
+# 헬스체크 캐시 키
+HEALTH_CHECK_CACHE_KEY = 'health_check_data'
+PIHOLE_STATS_CACHE_KEY = 'pihole_stats_data'
+# 캐시 유효 시간 (초) - 0.5초마다 업데이트
+CACHE_TIMEOUT = 1
+
+# Pi-hole 설정 - docker-compose.yaml에서 127.0.0.1:8888로 설정되어 있음
+PIHOLE_HOST = "127.0.0.1:8888"
+PIHOLE_API_URL = f"http://{PIHOLE_HOST}/admin/api.php"
+
+def get_pihole_web_password():
+    """Pi-hole 웹 패스워드를 가져옵니다."""
+    try:
+        # Docker 볼륨 마운트된 경로에서 패스워드 확인
+        config_paths = [
+            "/etc/pihole/setupVars.conf",
+            "./pihole/etc-pihole/setupVars.conf",
+            "/app/../pihole/etc-pihole/setupVars.conf"
         ]
         
-        for server_ip, port, name in socket_servers:
+        for path in config_paths:
             try:
-                start_time = time.time()
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(1)  # 타임아웃 감소
-                result = s.connect_ex((server_ip, port))
-                s.close()
-                response_time = round((time.time() - start_time) * 1000, 2)
-                
-                status = 'online' if result == 0 else 'offline'
-                if status == 'online':
-                    network_status = 'online'
-                    break
-                
-                network_checks.append({
-                    'server': name,
-                    'status': status,
-                    'response_time': f"{response_time}ms" if status == 'online' else None
-                })
-            except Exception:
-                network_checks.append({
-                    'server': name,
-                    'status': 'error'
-                })
-    
-    return network_status, network_checks
-
-# 백그라운드에서 시스템 상태 업데이트
-def update_system_status_cache():
-    try:
-        # CPU 사용량
-        cpu_percent = psutil.cpu_percent(interval=0.5)
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        content = f.read()
+                        for line in content.split('\n'):
+                            if line.startswith('WEBPASSWORD='):
+                                return line.split('=')[1].strip()
+            except:
+                continue
         
-        # 메모리 사용량
-        memory = psutil.virtual_memory()
-        memory_percent = memory.percent
-        
-        # 디스크 사용량
-        disk = psutil.disk_usage('/')
-        disk_percent = disk.percent
-        
-        # 네트워크 상태 확인 (비동기로 처리)
-        network_status, network_checks = check_network_status_async()
-        
-        # 시스템 가동 시간
-        boot_time = datetime.datetime.fromtimestamp(psutil.boot_time()).strftime("%Y-%m-%d %H:%M:%S")
-        
-        # 현재 시간
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # 시스템 로드 (1분, 5분, 15분)
-        load_avg = os.getloadavg() if hasattr(os, 'getloadavg') else (0, 0, 0)
-        
-        # 활성 프로세스 수
-        active_processes = len(psutil.pids())
-        
-        # 상태 메시지 결정
-        status_message = '정상 작동 중'
-        if network_status == 'offline':
-            status_message = '네트워크 연결 없음'
-        elif network_status == 'limited':
-            status_message = '제한된 네트워크 연결'
-        
-        # 결과 생성 - 배열 대신 객체 형태로 반환하도록 수정
-        status_data = {
-            'success': True,
-            'status': status_message,
-            'timestamp': current_time,
-            'details': {
-                'cpu': f'{cpu_percent}%',
-                'memory': f'{memory_percent}%',
-                'disk': f'{disk_percent}%',
-                'network': {
-                    'status': network_status,
-                    'checks': network_checks if isinstance(network_checks, list) else []
-                },
-                'boot_time': boot_time,
-                'load_avg': {
-                    '1min': load_avg[0],
-                    '5min': load_avg[1],
-                    '15min': load_avg[2]
-                },
-                'active_processes': active_processes,
-                'last_check': current_time
-            }
-        }
-        
-        # 캐시에 저장
-        cache.set(SYSTEM_STATUS_CACHE_KEY, status_data, CACHE_TIMEOUT)
-        return status_data
+        logger.warning("Pi-hole 웹 패스워드를 찾을 수 없습니다.")
+        return None
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"시스템 상태 업데이트 오류: {str(e)}\n{error_details}")
+        logger.error(f"Pi-hole 웹 패스워드 가져오기 실패: {e}")
         return None
 
-# 백그라운드에서 캐시 업데이트 시작
-def start_background_update():
-    def update_loop():
-        while True:
-            update_system_status_cache()
-            time.sleep(CACHE_TIMEOUT - 5)  # 캐시 만료 직전에 업데이트
+def get_pihole_stats():
+    """Pi-hole 통계를 가져옵니다."""
+    try:
+        # 패스워드 없이 기본 통계 시도
+        response = requests.get(f"{PIHOLE_API_URL}?summary", timeout=2)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'status': 'online',
+                'queries_today': data.get('dns_queries_today', 0),
+                'blocked_today': data.get('ads_blocked_today', 0),
+                'blocked_percentage': data.get('ads_percentage_today', 0),
+                'domains_blocked': data.get('domains_being_blocked', 0),
+                'clients': data.get('unique_clients', 0),
+                'gravity_last_updated': data.get('gravity_last_updated', {})
+            }
+        
+        # 패스워드가 필요한 경우
+        web_password = get_pihole_web_password()
+        if web_password:
+            response = requests.get(f"{PIHOLE_API_URL}?summary&auth={web_password}", timeout=2)
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'status': 'online',
+                    'queries_today': data.get('dns_queries_today', 0),
+                    'blocked_today': data.get('ads_blocked_today', 0),
+                    'blocked_percentage': data.get('ads_percentage_today', 0),
+                    'domains_blocked': data.get('domains_being_blocked', 0),
+                    'clients': data.get('unique_clients', 0),
+                    'gravity_last_updated': data.get('gravity_last_updated', {})
+                }
+        
+        return {'status': 'offline', 'error': 'API 접근 실패'}
     
-    thread = threading.Thread(target=update_loop, daemon=True)
-    thread.start()
+    except requests.RequestException as e:
+        logger.error(f"Pi-hole API 요청 실패: {e}")
+        return {'status': 'offline', 'error': f'연결 실패: {str(e)}'}
+    except Exception as e:
+        logger.error(f"Pi-hole 통계 가져오기 실패: {e}")
+        return {'status': 'error', 'error': f'오류: {str(e)}'}
 
-# 서버 시작 시 백그라운드 업데이트 시작
-start_background_update()
+def get_detailed_pihole_stats():
+    """Pi-hole의 상세 통계를 가져옵니다."""
+    try:
+        web_password = get_pihole_web_password()
+        stats = {}
+        
+        # 기본 통계
+        basic_stats = get_pihole_stats()
+        stats.update(basic_stats)
+        
+        if web_password and basic_stats.get('status') == 'online':
+            try:
+                # 상위 도메인
+                response = requests.get(f"{PIHOLE_API_URL}?topItems=5&auth={web_password}", timeout=2)
+                if response.status_code == 200:
+                    data = response.json()
+                    stats['top_queries'] = data.get('top_queries', {})
+                    stats['top_ads'] = data.get('top_ads', {})
+                
+                # 쿼리 타입
+                response = requests.get(f"{PIHOLE_API_URL}?getQueryTypesOverTime&auth={web_password}", timeout=2)
+                if response.status_code == 200:
+                    data = response.json()
+                    stats['query_types'] = data.get('querytypes', {})
+                
+                # 시간별 데이터 (최근 24시간)
+                response = requests.get(f"{PIHOLE_API_URL}?overTimeDataClients&auth={web_password}", timeout=2)
+                if response.status_code == 200:
+                    data = response.json()
+                    # 최근 1시간 데이터만 가져오기
+                    current_time = int(time.time())
+                    hour_ago = current_time - 3600
+                    
+                    recent_data = {}
+                    for timestamp, count in data.get('clients', {}).items():
+                        if int(timestamp) >= hour_ago:
+                            recent_data[timestamp] = count
+                    stats['recent_client_activity'] = recent_data
+                
+            except Exception as e:
+                logger.warning(f"Pi-hole 상세 통계 가져오기 부분 실패: {e}")
+        
+        return stats
+    
+    except Exception as e:
+        logger.error(f"Pi-hole 상세 통계 가져오기 실패: {e}")
+        return {'status': 'error', 'error': str(e)}
+
+def check_network_connectivity():
+    """네트워크 연결성을 확인합니다."""
+    try:
+        # 빠른 연결성 체크
+        test_sites = [
+            ('8.8.8.8', 53),  # Google DNS
+            ('1.1.1.1', 53),  # Cloudflare DNS
+        ]
+        
+        for host, port in test_sites:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                result = sock.connect_ex((host, port))
+                sock.close()
+                if result == 0:
+                    return {'status': 'online', 'test_host': host}
+            except:
+                continue
+        
+        return {'status': 'offline', 'error': '모든 테스트 실패'}
+    
+    except Exception as e:
+        return {'status': 'error', 'error': str(e)}
+
+def get_system_health():
+    """시스템 헬스체크 데이터를 수집합니다."""
+    try:
+        # CPU 정보
+        cpu_percent = psutil.cpu_percent(interval=0.1)  # 빠른 측정
+        cpu_freq = psutil.cpu_freq()
+        cpu_count = psutil.cpu_count()
+        
+        # 메모리 정보
+        memory = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        
+        # 디스크 정보
+        disk = psutil.disk_usage('/')
+        disk_io = psutil.disk_io_counters()
+        
+        # 네트워크 정보
+        net_io = psutil.net_io_counters()
+        network_status = check_network_connectivity()
+        
+        # 프로세스 정보
+        process_count = len(psutil.pids())
+        
+        # 시스템 가동시간
+        boot_time = psutil.boot_time()
+        uptime_seconds = time.time() - boot_time
+        uptime_days = uptime_seconds // 86400
+        uptime_hours = (uptime_seconds % 86400) // 3600
+        uptime_minutes = (uptime_seconds % 3600) // 60
+        
+        # 시스템 로드 (Linux/Unix 전용)
+        load_avg = (0, 0, 0)
+        try:
+            load_avg = os.getloadavg()
+        except (OSError, AttributeError):
+            pass
+        
+        # 온도 정보 (가능한 경우)
+        temperatures = {}
+        try:
+            temps = psutil.sensors_temperatures()
+            if temps:
+                for name, entries in temps.items():
+                    if entries:
+                        temperatures[name] = [{'label': entry.label or 'Unknown', 
+                                            'current': entry.current, 
+                                            'high': entry.high,
+                                            'critical': entry.critical} for entry in entries]
+        except:
+            pass
+        
+        return {
+            'timestamp': datetime.datetime.now().isoformat(),
+            'cpu': {
+                'usage_percent': round(cpu_percent, 1),
+                'frequency': {
+                    'current': round(cpu_freq.current, 1) if cpu_freq else 0,
+                    'min': round(cpu_freq.min, 1) if cpu_freq else 0,
+                    'max': round(cpu_freq.max, 1) if cpu_freq else 0
+                } if cpu_freq else None,
+                'count': cpu_count,
+                'load_avg': {
+                    '1min': round(load_avg[0], 2),
+                    '5min': round(load_avg[1], 2),
+                    '15min': round(load_avg[2], 2)
+                }
+            },
+            'memory': {
+                'total': memory.total,
+                'available': memory.available,
+                'used': memory.used,
+                'free': memory.free,
+                'percent': round(memory.percent, 1),
+                'swap': {
+                    'total': swap.total,
+                    'used': swap.used,
+                    'free': swap.free,
+                    'percent': round(swap.percent, 1)
+                }
+            },
+            'disk': {
+                'total': disk.total,
+                'used': disk.used,
+                'free': disk.free,
+                'percent': round(disk.percent, 1),
+                'io': {
+                    'read_bytes': disk_io.read_bytes if disk_io else 0,
+                    'write_bytes': disk_io.write_bytes if disk_io else 0,
+                    'read_count': disk_io.read_count if disk_io else 0,
+                    'write_count': disk_io.write_count if disk_io else 0
+                } if disk_io else None
+            },
+            'network': {
+                'status': network_status,
+                'io': {
+                    'bytes_sent': net_io.bytes_sent,
+                    'bytes_recv': net_io.bytes_recv,
+                    'packets_sent': net_io.packets_sent,
+                    'packets_recv': net_io.packets_recv,
+                    'errin': net_io.errin,
+                    'errout': net_io.errout,
+                    'dropin': net_io.dropin,
+                    'dropout': net_io.dropout
+                }
+            },
+            'system': {
+                'processes': process_count,
+                'boot_time': datetime.datetime.fromtimestamp(boot_time).isoformat(),
+                'uptime': {
+                    'days': int(uptime_days),
+                    'hours': int(uptime_hours),
+                    'minutes': int(uptime_minutes),
+                    'total_seconds': int(uptime_seconds)
+                },
+                'temperatures': temperatures
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"시스템 헬스체크 수집 실패: {e}")
+        return {'error': f'시스템 정보 수집 실패: {str(e)}'}
+
+def update_health_cache():
+    """헬스체크 캐시를 업데이트합니다."""
+    try:
+        # 시스템 헬스체크
+        system_health = get_system_health()
+        cache.set(HEALTH_CHECK_CACHE_KEY, system_health, CACHE_TIMEOUT + 5)
+        
+        # Pi-hole 통계
+        pihole_stats = get_detailed_pihole_stats()
+        cache.set(PIHOLE_STATS_CACHE_KEY, pihole_stats, CACHE_TIMEOUT + 5)
+        
+        return True
+    except Exception as e:
+        logger.error(f"헬스체크 캐시 업데이트 실패: {e}")
+        return False
+
+# 백그라운드 업데이트 스레드
+class HealthCheckUpdater:
+    def __init__(self):
+        self.running = False
+        self.thread = None
+    
+    def start(self):
+        if not self.running:
+            self.running = True
+            self.thread = threading.Thread(target=self._update_loop, daemon=True)
+            self.thread.start()
+            logger.info("헬스체크 백그라운드 업데이터 시작됨")
+    
+    def stop(self):
+        self.running = False
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1)
+        logger.info("헬스체크 백그라운드 업데이터 중지됨")
+    
+    def _update_loop(self):
+        while self.running:
+            try:
+                update_health_cache()
+                time.sleep(0.5)  # 0.5초마다 업데이트
+            except Exception as e:
+                logger.error(f"헬스체크 업데이트 루프 오류: {e}")
+                time.sleep(1)  # 오류 시 1초 대기
+
+# 글로벌 업데이터 인스턴스
+health_updater = HealthCheckUpdater()
+
+# 서버 시작 시 백그라운드 업데이터 시작
+health_updater.start()
 
 @api_view(['GET'])
-@permission_classes([IsStaffUser])  # 관리자와 교사 모두 시스템 상태를 볼 수 있도록 제한
+@permission_classes([IsStaffUser])
 def system_status(request):
     """
-    시스템 상태 정보를 반환하는 API (관리자 및 교사 전용)
-    캐싱을 통해 성능 최적화
+    실시간 시스템 상태 정보를 반환하는 API (관리자 및 교사 전용)
+    0.5초마다 업데이트되는 헬스체크 데이터 제공
     """
-    # 캐시에서 상태 정보 가져오기
-    status_data = cache.get(SYSTEM_STATUS_CACHE_KEY)
-    
-    # 캐시에 없으면 새로 생성
-    if status_data is None:
-        status_data = update_system_status_cache()
+    try:
+        # 캐시에서 데이터 가져오기
+        system_health = cache.get(HEALTH_CHECK_CACHE_KEY)
+        pihole_stats = cache.get(PIHOLE_STATS_CACHE_KEY)
         
-        # 업데이트 실패 시 오류 반환
-        if status_data is None:
+        # 캐시가 없으면 즉시 생성
+        if system_health is None or pihole_stats is None:
+            update_health_cache()
+            system_health = cache.get(HEALTH_CHECK_CACHE_KEY, {})
+            pihole_stats = cache.get(PIHOLE_STATS_CACHE_KEY, {})
+        
+        # 전체 상태 결정
+        overall_status = 'healthy'
+        if system_health.get('error') or pihole_stats.get('status') == 'offline':
+            overall_status = 'warning'
+        elif pihole_stats.get('status') == 'error':
+            overall_status = 'error'
+        
+        return Response({
+            'success': True,
+            'status': overall_status,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'update_interval': '0.5초',
+            'system': system_health,
+            'pihole': pihole_stats,
+            'metadata': {
+                'cache_keys': {
+                    'system': HEALTH_CHECK_CACHE_KEY,
+                    'pihole': PIHOLE_STATS_CACHE_KEY
+                },
+                'cache_timeout': CACHE_TIMEOUT,
+                'updater_running': health_updater.running
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"시스템 상태 API 오류: {e}")
+        return Response({
+            'success': False,
+            'status': 'error',
+            'error': f'시스템 상태 조회 실패: {str(e)}',
+            'timestamp': datetime.datetime.now().isoformat()
+        }, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsStaffUser])
+def refresh_health_data(request):
+    """헬스체크 데이터를 강제로 새로고침합니다."""
+    try:
+        success = update_health_cache()
+        if success:
+            return Response({
+                'success': True,
+                'message': '헬스체크 데이터가 새로고침되었습니다.',
+                'timestamp': datetime.datetime.now().isoformat()
+            })
+        else:
             return Response({
                 'success': False,
-                'status': '시스템 상태 조회 실패',
-                'error': '상태 정보를 가져오는 중 오류가 발생했습니다.'
+                'message': '헬스체크 데이터 새로고침에 실패했습니다.',
+                'timestamp': datetime.datetime.now().isoformat()
             }, status=500)
-    
-    # 응답 데이터 유효성 검사 및 수정
-    if 'details' in status_data and 'network' in status_data['details']:
-        network_data = status_data['details']['network']
-        if 'checks' in network_data and not isinstance(network_data['checks'], list):
-            network_data['checks'] = []
-    
-    return Response(status_data)
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.datetime.now().isoformat()
+        }, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsStaffUser])
+def pihole_detailed_stats(request):
+    """Pi-hole의 상세 통계만 반환합니다."""
+    try:
+        stats = get_detailed_pihole_stats()
+        return Response({
+            'success': True,
+            'timestamp': datetime.datetime.now().isoformat(),
+            'pihole': stats
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.datetime.now().isoformat()
+        }, status=500)

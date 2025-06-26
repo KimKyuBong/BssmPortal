@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # 설치한 라이브러리
     'rest_framework',
     'corsheaders',
+    'channels',
     
     # 로컬 앱
     'users',
@@ -135,6 +136,26 @@ ROOT_URLCONF = 'config.urls'
 # WSGI 애플리케이션 설정 추가
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# ASGI 애플리케이션 설정 추가 (Channels용)
+ASGI_APPLICATION = 'config.asgi.application'
+
+# Channels 레이어 설정
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
+}
+
+# Redis가 없는 개발 환경을 위한 인메모리 채널 레이어 (필요시 사용)
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+#     },
+# }
+
 # 정적 파일 설정 추가
 STATIC_URL = 'static/'
 
@@ -227,9 +248,25 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'dns': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
     'root': {
         'handlers': ['console', 'file'],
         'level': 'DEBUG',
     },
 }
+
+# SSL 인증서 관련 설정
+SSL_CA_DIR = os.environ.get('SSL_CA_DIR', '/etc/ssl/ca')
+SSL_CERT_DIR = os.environ.get('SSL_CERT_DIR', '/etc/ssl/certs')
+SSL_KEY_DIR = os.environ.get('SSL_KEY_DIR', '/etc/ssl/private')
+
+# SSL 인증서 기본 유효기간 (일)
+SSL_DEFAULT_VALIDITY_DAYS = int(os.environ.get('SSL_DEFAULT_VALIDITY_DAYS', '365'))
+
+# CA 인증서 기본 유효기간 (일)
+SSL_CA_VALIDITY_DAYS = int(os.environ.get('SSL_CA_VALIDITY_DAYS', '3650'))
