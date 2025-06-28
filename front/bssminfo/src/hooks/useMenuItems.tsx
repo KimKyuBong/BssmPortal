@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Home, UserCog, Laptop, Settings, History, Users, Shield, BookOpen, Network, Ban } from 'lucide-react';
+import { Home, UserCog, Laptop, Settings, History, Users, Shield, BookOpen, Network, Ban, Volume2 } from 'lucide-react';
 import { User } from '@/services/auth';
 
 interface MenuItem {
@@ -63,28 +63,10 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
   // 교사 전용 메뉴 아이템 (is_staff = true)
   const teacherMenuItems = useMemo(() => [
     { 
-      name: '사용자 관리', 
-      icon: <Users className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/admin', 
-      isActive: (pathname: string) => isActive('/dashboard/admin', pathname)
-    },
-    { 
-      name: 'IP 할당 내역', 
-      icon: <Network className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/admin/ip-assignments', 
-      isActive: (pathname: string) => isActive('/dashboard/admin/ip-assignments', pathname)
-    },
-    { 
-      name: '장비 관리', 
-      icon: <Shield className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/admin/equipment', 
-      isActive: (pathname: string) => isActive('/dashboard/admin/equipment', pathname)
-    },
-    { 
-      name: '대여 요청 관리', 
-      icon: <BookOpen className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/admin/rental-requests', 
-      isActive: (pathname: string) => isActive('/dashboard/admin/rental-requests', pathname)
+      name: '방송하기', 
+      icon: <Volume2 className="mr-3 h-5 w-5" />, 
+      href: '/dashboard/teacher/broadcast', 
+      isActive: (pathname: string) => isActive('/dashboard/teacher/broadcast', pathname)
     },
   ], [isActive]);
   
@@ -126,12 +108,18 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
       href: '/dashboard/admin/rental-requests', 
       isActive: (pathname: string) => isActive('/dashboard/admin/rental-requests', pathname)
     },
+    { 
+      name: '방송관리', 
+      icon: <Volume2 className="mr-3 h-5 w-5" />, 
+      href: '/dashboard/admin/broadcast-management', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/broadcast-management', pathname)
+    },
   ], [isActive]);
   
-  // 교사 메뉴 표시 여부 (항상 false)
+  // 교사 메뉴 표시 여부 (is_staff = true인 경우, 관리자도 포함)
   const showTeacherMenu = useMemo(() => {
-    return false;
-  }, []);
+    return user?.is_staff === true;
+  }, [user]);
   
   // 관리자 메뉴 표시 여부 (is_superuser = true인 경우)
   const showAdminMenu = useMemo(() => {

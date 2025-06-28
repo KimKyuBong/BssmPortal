@@ -83,7 +83,7 @@ export default function UserIpAssignmentsPage() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ color: 'black' }}>
         내 IP 발급 내역
       </Typography>
       
@@ -103,7 +103,7 @@ export default function UserIpAssignmentsPage() {
         <>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              총 {totalCount}개의 내역이 있습니다.
+              총 {typeof totalCount === 'number' && !isNaN(totalCount) ? totalCount : 0}개의 내역이 있습니다.
             </Typography>
           </Box>
           

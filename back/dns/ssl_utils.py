@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from .models import CertificateAuthority, SslCertificate, CustomDnsRecord
 import logging
+import idna
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,11 @@ class CertificateManager:
         os.makedirs(self.cert_dir, mode=0o755, exist_ok=True)
         os.makedirs(self.key_dir, mode=0o700, exist_ok=True)
     
-    def create_ca(self, ca_name="BSSM Internal CA", validity_days=3650):
+    def create_ca(self, ca_name="BSSM Internal CA", validity_days=None):
         """내부 CA 생성"""
+        if validity_days is None:
+            validity_days = getattr(settings, 'SSL_CA_VALIDITY_DAYS', 36500)  # 기본 100년
+            
         try:
             # CA 개인키 생성
             ca_private_key = rsa.generate_private_key(
@@ -37,7 +41,7 @@ class CertificateManager:
             subject = issuer = x509.Name([
                 x509.NameAttribute(NameOID.COUNTRY_NAME, "KR"),
                 x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Busan"),
-                x509.NameAttribute(NameOID.LOCALITY_NAME, "Busanjin-gu"),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, "Gangseo-gu"),
                 x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Busan Software Meister School"),
                 x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "IT Department"),
                 x509.NameAttribute(NameOID.COMMON_NAME, ca_name),
@@ -62,7 +66,7 @@ class CertificateManager:
                 x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_private_key.public_key()),
                 critical=False,
             ).add_extension(
-                x509.BasicConstraints(ca=True, path_length=None),
+                x509.BasicConstraints(ca=True, path_length=0),
                 critical=True,
             ).add_extension(
                 x509.KeyUsage(
@@ -77,6 +81,12 @@ class CertificateManager:
                     decipher_only=False,
                 ),
                 critical=True,
+            ).add_extension(
+                x509.ExtendedKeyUsage([
+                    ExtendedKeyUsageOID.CLIENT_AUTH,
+                    ExtendedKeyUsageOID.SERVER_AUTH,
+                ]),
+                critical=False,
             ).sign(ca_private_key, hashes.SHA256())
             
             # PEM 형식으로 변환
@@ -109,7 +119,7 @@ class CertificateManager:
             
             os.chmod(ca_key_path, 0o600)
             
-            logger.info(f"CA 생성 완료: {ca_name}")
+            logger.info(f"CA 생성 완료: {ca_name} (유효기간: {validity_days}일)")
             return ca_obj, created
             
         except Exception as e:
@@ -124,8 +134,11 @@ class CertificateManager:
             ca, _ = self.create_ca()
         return ca
     
-    def generate_certificate(self, domain, dns_record, validity_days=365):
+    def generate_certificate(self, domain, dns_record, validity_days=None):
         """도메인용 SSL 인증서 생성"""
+        if validity_days is None:
+            validity_days = getattr(settings, 'SSL_DEFAULT_VALIDITY_DAYS', 36500)  # 기본 100년
+            
         try:
             ca = self.get_active_ca()
             
@@ -151,12 +164,24 @@ class CertificateManager:
                 x509.NameAttribute(NameOID.COMMON_NAME, domain),
             ])
             
-            # SAN (Subject Alternative Names) 설정
-            san_list = [x509.DNSName(domain)]
+            # SAN (Subject Alternative Names) 설정 - 한글 도메인 지원
+            try:
+                # 한글 도메인을 punycode로 변환
+                ascii_domain = idna.encode(domain).decode('ascii')
+            except (idna.core.IDNAError, UnicodeError):
+                # 이미 ASCII인 경우 그대로 사용
+                ascii_domain = domain
+            
+            san_list = [x509.DNSName(ascii_domain)]
             
             # www 서브도메인 추가
             if not domain.startswith('www.'):
-                san_list.append(x509.DNSName(f'www.{domain}'))
+                try:
+                    www_domain = f'www.{domain}'
+                    ascii_www_domain = idna.encode(www_domain).decode('ascii')
+                    san_list.append(x509.DNSName(ascii_www_domain))
+                except (idna.core.IDNAError, UnicodeError):
+                    san_list.append(x509.DNSName(f'www.{domain}'))
             
             # IP 주소도 SAN에 추가
             try:
@@ -250,7 +275,7 @@ class CertificateManager:
             
             os.chmod(key_path, 0o600)
             
-            logger.info(f"SSL 인증서 생성 완료: {domain}")
+            logger.info(f"SSL 인증서 생성 완료: {domain} (유효기간: {validity_days}일)")
             return ssl_cert
             
         except Exception as e:
@@ -292,8 +317,11 @@ class CertificateManager:
         )
         return expiring_certs
     
-    def renew_certificate(self, ssl_cert, validity_days=365):
+    def renew_certificate(self, ssl_cert, validity_days=None):
         """인증서 갱신"""
+        if validity_days is None:
+            validity_days = getattr(settings, 'SSL_DEFAULT_VALIDITY_DAYS', 36500)  # 기본 100년
+            
         try:
             domain = ssl_cert.domain
             dns_record = ssl_cert.dns_record

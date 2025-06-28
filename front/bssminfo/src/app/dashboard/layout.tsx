@@ -43,7 +43,8 @@ export default function DashboardLayout({
       <div className="lg:hidden fixed top-0 left-0 w-full bg-white z-10 p-4 flex items-center justify-between shadow-sm">
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none"
+          className="p-2 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="메뉴 토글"
         >
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -59,8 +60,17 @@ export default function DashboardLayout({
         </div>
       </div>
 
+      {/* 모바일 오버레이 - 사이드바가 열려있을 때만 표시 */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-10"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="사이드바 닫기"
+        />
+      )}
+
       {/* 사이드바 */}
-      <div className={`fixed inset-y-0 left-0 z-20 w-64 bg-white shadow transform ${
+      <div className={`fixed inset-y-0 left-0 z-20 w-64 bg-white shadow-lg transform ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <div className="h-full flex flex-col">
@@ -87,7 +97,13 @@ export default function DashboardLayout({
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                  onClick={() => {
+                    // 모바일에서 메뉴 클릭 시 사이드바 자동 닫기
+                    if (window.innerWidth < 1024) {
+                      setSidebarOpen(false);
+                    }
+                  }}
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                     item.isActive(pathname || '') 
                       ? 'bg-blue-50 text-blue-600' 
                       : 'text-gray-700 hover:bg-gray-100'
@@ -111,7 +127,13 @@ export default function DashboardLayout({
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      onClick={() => {
+                        // 모바일에서 메뉴 클릭 시 사이드바 자동 닫기
+                        if (window.innerWidth < 1024) {
+                          setSidebarOpen(false);
+                        }
+                      }}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                         item.isActive(pathname || '') 
                           ? 'bg-blue-50 text-blue-600' 
                           : 'text-gray-700 hover:bg-gray-100'
@@ -137,7 +159,13 @@ export default function DashboardLayout({
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                      onClick={() => {
+                        // 모바일에서 메뉴 클릭 시 사이드바 자동 닫기
+                        if (window.innerWidth < 1024) {
+                          setSidebarOpen(false);
+                        }
+                      }}
+                      className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                         item.isActive(pathname || '') 
                           ? 'bg-blue-50 text-blue-600' 
                           : 'text-gray-700 hover:bg-gray-100'
@@ -156,7 +184,7 @@ export default function DashboardLayout({
           <div className="p-4 border-t">
             <button
               onClick={handleLogout}
-              className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-700 hover:bg-red-50 w-full"
+              className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-700 hover:bg-red-50 w-full transition-colors duration-200"
             >
               <LogOut className="mr-3 h-5 w-5" />
               로그아웃
@@ -168,7 +196,8 @@ export default function DashboardLayout({
       {/* 데스크톱 토글 버튼 */}
       <button
         onClick={toggleSidebar}
-        className="fixed bottom-4 left-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 hidden lg:flex"
+        className="fixed bottom-4 left-4 z-50 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 hidden lg:flex transition-colors duration-200"
+        aria-label="사이드바 토글"
       >
         {sidebarOpen ? (
           <ChevronLeft className="w-5 h-5 text-gray-600" />

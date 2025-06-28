@@ -127,7 +127,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   name="username"
                   id="username"
                   required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={newUser.username}
                   onChange={handleInputChange}
                 />
@@ -142,7 +142,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   name="password"
                   id="password"
                   required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={newUser.password}
                   onChange={handleInputChange}
                 />
@@ -156,7 +156,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   type="text"
                   name="user_name"
                   id="user_name"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={newUser.user_name}
                   onChange={handleInputChange}
                 />
@@ -170,7 +170,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   type="email"
                   name="email"
                   id="email"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={newUser.email}
                   onChange={handleInputChange}
                 />
@@ -187,7 +187,7 @@ export default function CreateUserModal({ isOpen, onClose, onCreateUser }: Creat
                   min="1"
                   max="10"
                   required
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={newUser.device_limit}
                   onChange={handleInputChange}
                 />

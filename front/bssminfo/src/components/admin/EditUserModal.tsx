@@ -133,7 +133,7 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
                   type="text"
                   name="user_name"
                   id="user_name"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={editedUser.user_name ?? ''}
                   onChange={handleInputChange}
                 />
@@ -147,7 +147,7 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
                   type="email"
                   name="email"
                   id="email"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900 font-medium"
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm font-medium"
                   value={editedUser.email ?? ''}
                   onChange={handleInputChange}
                 />

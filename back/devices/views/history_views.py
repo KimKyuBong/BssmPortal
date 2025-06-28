@@ -15,9 +15,9 @@ from ..permissions import IsSuperUser, IsStaffUser
 logger = logging.getLogger(__name__)
 
 class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """장치 이력 조회 뷰셋 (관리자 전용)"""
+    """장치 이력 조회 뷰셋"""
     serializer_class = DeviceHistorySerializer
-    permission_classes = [IsSuperUser]  # 관리자만 접근 가능하도록 변경
+    permission_classes = [IsAuthenticated]  # 로그인한 사용자만 접근 가능하도록 변경
     # DjangoFilterBackend 제거
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     # filterset_fields 제거 (DjangoFilterBackend에 의존)

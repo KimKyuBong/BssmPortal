@@ -2,7 +2,10 @@ from django.shortcuts import render
 from rest_framework import generics, status, permissions, views, serializers
 from rest_framework.response import Response
 from .models import CustomDnsRequest, CustomDnsRecord, SslCertificate, CertificateAuthority
-from .serializers import CustomDnsRequestSerializer, CustomDnsRecordSerializer, SslCertificateSerializer, CertificateAuthoritySerializer
+from .serializers import (
+    CustomDnsRequestSerializer, CustomDnsRecordSerializer, SslCertificateSerializer, 
+    CertificateAuthoritySerializer, CertificateGenerationRequestSerializer, CertificateFileSerializer
+)
 from .utils import apply_dns_records, to_punycode, validate_domain
 from .ssl_utils import generate_ssl_certificate, revoke_ssl_certificate, check_expiring_certificates, renew_ssl_certificate
 from django.utils import timezone
@@ -315,13 +318,132 @@ class CertificateAuthorityView(views.APIView):
 class DownloadCaCertificateView(views.APIView):
     """CA 인증서 다운로드"""
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get(self, request):
-        ca = CertificateAuthority.objects.filter(is_active=True).first()
-        if ca:
-            from django.http import HttpResponse
-            response = HttpResponse(ca.certificate, content_type='application/x-pem-file')
-            response['Content-Disposition'] = 'attachment; filename="bssm_ca.crt"'
+        try:
+            ca = CertificateAuthority.objects.filter(is_active=True).first()
+            if not ca:
+                return Response({'error': 'CA 인증서를 찾을 수 없습니다.'}, 
+                              status=status.HTTP_404_NOT_FOUND)
+            
+            response = Response(ca.certificate, content_type='application/x-pem-file')
+            response['Content-Disposition'] = 'attachment; filename="bssm_root_ca.crt"'
             return response
-        else:
-            return Response({'error': 'CA 인증서를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"CA 인증서 다운로드 실패: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GenerateCertificateView(views.APIView):
+    """DNS에 등록된 도메인으로 인증서 생성"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _check_domain_ownership(self, user, domain):
+        """도메인 소유권 확인"""
+        # 관리자는 모든 도메인에 대해 인증서 발급 가능
+        if user.is_staff or user.is_superuser:
+            return True, None
+            
+        # 일반 사용자는 본인이 소유한 도메인만 가능
+        try:
+            dns_record = CustomDnsRecord.objects.get(domain=domain)
+            
+            # 1. DNS 레코드의 소유자가 본인인지 확인
+            if dns_record.user == user:
+                return True, None
+                
+            # 2. DNS 레코드의 IP가 본인 소유 장비의 IP인지 확인
+            from devices.models import Device
+            user_ips = Device.objects.filter(user=user).values_list('assigned_ip', flat=True)
+            if dns_record.ip in user_ips:
+                return True, None
+                
+            return False, "해당 도메인에 대한 권한이 없습니다."
+            
+        except CustomDnsRecord.DoesNotExist:
+            return False, "등록되지 않은 도메인입니다."
+
+    def post(self, request):
+        serializer = CertificateGenerationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        domain = serializer.validated_data['domain']
+        
+        try:
+            # 한글 도메인을 punycode로 변환
+            converted_domain = to_punycode(domain)
+            
+            # 도메인 소유권 확인
+            has_permission, error_message = self._check_domain_ownership(request.user, converted_domain)
+            if not has_permission:
+                return Response({'error': error_message}, status=status.HTTP_403_FORBIDDEN)
+            
+            # DNS 레코드 조회
+            dns_record = CustomDnsRecord.objects.get(domain=converted_domain)
+            
+            # 기존 인증서가 있는지 확인
+            existing_cert = None
+            if hasattr(dns_record, 'ssl_certificate'):
+                existing_cert = dns_record.ssl_certificate
+                # 기존 인증서가 만료되지 않았다면 재사용
+                if not existing_cert.is_expired() and existing_cert.status == '활성':
+                    logger.info(f"기존 인증서 재사용: {converted_domain}")
+                else:
+                    # 만료된 인증서는 삭제
+                    existing_cert.delete()
+                    existing_cert = None
+            
+            # 새 인증서 생성
+            if not existing_cert:
+                ssl_cert = generate_ssl_certificate(converted_domain, dns_record)
+                logger.info(f"새 인증서 생성 완료: {converted_domain}")
+            else:
+                ssl_cert = existing_cert
+            
+            # CA 인증서 조회
+            ca = CertificateAuthority.objects.filter(is_active=True).first()
+            if not ca:
+                return Response({'error': 'CA 인증서를 찾을 수 없습니다.'}, 
+                              status=status.HTTP_404_NOT_FOUND)
+            
+            # 응답 데이터 구성
+            response_data = {
+                'domain': domain,  # 원본 도메인 반환
+                'certificate': ssl_cert.certificate,
+                'private_key': ssl_cert.private_key,
+                'certificate_chain': ssl_cert.certificate_chain or '',
+                'ca_certificate': ca.certificate,
+                'expires_at': ssl_cert.expires_at,
+                'issued_at': ssl_cert.issued_at
+            }
+            
+            response_serializer = CertificateFileSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+            
+        except CustomDnsRecord.DoesNotExist:
+            return Response({'error': '등록되지 않은 도메인입니다.'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"인증서 생성 실패: {e}")
+            return Response({'error': f'인증서 생성 중 오류가 발생했습니다: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MyDnsRecordsView(generics.ListAPIView):
+    """사용자가 소유한 DNS 레코드 목록 조회"""
+    serializer_class = CustomDnsRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        # 관리자는 모든 DNS 레코드 조회 가능
+        if user.is_staff or user.is_superuser:
+            return CustomDnsRecord.objects.all().order_by('-created_at')
+        
+        # 일반 사용자는 본인 소유 DNS 레코드만 조회
+        from devices.models import Device
+        user_ips = Device.objects.filter(user=user).values_list('assigned_ip', flat=True)
+        
+        return CustomDnsRecord.objects.filter(
+            models.Q(user=user) | models.Q(ip__in=user_ips)
+        ).order_by('-created_at')

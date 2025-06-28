@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'system',
     'rentals',
     'dns',
+    'broadcast',
 ]
 
 # CORS 설정 추가
@@ -159,6 +160,10 @@ CHANNEL_LAYERS = {
 # 정적 파일 설정 추가
 STATIC_URL = 'static/'
 
+# 미디어 파일 설정 추가 (업로드된 파일용)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 # 기본 자동 필드 타입 설정
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -265,8 +270,25 @@ SSL_CA_DIR = os.environ.get('SSL_CA_DIR', '/etc/ssl/ca')
 SSL_CERT_DIR = os.environ.get('SSL_CERT_DIR', '/etc/ssl/certs')
 SSL_KEY_DIR = os.environ.get('SSL_KEY_DIR', '/etc/ssl/private')
 
-# SSL 인증서 기본 유효기간 (일)
-SSL_DEFAULT_VALIDITY_DAYS = int(os.environ.get('SSL_DEFAULT_VALIDITY_DAYS', '365'))
+# SSL 인증서 기본 유효기간 (일) - 100년
+SSL_DEFAULT_VALIDITY_DAYS = int(os.environ.get('SSL_DEFAULT_VALIDITY_DAYS', '36500'))
 
-# CA 인증서 기본 유효기간 (일)
-SSL_CA_VALIDITY_DAYS = int(os.environ.get('SSL_CA_VALIDITY_DAYS', '3650'))
+# CA 인증서 기본 유효기간 (일) - 100년
+SSL_CA_VALIDITY_DAYS = int(os.environ.get('SSL_CA_VALIDITY_DAYS', '36500'))
+
+# FastAPI 방송 서비스 설정
+BROADCAST_API_CONFIG = {
+    'BASE_URL': os.environ.get('BROADCAST_API_BASE_URL', 'http://10.129.55.251:10200'),
+    'API_KEY': os.environ.get('BROADCAST_API_KEY', ''),
+    'TIMEOUT': int(os.environ.get('BROADCAST_API_TIMEOUT', '30')),  # 초 단위
+    'RETRY_ATTEMPTS': int(os.environ.get('BROADCAST_API_RETRY_ATTEMPTS', '3')),
+}
+
+# 스피커 방송 관련 설정
+BROADCAST_CONFIG = {
+    'DEFAULT_LANGUAGE': os.environ.get('BROADCAST_DEFAULT_LANGUAGE', 'ko'),
+    'MAX_TEXT_LENGTH': int(os.environ.get('BROADCAST_MAX_TEXT_LENGTH', '500')),
+    'AUDIO_UPLOAD_PATH': os.environ.get('BROADCAST_AUDIO_UPLOAD_PATH', '/var/broadcast/audio'),
+    'ALLOWED_AUDIO_FORMATS': ['mp3', 'wav', 'ogg', 'm4a'],
+    'MAX_AUDIO_SIZE': int(os.environ.get('BROADCAST_MAX_AUDIO_SIZE', '50')),  # MB 단위
+}

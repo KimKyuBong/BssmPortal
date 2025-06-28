@@ -7,7 +7,7 @@ __pycache__
 nginx/data/winpe/*
 nginx/data/ubuntu/*
 backup/*
-
+ssl/*
 # 백업 관련
 *.sql.gz
 # IDE 관련
@@ -48,6 +48,8 @@ venv/
 *.pfx
 *.p12
 *.der
+
+test_*.*
 
 tmp/
 

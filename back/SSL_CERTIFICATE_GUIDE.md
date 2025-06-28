@@ -7,17 +7,17 @@ BSSM DNS 서비스에 내부 네트워크용 HTTPS 인증서 자동 발급 기�
 
 ### 1. 내부 CA (Certificate Authority) 자동 생성
 - 최초 실행 시 BSSM 내부 CA가 자동으로 생성됩니다
-- CA 인증서는 10년간 유효합니다
+- CA 인증서는 **100년간** 유효합니다
 - 모든 도메인 인증서는 이 CA로 서명됩니다
 
 ### 2. 도메인별 SSL 인증서 발급
 - DNS 레코드 등록 시 SSL 인증서 발급을 요청할 수 있습니다
-- 인증서는 1년간 유효합니다
+- 인증서는 **100년간** 유효합니다 (사실상 무기한)
 - Subject Alternative Names (SAN)을 통해 여러 도메인 지원
 - IP 주소도 SAN에 포함됩니다
 
 ### 3. 자동 갱신 지원
-- 만료 30일 전 자동 갱신 가능
+- 만료 10년 전 자동 갱신 가능 (필요시에만)
 - Django 관리 명령어를 통한 배치 갱신
 - 크론잡으로 자동화 가능
 
@@ -53,7 +53,7 @@ GET /api/dns/ssl/certificates/
 ### 4. 만료 예정 인증서 확인
 
 ```bash
-GET /api/dns/ssl/certificates/expiring/?days=30
+GET /api/dns/ssl/certificates/expiring/?days=3650
 ```
 
 ### 5. 인증서 수동 갱신
@@ -133,28 +133,28 @@ server {
 </VirtualHost>
 ```
 
-## 자동 갱신 설정
+## 자동 갱신 설정 (선택사항)
 
 ### 1. 관리 명령어 실행
 ```bash
 # 가상환경 활성화
 source venv/bin/activate
 
-# 만료 30일 전 인증서 갱신
+# 만료 10년 전 인증서 갱신 (기본값)
 python manage.py renew_ssl_certificates
 
-# 만료 7일 전 인증서 갱신
-python manage.py renew_ssl_certificates --days 7
+# 만료 1년 전 인증서 갱신
+python manage.py renew_ssl_certificates --days 365
 
 # 실제 갱신하지 않고 대상만 확인
 python manage.py renew_ssl_certificates --dry-run
 ```
 
-### 2. 크론잡 설정
+### 2. 크론잡 설정 (선택사항)
 ```bash
 # crontab -e
-# 매일 새벽 2시에 만료 30일 전 인증서 자동 갱신
-0 2 * * * /home/bssm/BssmCaptive/back/venv/bin/python /home/bssm/BssmCaptive/back/manage.py renew_ssl_certificates
+# 매년 새해 첫날에 만료 10년 전 인증서 자동 갱신 (거의 실행되지 않음)
+0 0 1 1 * /home/bssm/BssmCaptive/back/venv/bin/python /home/bssm/BssmCaptive/back/manage.py renew_ssl_certificates
 ```
 
 ## 파일 위치
@@ -169,6 +169,8 @@ python manage.py renew_ssl_certificates --dry-run
 export SSL_CA_DIR="/custom/ca/path"
 export SSL_CERT_DIR="/custom/cert/path"
 export SSL_KEY_DIR="/custom/key/path"
+export SSL_DEFAULT_VALIDITY_DAYS="36500"  # 100년
+export SSL_CA_VALIDITY_DAYS="36500"       # 100년
 ```
 
 ## 보안 고려사항
@@ -180,11 +182,12 @@ export SSL_KEY_DIR="/custom/key/path"
 ### 2. CA 개인키 보안
 - CA 개인키는 데이터베이스에 암호화되지 않은 상태로 저장됩니다
 - 데이터베이스 접근 권한을 엄격히 관리해야 합니다
-- 정기적인 CA 키 교체를 권장합니다
+- CA 키는 100년간 유효하므로 보안이 더욱 중요합니다
 
 ### 3. 인증서 유효성 검증
 - 발급된 인증서는 내부 네트워크에서만 유효합니다
 - 외부 공개 인터넷에서는 신뢰되지 않습니다
+- 100년 유효기간이므로 갱신 걱정 없이 사용 가능합니다
 
 ## 문제 해결
 
@@ -202,16 +205,14 @@ ls -la /etc/ssl/
 - 브라우저 캐시 및 쿠키 삭제
 - 인증서 체인 파일 사용 여부 확인
 
-### 3. 자동 갱신 실패
+### 3. 인증서 만료 확인
 ```bash
-# 수동 갱신 테스트
-python manage.py renew_ssl_certificates --dry-run
-
-# 특정 인증서 상태 확인
+# 인증서 만료일 확인
 python manage.py shell
 >>> from dns.models import SslCertificate
 >>> cert = SslCertificate.objects.get(domain='example.bssm.local')
->>> print(cert.status, cert.expires_at)
+>>> print(f"만료일: {cert.expires_at}")
+>>> print(f"남은 일수: {cert.days_until_expiry()}")
 ```
 
 ## API 엔드포인트 요약
@@ -228,4 +229,4 @@ python manage.py shell
 
 ---
 
-이 기능을 통해 내부 네트워크에서 안전한 HTTPS 통신을 쉽게 구현할 수 있습니다. 추가 질문이나 문제가 있으면 시스템 관리자에게 문의하세요. 
+이제 **100년 유효기간**의 SSL 인증서를 발급받을 수 있어 사실상 무기한으로 사용할 수 있습니다. 갱신 걱정 없이 안전한 HTTPS 통신을 구현하세요! 추가 질문이나 문제가 있으면 시스템 관리자에게 문의하세요. 

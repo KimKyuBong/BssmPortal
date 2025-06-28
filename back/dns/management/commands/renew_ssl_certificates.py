@@ -7,14 +7,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
-    help = 'SSL 인증서 자동 갱신 (만료 30일 전)'
+    help = 'SSL 인증서 자동 갱신 (만료 10년 전)'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--days',
             type=int,
-            default=30,
-            help='만료 몇 일 전에 갱신할지 설정 (기본값: 30일)'
+            default=3650,  # 10년
+            help='만료 몇 일 전에 갱신할지 설정 (기본값: 3650일/10년)'
         )
         parser.add_argument(
             '--dry-run',

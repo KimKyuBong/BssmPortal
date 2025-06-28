@@ -491,7 +491,7 @@ const rentalService = {
   // IP 할당 내역 API
   async getUserIpAssignments(): Promise<ApiResponse<any>> {
     try {
-      const url = '/ip/history/my/';  // URL 수정
+      const url = '/ip/history/my_history/';  // URL 수정
       const response = await api.get(url);
       return {
         success: true,

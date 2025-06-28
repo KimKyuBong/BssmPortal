@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet, IsSuperUser, PasswordViewSet
 from devices.views import DeviceViewSet, DeviceHistoryViewSet, get_ip_rentals, get_device_rentals
@@ -45,4 +47,8 @@ urlpatterns = [
     path('api/system/', include('system.urls')),
     path('api/rentals/', include('rentals.urls')),  # 일반 사용자용 대여 관련 URL
     path('api/dns/', include('dns.urls')),
+    path('api/broadcast/', include('broadcast.urls')),  # 방송 시스템 URL
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

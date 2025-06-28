@@ -57,12 +57,12 @@ export default function ResetPasswordModal({ isOpen, onClose, onSubmit, username
               </label>
               <div className="flex space-x-2">
                 <input
-                  type="text"
+                  type="password"
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900 placeholder-gray-500"
-                  required
+                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-500"
+                  placeholder="새 비밀번호를 입력하세요"
                 />
                 <button
                   type="button"

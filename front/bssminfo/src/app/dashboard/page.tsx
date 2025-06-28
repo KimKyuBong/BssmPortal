@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Laptop, Wifi, Shield, UserCog, Server, DatabaseIcon, BarChart, Users, User, History, Network, Ban, BookOpen, Home, Settings } from 'lucide-react';
+import { Laptop, Wifi, Shield, UserCog, Server, DatabaseIcon, BarChart, Users, User, History, Network, Ban, BookOpen, Home, Settings, Volume2 } from 'lucide-react';
 import authService from '@/services/auth';
 import adminService from '@/services/admin';
 import api from '@/services/api';
@@ -207,46 +207,13 @@ export default function Dashboard() {
           <h2 className="text-xl font-bold text-gray-900 mb-4">교사 기능</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <Link 
-              href="/dashboard/admin"
+              href="/dashboard/teacher/broadcast"
               className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
             >
-              <Users className="w-8 h-8 text-orange-500 mr-4" />
+              <Volume2 className="w-8 h-8 text-indigo-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">사용자 관리</h2>
-                <p className="text-sm text-gray-500">사용자 계정 관리</p>
-              </div>
-            </Link>
-            
-            <Link 
-              href="/dashboard/admin/ip-assignments"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Network className="w-8 h-8 text-blue-500 mr-4" />
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">IP 할당 내역</h2>
-                <p className="text-sm text-gray-500">사용자 IP 할당 내역 조회</p>
-              </div>
-            </Link>
-            
-            <Link 
-              href="/dashboard/admin/equipment"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Shield className="w-8 h-8 text-green-500 mr-4" />
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">장비 관리</h2>
-                <p className="text-sm text-gray-500">대여 가능한 장비 관리</p>
-              </div>
-            </Link>
-            
-            <Link 
-              href="/dashboard/admin/rental-requests"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <BookOpen className="w-8 h-8 text-purple-500 mr-4" />
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">대여 요청 관리</h2>
-                <p className="text-sm text-gray-500">장비 대여 요청 관리</p>
+                <h2 className="text-lg font-medium text-gray-900">방송하기</h2>
+                <p className="text-sm text-gray-500">텍스트 및 오디오 방송</p>
               </div>
             </Link>
           </div>
@@ -310,6 +277,17 @@ export default function Dashboard() {
               <div>
                 <h2 className="text-lg font-medium text-gray-900">대여 요청 관리</h2>
                 <p className="text-sm text-gray-500">장비 대여 요청 관리</p>
+              </div>
+            </Link>
+            
+            <Link 
+              href="/dashboard/admin/broadcast-management"
+              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
+            >
+              <Volume2 className="w-8 h-8 text-indigo-500 mr-4" />
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">방송관리</h2>
+                <p className="text-sm text-gray-500">전체 방송 이력 및 프리뷰 관리</p>
               </div>
             </Link>
           </div>

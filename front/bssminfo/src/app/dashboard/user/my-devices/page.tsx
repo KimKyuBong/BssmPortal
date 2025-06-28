@@ -1028,7 +1028,7 @@ export default function MyDevicesPage() {
                   type="text"
                   value={dnsForm.domain}
                   onChange={e => setDnsForm({ ...dnsForm, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                   placeholder="예: example.com, 사이트.kr"
                   required
                 />

@@ -59,93 +59,13 @@ def get_pihole_web_password():
 
 def get_pihole_stats():
     """Pi-hole 통계를 가져옵니다."""
-    try:
-        # 패스워드 없이 기본 통계 시도
-        response = requests.get(f"{PIHOLE_API_URL}?summary", timeout=2)
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                'status': 'online',
-                'queries_today': data.get('dns_queries_today', 0),
-                'blocked_today': data.get('ads_blocked_today', 0),
-                'blocked_percentage': data.get('ads_percentage_today', 0),
-                'domains_blocked': data.get('domains_being_blocked', 0),
-                'clients': data.get('unique_clients', 0),
-                'gravity_last_updated': data.get('gravity_last_updated', {})
-            }
-        
-        # 패스워드가 필요한 경우
-        web_password = get_pihole_web_password()
-        if web_password:
-            response = requests.get(f"{PIHOLE_API_URL}?summary&auth={web_password}", timeout=2)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'status': 'online',
-                    'queries_today': data.get('dns_queries_today', 0),
-                    'blocked_today': data.get('ads_blocked_today', 0),
-                    'blocked_percentage': data.get('ads_percentage_today', 0),
-                    'domains_blocked': data.get('domains_being_blocked', 0),
-                    'clients': data.get('unique_clients', 0),
-                    'gravity_last_updated': data.get('gravity_last_updated', {})
-                }
-        
-        return {'status': 'offline', 'error': 'API 접근 실패'}
-    
-    except requests.RequestException as e:
-        logger.error(f"Pi-hole API 요청 실패: {e}")
-        return {'status': 'offline', 'error': f'연결 실패: {str(e)}'}
-    except Exception as e:
-        logger.error(f"Pi-hole 통계 가져오기 실패: {e}")
-        return {'status': 'error', 'error': f'오류: {str(e)}'}
+    # Pi-hole 기능 비활성화
+    return {'status': 'disabled', 'message': 'Pi-hole 기능이 비활성화되었습니다.'}
 
 def get_detailed_pihole_stats():
     """Pi-hole의 상세 통계를 가져옵니다."""
-    try:
-        web_password = get_pihole_web_password()
-        stats = {}
-        
-        # 기본 통계
-        basic_stats = get_pihole_stats()
-        stats.update(basic_stats)
-        
-        if web_password and basic_stats.get('status') == 'online':
-            try:
-                # 상위 도메인
-                response = requests.get(f"{PIHOLE_API_URL}?topItems=5&auth={web_password}", timeout=2)
-                if response.status_code == 200:
-                    data = response.json()
-                    stats['top_queries'] = data.get('top_queries', {})
-                    stats['top_ads'] = data.get('top_ads', {})
-                
-                # 쿼리 타입
-                response = requests.get(f"{PIHOLE_API_URL}?getQueryTypesOverTime&auth={web_password}", timeout=2)
-                if response.status_code == 200:
-                    data = response.json()
-                    stats['query_types'] = data.get('querytypes', {})
-                
-                # 시간별 데이터 (최근 24시간)
-                response = requests.get(f"{PIHOLE_API_URL}?overTimeDataClients&auth={web_password}", timeout=2)
-                if response.status_code == 200:
-                    data = response.json()
-                    # 최근 1시간 데이터만 가져오기
-                    current_time = int(time.time())
-                    hour_ago = current_time - 3600
-                    
-                    recent_data = {}
-                    for timestamp, count in data.get('clients', {}).items():
-                        if int(timestamp) >= hour_ago:
-                            recent_data[timestamp] = count
-                    stats['recent_client_activity'] = recent_data
-                
-            except Exception as e:
-                logger.warning(f"Pi-hole 상세 통계 가져오기 부분 실패: {e}")
-        
-        return stats
-    
-    except Exception as e:
-        logger.error(f"Pi-hole 상세 통계 가져오기 실패: {e}")
-        return {'status': 'error', 'error': str(e)}
+    # Pi-hole 기능 비활성화
+    return {'status': 'disabled', 'message': 'Pi-hole 기능이 비활성화되었습니다.'}
 
 def check_network_connectivity():
     """네트워크 연결성을 확인합니다."""
