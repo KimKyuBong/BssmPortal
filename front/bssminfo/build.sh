@@ -5,7 +5,7 @@ cd front/bssminfo
 
 # 프로덕션 빌드 실행
 echo "Building frontend..."
-npm run build
+yarn build:static
 
 # 빌드 성공 여부 확인
 if [ $? -eq 0 ]; then

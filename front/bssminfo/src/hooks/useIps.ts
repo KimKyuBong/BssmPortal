@@ -9,38 +9,72 @@ export const useIps = () => {
   const [selectedDevices, setSelectedDevices] = useState<Record<number, boolean>>({});
   const [lastSelectedDevice, setLastSelectedDevice] = useState<number | null>(null);
   const [deviceSearchTerm, setDeviceSearchTerm] = useState('');
+  
+  // 페이지네이션 상태 추가
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  const fetchDevices = useCallback(async () => {
+  const fetchDevices = useCallback(async (page: number = 1, search: string = '', size: number = pageSize) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await ipService.getAllIps();
+      // 페이지네이션과 검색 파라미터를 포함한 API 호출
+      const response = await ipService.getAllIps(page, search, size);
       if (response.success) {
         // 응답 데이터가 배열인지 확인하고 처리
         if (Array.isArray(response.data)) {
           setDevices(response.data || []);
+          setTotalPages(1);
+          setTotalCount(response.data.length);
+        } else if (response.data && typeof response.data === 'object') {
+          // 페이지네이션 정보가 포함된 응답 처리
+          const { results, total_pages, total_count, current_page } = response.data;
+          setDevices(results || []);
+          setTotalPages(total_pages || 1);
+          setTotalCount(total_count || 0);
+          setCurrentPage(current_page || page);
         } else {
-          console.error('API 응답이 배열이 아닙니다:', response.data);
-          // 빈 배열로 초기화하여 UI 오류 방지
+          console.error('API 응답이 올바르지 않습니다:', response.data);
           setDevices([]);
           setError('장치 데이터 형식이 올바르지 않습니다.');
         }
       } else {
         setError(response.message || '장치 목록을 불러오는데 실패했습니다.');
-        setDevices([]); // 오류 발생 시 빈 배열로 초기화
+        setDevices([]);
       }
     } catch (err) {
       setError('장치 목록을 불러오는데 실패했습니다.');
       console.error(err);
-      setDevices([]); // 오류 발생 시 빈 배열로 초기화
+      setDevices([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pageSize]);
+
+  // 페이지 변경 핸들러
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+    fetchDevices(page, deviceSearchTerm, pageSize);
+  }, [fetchDevices, deviceSearchTerm, pageSize]);
+
+  // 페이지 크기 변경 핸들러
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // 페이지 크기가 변경되면 첫 페이지로 이동
+    fetchDevices(1, deviceSearchTerm, newPageSize);
+  }, [fetchDevices, deviceSearchTerm]);
+
+  // 검색 핸들러
+  const handleSearch = useCallback(() => {
+    setCurrentPage(1); // 검색 시 첫 페이지로 이동
+    fetchDevices(1, deviceSearchTerm, pageSize);
+  }, [fetchDevices, deviceSearchTerm, pageSize]);
 
   useEffect(() => {
-    fetchDevices();
-  }, [fetchDevices]);
+    fetchDevices(currentPage, deviceSearchTerm, pageSize);
+  }, [fetchDevices, currentPage, deviceSearchTerm, pageSize]);
 
   const handleDeleteDevice = useCallback(async (id: number) => {
     setLoading(true);
@@ -127,11 +161,11 @@ export const useIps = () => {
       
       if (allSucceeded) {
         // 장치 목록 새로고침
-        await fetchDevices();
+        await fetchDevices(currentPage, deviceSearchTerm, pageSize);
         return true;
       } else {
         setError('일부 장치의 상태 변경에 실패했습니다.');
-        await fetchDevices();
+        await fetchDevices(currentPage, deviceSearchTerm, pageSize);
         return false;
       }
     } catch (err) {
@@ -141,7 +175,7 @@ export const useIps = () => {
     } finally {
       setLoading(false);
     }
-  }, [devices, selectedDevices, fetchDevices]);
+  }, [devices, selectedDevices, fetchDevices, currentPage, deviceSearchTerm, pageSize]);
 
   const handleBulkDeleteDevices = useCallback(async () => {
     setLoading(true);
@@ -169,12 +203,12 @@ export const useIps = () => {
       
       if (allSucceeded) {
         // 장치 목록 새로고침
-        await fetchDevices();
+        await fetchDevices(currentPage, deviceSearchTerm, pageSize);
         setSelectedDevices({});
         return true;
       } else {
         setError('일부 장치의 삭제에 실패했습니다.');
-        await fetchDevices();
+        await fetchDevices(currentPage, deviceSearchTerm, pageSize);
         return false;
       }
     } catch (err) {
@@ -184,7 +218,7 @@ export const useIps = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedDevices, fetchDevices]);
+  }, [selectedDevices, fetchDevices, currentPage, deviceSearchTerm, pageSize]);
 
   const exportToExcel = useCallback(() => {
     try {
@@ -222,8 +256,14 @@ export const useIps = () => {
     setSelectedDevices(prev => {
       const newSelectedDevices = { ...prev };
       
+      // 체크박스 클릭의 경우 (Ctrl/Cmd 키가 눌리지 않은 경우)
+      if (!event.ctrlKey && !event.metaKey) {
+        // 단순 토글
+        newSelectedDevices[id] = !newSelectedDevices[id];
+        setLastSelectedDevice(id);
+      } 
       // Shift 키를 누른 경우, 마지막 선택된 항목부터 현재 항목까지 범위 선택
-      if (event.shiftKey && lastSelectedDevice !== null) {
+      else if (event.shiftKey && lastSelectedDevice !== null) {
         const deviceIds = devices.map(device => device.id);
         const startIdx = deviceIds.indexOf(lastSelectedDevice);
         const endIdx = deviceIds.indexOf(id);
@@ -293,6 +333,13 @@ export const useIps = () => {
     handleBulkDeleteDevices,
     exportToExcel,
     handleDeviceSelection,
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    handlePageChange,
+    handleSearch,
+    handlePageSizeChange,
   };
 };
 

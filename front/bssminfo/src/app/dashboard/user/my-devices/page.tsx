@@ -6,19 +6,20 @@ import authService from '@/services/auth';
 import ipService from '@/services/ip';
 import { Device } from '@/services/ip';
 import Link from 'next/link';
-import { LogOut, User, Search, Plus, Edit, Trash2, Laptop, ArrowLeft } from 'lucide-react';
-import { Box, Button } from '@mui/material';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
+import { LogOut, User, Search, Plus, Edit, Trash2, Laptop, ArrowLeft, Monitor, Wifi, WifiOff } from 'lucide-react';
+
 import dnsService from '@/services/dns';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import StatsCard from '@/components/ui/StatsCard';
+import DeviceTable from '@/components/ui/DeviceTable';
+import BulkActionBar from '@/components/ui/BulkActionBar';
+import DeviceRegistrationModal from '@/components/ui/DeviceRegistrationModal';
+import { useToastContext } from '@/contexts/ToastContext';
 
 export default function MyDevicesPage() {
   const router = useRouter();
+  const { showSuccess, showError } = useToastContext();
   const [user, setUser] = useState<any>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,9 +170,7 @@ export default function MyDevicesPage() {
   };
   
   // 기기 등록 처리
-  const handleRegisterDevice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleRegisterDevice = async (macAddress: string, deviceName: string) => {
     // 입력 검증
     if (!macAddress || !validateMacAddress(macAddress)) {
       setMacError('유효한 MAC 주소를 입력해주세요.');
@@ -179,7 +178,7 @@ export default function MyDevicesPage() {
     }
     
     if (!deviceName.trim()) {
-      alert('기기 이름을 입력해주세요.');
+      showError('입력 오류', '기기 이름을 입력해주세요.');
       return;
     }
     
@@ -193,7 +192,7 @@ export default function MyDevicesPage() {
       });
       
       if (response.success) {
-        alert('기기가 성공적으로 등록되었습니다.');
+        showSuccess('기기 등록 완료', '기기가 성공적으로 등록되었습니다.');
         setShowModal(false);
         
         // 장치 목록 새로고침
@@ -209,11 +208,11 @@ export default function MyDevicesPage() {
           });
         }
       } else {
-        alert(response.error || '기기 등록에 실패했습니다.');
+        showError('기기 등록 실패', typeof response.error === 'string' ? response.error : '기기 등록에 실패했습니다.');
       }
     } catch (err) {
       console.error('Register device error:', err);
-      alert('기기 등록 중 오류가 발생했습니다.');
+      showError('기기 등록 오류', '기기 등록 중 오류가 발생했습니다.');
     } finally {
       setRegistering(false);
     }
@@ -279,48 +278,52 @@ export default function MyDevicesPage() {
         
         // 성공 메시지 표시
         if (response.message) {
-          alert(response.message);
+          showSuccess('장치 상태 변경 완료', response.message);
         }
       } else {
         const errorMessage = typeof response.error === 'string' 
           ? response.error 
           : response.error?.detail || '장치 상태 변경에 실패했습니다.';
         setError(errorMessage);
-        alert(errorMessage);
+        showError('장치 상태 변경 실패', errorMessage);
       }
     } catch (err) {
       setError('장치 상태 변경 중 오류가 발생했습니다.');
       console.error('Toggle device error:', err);
-      alert('장치 상태 변경 중 오류가 발생했습니다.');
+      showError('장치 상태 변경 오류', '장치 상태 변경 중 오류가 발생했습니다.');
     }
   };
-  
+
   const handleDeleteDevice = async (deviceId: number) => {
-    if (!confirm('정말로 이 장치를 삭제하시겠습니까?')) return;
+    // confirm 대신 토스트로 확인 메시지 표시하고 바로 삭제 처리
+    showError('기기 삭제', '정말로 이 기기를 삭제하시겠습니까?');
     
     try {
       const response = await ipService.deleteIp(deviceId);
       if (response.success) {
-        // 장치 목록 업데이트
-        const updatedDevices = devices.filter(device => device.id !== deviceId);
-        setDevices(updatedDevices);
+        // 장치 목록에서 제거
+        setDevices(devices.filter(device => device.id !== deviceId));
         
         // 통계 업데이트
-        const activeDevices = updatedDevices.filter(d => d.is_active).length;
+        const remainingDevices = devices.filter(device => device.id !== deviceId);
+        const activeDevices = remainingDevices.filter(d => d.is_active).length;
         setStats({
-          totalDevices: updatedDevices.length,
+          totalDevices: remainingDevices.length,
           activeDevices
         });
+        
+        showSuccess('기기 삭제 완료', '기기가 삭제되었습니다.');
       } else {
         const errorMessage = typeof response.error === 'string' 
           ? response.error 
           : response.error?.detail || '장치 삭제에 실패했습니다.';
         setError(errorMessage);
-        alert(errorMessage);
+        showError('기기 삭제 실패', errorMessage);
       }
     } catch (err) {
       setError('장치 삭제 중 오류가 발생했습니다.');
       console.error('Delete device error:', err);
+      showError('기기 삭제 오류', '장치 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -356,7 +359,7 @@ export default function MyDevicesPage() {
           activeDevices
         }));
         
-        alert(`${deviceIds.length}개의 기기 상태가 변경되었습니다.`);
+        showSuccess('일괄 작업 완료', `${deviceIds.length}개의 기기 상태가 변경되었습니다.`);
         setSelectedDevices([]); // 선택 초기화
       } else {
         setError('일부 기기의 상태 변경에 실패했습니다.');
@@ -366,39 +369,41 @@ export default function MyDevicesPage() {
       console.error('Bulk toggle device error:', err);
     }
   };
-  
+
   // 장치 일괄 삭제 함수
   const handleBulkDeleteDevices = async (deviceIds: number[]) => {
     try {
+      // 모든 장치에 대해 삭제 처리
       const promises = deviceIds.map(deviceId => ipService.deleteIp(deviceId));
       const results = await Promise.all(promises);
       const success = results.every((result: any) => result.success);
       
       if (success) {
-        // 장치 목록에서 삭제된 장치들 제거
+        // 장치 목록에서 제거
         const updatedDevices = devices.filter(device => !deviceIds.includes(device.id));
         setDevices(updatedDevices);
         
         // 통계 업데이트
-        setStats(prev => ({
+        const activeDevices = updatedDevices.filter(d => d.is_active).length;
+        setStats({
           totalDevices: updatedDevices.length,
-          activeDevices: updatedDevices.filter(d => d.is_active).length
-        }));
+          activeDevices
+        });
         
-        alert(`${deviceIds.length}개의 기기가 삭제되었습니다.`);
+        showSuccess('일괄 작업 완료', `${deviceIds.length}개의 기기가 삭제되었습니다.`);
         setSelectedDevices([]); // 선택 초기화
       } else {
-        setError('일부 기기 삭제에 실패했습니다.');
+        setError('일부 기기의 삭제에 실패했습니다.');
       }
     } catch (err) {
       setError('기기 일괄 삭제 중 오류가 발생했습니다.');
-      console.error('Bulk delete devices error:', err);
+      console.error('Bulk delete device error:', err);
     }
   };
 
-  // 장치 다중 선택 처리 함수
+  // 장치 선택 핸들러 (다중 선택 지원)
   const handleDeviceSelection = (deviceId: number, event: React.MouseEvent<HTMLTableRowElement, MouseEvent>) => {
-    // Ctrl/Cmd 키를 누른 상태로 클릭 (개별 항목 토글)
+    // Ctrl/⌘ + 클릭: 개별 선택/해제 토글
     if (event.ctrlKey || event.metaKey) {
       setSelectedDevices(prev => {
         if (prev.includes(deviceId)) {
@@ -407,20 +412,18 @@ export default function MyDevicesPage() {
           return [...prev, deviceId];
         }
       });
-    } 
-    // Shift 키를 누른 상태로 클릭 (범위 선택)
+      setLastSelectedDevice(deviceId);
+    }
+    // Shift + 클릭: 범위 선택
     else if (event.shiftKey && lastSelectedDevice !== null) {
-      const deviceIds = devices.map(device => device.id);
-      const currentIndex = deviceIds.indexOf(deviceId);
-      const lastIndex = deviceIds.indexOf(lastSelectedDevice);
+      const currentIndex = devices.findIndex(d => d.id === deviceId);
+      const lastIndex = devices.findIndex(d => d.id === lastSelectedDevice);
       
       if (currentIndex !== -1 && lastIndex !== -1) {
         const start = Math.min(currentIndex, lastIndex);
         const end = Math.max(currentIndex, lastIndex);
+        const rangeIds = devices.slice(start, end + 1).map(d => d.id);
         
-        const rangeIds = deviceIds.slice(start, end + 1);
-        
-        // 기존 선택에 범위 추가
         setSelectedDevices(prev => {
           const newSelection = [...prev];
           rangeIds.forEach(id => {
@@ -431,72 +434,33 @@ export default function MyDevicesPage() {
           return newSelection;
         });
       }
-    } 
-    // 일반 클릭 (다른 선택 초기화 후 현재 항목만 선택)
+    }
+    // 일반 클릭: 단일 선택
     else {
       setSelectedDevices([deviceId]);
+      setLastSelectedDevice(deviceId);
     }
-    
-    setLastSelectedDevice(deviceId);
   };
 
-  // 검색 필터링
-  const filteredDevices = devices.filter(device => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (device.device_name && device.device_name.toLowerCase().includes(searchLower)) ||
-      (device.mac_address && device.mac_address.toLowerCase().includes(searchLower)) ||
-      (device.assigned_ip && device.assigned_ip.toLowerCase().includes(searchLower))
-    );
-  });
-
-  /**
-   * MAC 주소 가져오기
-   */
+  // 현재 MAC 주소 가져오기
   const fetchCurrentMac = async () => {
     console.log('🔍 fetchCurrentMac 함수 시작');
+    setMacLoading(true);
+    setMacError(null);
+    
     try {
-      // 로딩 상태 설정
-      setMacLoading(true);
-      setMacError(null);
-
-      // MAC 주소 조회 요청
       const response = await ipService.getCurrentMac();
-      console.log('🔍 서버 응답 전체:', response);
-
-      // 응답 성공 확인
+      console.log('🔍 MAC 주소 조회 응답:', response);
+      
       if (response.success && response.data) {
-        console.log('🔍 응답 데이터 구조:', response.data);
+        const { mac_address, ip_address } = response.data;
+        console.log('🔍 MAC 주소:', mac_address, 'IP 주소:', ip_address);
         
-        // 변경된 백엔드 구조에 맞게 데이터 직접 접근
-        const macAddress = response.data.mac_address;
-        const ipAddress = response.data.ip_address;
-        
-        console.log(`🔍 추출된 MAC 주소: ${macAddress}, IP 주소: ${ipAddress}`);
-
-        if (macAddress && macAddress !== '00:00:00:00:00:00') {
-          // MAC 주소 설정
-          setMacAddress(macAddress);
+        if (mac_address && validateMacAddress(mac_address)) {
+          console.log('🔍 유효한 MAC 주소 발견:', mac_address);
           
-          // MAC 주소를 파트별로 분리 (콜론으로 구분된 경우)
-          let parts;
-          if (macAddress.includes(':')) {
-            parts = macAddress.split(':');
-          } else if (macAddress.includes('-')) {
-            parts = macAddress.split('-');
-          } else if (macAddress.length === 12) {
-            // 구분자 없는 12자리 MAC 주소 처리
-            parts = [];
-            for (let i = 0; i < 12; i += 2) {
-              parts.push(macAddress.substring(i, i + 2));
-            }
-          } else {
-            console.error('🔍 지원되지 않는 MAC 주소 형식:', macAddress);
-            setMacError('지원되지 않는 MAC 주소 형식입니다.');
-            setMacLoading(false);
-            return;
-          }
-          
+          // MAC 주소를 6개 부분으로 분할
+          const parts = mac_address.split(':').map(part => part.toUpperCase());
           console.log('🔍 MAC 주소 파트:', parts);
           
           // 수동 입력 모드로 전환
@@ -506,8 +470,8 @@ export default function MyDevicesPage() {
           setMacParts(parts);
           
           // 기기 이름 자동 설정 (IP 주소가 있는 경우)
-          if (ipAddress && deviceName === '') {
-            setDeviceName(`내 기기 (${ipAddress})`);
+          if (ip_address && deviceName === '') {
+            setDeviceName(`내 기기 (${ip_address})`);
           }
         } else {
           console.log('🔍 유효한 MAC 주소를 찾을 수 없음');
@@ -529,16 +493,23 @@ export default function MyDevicesPage() {
     }
   };
 
+  // 필터링된 장치 목록
+  const filteredDevices = devices.filter(device =>
+    device.device_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.mac_address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.assigned_ip?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* 메인 콘텐츠 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 페이지 헤더 */}
@@ -546,39 +517,43 @@ export default function MyDevicesPage() {
           <div className="flex items-center">
             <button 
               onClick={() => router.push('/dashboard/teacher')}
-              className="mr-4 p-2 rounded-full hover:bg-gray-200 transition-colors"
+              className="mr-4 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-primary" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-900">내 IP 관리</h1>
+            <h1 className="text-2xl font-bold text-primary">내 IP 관리</h1>
           </div>
         </div>
         
-
-        
         {/* 기기 통계 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">기기 현황</h2>
+        <div className="card mb-8">
+          <h2 className="text-lg font-medium text-primary mb-4">기기 현황</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="border rounded-lg p-4">
-              <h3 className="text-md font-medium text-gray-700 mb-2">총 등록 기기</h3>
-              <p className="text-2xl font-bold text-blue-600">{stats.totalDevices}</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <h3 className="text-md font-medium text-gray-700 mb-2">활성 기기</h3>
-              <p className="text-2xl font-bold text-green-600">{stats.activeDevices}</p>
-            </div>
-            <div className="border rounded-lg p-4">
-              <h3 className="text-md font-medium text-gray-700 mb-2">비활성 기기</h3>
-              <p className="text-2xl font-bold text-red-600">{stats.totalDevices - stats.activeDevices}</p>
-            </div>
+            <StatsCard
+              title="총 등록 기기"
+              value={stats.totalDevices}
+              icon={Monitor}
+              color="blue"
+            />
+            <StatsCard
+              title="활성 기기"
+              value={stats.activeDevices}
+              icon={Wifi}
+              color="green"
+            />
+            <StatsCard
+              title="비활성 기기"
+              value={stats.totalDevices - stats.activeDevices}
+              icon={WifiOff}
+              color="red"
+            />
           </div>
         </div>
         
         {/* 기기 관리 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-8">
+        <div className="card mb-8">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-medium text-gray-900">내 기기 목록</h2>
+            <h2 className="text-lg font-medium text-primary">내 기기 목록</h2>
             
             <div className="flex space-x-4">
               <div className="relative">
@@ -587,7 +562,7 @@ export default function MyDevicesPage() {
                 </div>
                 <input
                   type="text"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="input-field pl-10"
                   placeholder="기기 검색..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -596,8 +571,7 @@ export default function MyDevicesPage() {
               
               <button
                 onClick={openRegisterModal}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                style={{ fontWeight: 700 }}
+                className="btn-primary"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 기기 IP 등록
@@ -606,7 +580,7 @@ export default function MyDevicesPage() {
           </div>
           
           {/* 다중 선택 안내 */}
-          <div className="bg-blue-50 p-3 rounded-md mb-4 text-sm text-blue-800">
+          <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded-md mb-4 text-sm text-blue-800 dark:text-blue-200">
             <div className="flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -619,394 +593,90 @@ export default function MyDevicesPage() {
             </ul>
           </div>
           
-          {/* 선택된 기기에 대한 일괄 작업 버튼 */}
-          {selectedDevices.length > 0 && (
-            <div className="bg-gray-50 p-3 rounded-md mb-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                <span className="font-medium">{selectedDevices.length}개</span>의 기기가 선택됨
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => {
-                    if (confirm(`선택한 ${selectedDevices.length}개의 기기를 활성화하시겠습니까?`)) {
-                      handleBulkToggleDeviceActive(selectedDevices, true);
-                    }
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  일괄 활성화
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`선택한 ${selectedDevices.length}개의 기기를 비활성화하시겠습니까?`)) {
-                      handleBulkToggleDeviceActive(selectedDevices, false);
-                    }
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                >
-                  일괄 비활성화
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`정말로 선택한 ${selectedDevices.length}개의 기기를 삭제하시겠습니까?`)) {
-                      handleBulkDeleteDevices(selectedDevices);
-                    }
-                  }}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  선택 기기 삭제
-                </button>
-              </div>
-            </div>
-          )}
+          {/* 일괄 작업 바 */}
+          <BulkActionBar
+            selectedCount={selectedDevices.length}
+            onBulkActivate={() => {
+              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
+              showError('일괄 활성화', `선택한 ${selectedDevices.length}개의 기기를 활성화하시겠습니까?`);
+              handleBulkToggleDeviceActive(selectedDevices, true);
+            }}
+            onBulkDeactivate={() => {
+              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
+              showError('일괄 비활성화', `선택한 ${selectedDevices.length}개의 기기를 비활성화하시겠습니까?`);
+              handleBulkToggleDeviceActive(selectedDevices, false);
+            }}
+            onBulkDelete={() => {
+              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
+              showError('일괄 삭제', `정말로 선택한 ${selectedDevices.length}개의 기기를 삭제하시겠습니까?`);
+              handleBulkDeleteDevices(selectedDevices);
+            }}
+          />
           
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    기기 정보
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    MAC 주소
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    IP 주소
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    상태
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    마지막 접속
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    작업
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDevices.map((device) => {
-                  const isSelected = selectedDevices.includes(device.id);
-                  return (
-                    <tr 
-                      key={device.id} 
-                      className={`${isSelected ? 'bg-blue-200 border-l-4 border-blue-500' : ''} hover:bg-gray-100 cursor-pointer`}
-                      onClick={(e) => handleDeviceSelection(device.id, e)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                            <Laptop className="h-6 w-6 text-gray-500" />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{device.device_name || '이름 없음'}</div>
-                            <div className="text-sm text-gray-500">
-                              {device.mac_address ? `MAC: ${device.mac_address.substring(0, 8)}...` : '정보 없음'}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {device.mac_address || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div>
-                          <div className="text-gray-900 font-medium">{device.assigned_ip || '-'}</div>
-                          {device.assigned_ip && (() => {
-                            const dnsInfo = getDnsInfo(device);
-                            if (dnsInfo.status === 'approved') {
-                              return (
-                                <div className="text-green-600 text-xs">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    등록된 도메인
-                                  </span>
-                                  <div className="mt-1">({dnsInfo.domain})</div>
-                                </div>
-                              );
-                            } else if (dnsInfo.status === '거절') {
-                              return (
-                                <div className="text-red-600 text-xs">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setRejectReasonDialog({
-                                        open: true,
-                                        reason: dnsInfo.reject_reason || '거절 사유 없음',
-                                        domain: dnsInfo.domain || '',
-                                        ip: device.assigned_ip || ''
-                                      });
-                                    }}
-                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer"
-                                  >
-                                    거절된 도메인
-                                  </button>
-                                  <div className="mt-1">({dnsInfo.domain})</div>
-                                </div>
-                              );
-                            } else if (dnsInfo.status === '대기') {
-                              return (
-                                <div className="text-yellow-600 text-xs">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                    신청 대기 중
-                                  </span>
-                                  <div className="mt-1">({dnsInfo.domain})</div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          device.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {device.is_active ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {device.last_seen || '기록 없음'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
-                                                  {device.assigned_ip && (() => {
-                            const dnsInfo = getDnsInfo(device);
-                            if (dnsInfo.status === 'approved') {
-                            // 승인된 도메인에 대해 삭제 버튼 표시
-                            return (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (confirm(`정말로 도메인 "${dnsInfo.domain}"을(를) 삭제하시겠습니까?`)) {
-                                    handleDeleteDomain(dnsInfo.record_id!);
-                                  }
-                                }}
-                                className="ml-2 px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600 text-xs font-semibold"
-                              >
-                                도메인 삭제
-                              </button>
-                            );
-                          } else if (dnsInfo.status === '거절') {
-                            // 거절된 경우 재신청 버튼
-                            return (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDnsDialog({ 
-                                    open: true, 
-                                    ip: device.assigned_ip || '', 
-                                    mac: device.mac_address, 
-                                    deviceName: device.device_name,
-                                    isResubmit: true,
-                                    requestId: dnsInfo.request_id
-                                  });
-                                }}
-                                className="ml-2 px-3 py-1 rounded bg-orange-500 text-white hover:bg-orange-600 text-xs font-semibold"
-                              >
-                                DNS 재신청
-                              </button>
-                            );
-                          } else if (dnsInfo.status === '대기') {
-                            // 대기 중인 경우 버튼 비활성화
-                            return (
-                              <button
-                                disabled
-                                className="ml-2 px-3 py-1 rounded bg-gray-400 text-white text-xs font-semibold cursor-not-allowed"
-                              >
-                                신청 대기 중
-                              </button>
-                            );
-                          } else {
-                            // 신청한 적이 없는 경우 일반 신청 버튼
-                            return (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDnsDialog({ open: true, ip: device.assigned_ip || '', mac: device.mac_address, deviceName: device.device_name });
-                                }}
-                                className="ml-2 px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 text-xs font-semibold"
-                              >
-                                DNS 등록 신청
-                              </button>
-                            );
-                          }
-                        })()}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleDeviceActive(device.id, device.is_active);
-                          }}
-                          className={`mr-2 px-2 py-1 rounded text-xs font-medium ${device.is_active ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                          title={device.is_active ? '비활성화' : '활성화'}
-                        >
-                          {device.is_active ? '비활성화' : '활성화'}
-                        </button>
-                        <Link
-                          href={`/dashboard/teacher/my-devices/${device.id}/edit`}
-                          className="mr-2 px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Edit className="h-3 w-3 inline mr-1" />
-                          수정
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDevice(device.id);
-                          }}
-                          className="px-2 py-1 rounded text-xs font-medium bg-gray-50 text-gray-700 hover:bg-gray-100"
-                        >
-                          <Trash2 className="h-3 w-3 inline mr-1" />
-                          삭제
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filteredDevices.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
-                      등록된 기기가 없거나 검색 결과가 없습니다.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DeviceTable
+            devices={filteredDevices}
+            selectedDevices={selectedDevices}
+            onDeviceSelect={handleDeviceSelection}
+            onToggleActive={handleToggleDeviceActive}
+            onEdit={(deviceId) => router.push(`/dashboard/teacher/my-devices/${deviceId}/edit`)}
+            onDelete={handleDeleteDevice}
+            onDnsRequest={(device) => setDnsDialog({ open: true, ip: device.assigned_ip || '', mac: device.mac_address, deviceName: device.device_name })}
+            onDnsResubmit={(device) => {
+              const dnsInfo = getDnsInfo(device);
+              setDnsDialog({ 
+                open: true, 
+                ip: device.assigned_ip || '', 
+                mac: device.mac_address, 
+                deviceName: device.device_name,
+                isResubmit: true,
+                requestId: dnsInfo.request_id
+              });
+            }}
+            onViewRejectReason={(device) => {
+              const dnsInfo = getDnsInfo(device);
+              setRejectReasonDialog({
+                open: true,
+                reason: dnsInfo.reject_reason || '거절 사유 없음',
+                domain: dnsInfo.domain || '',
+                ip: device.assigned_ip || ''
+              });
+            }}
+          />
         </div>
       </div>
       
       {/* 장치 등록 모달 */}
-      {showModal && (
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity">
-              <div className="absolute inset-0 bg-gray-500 opacity-75" onClick={() => setShowModal(false)}></div>
-            </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <h2 className="text-xl text-gray-900 font-bold mb-4">기기 IP 등록</h2>
-                
-                {error && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    {error}
-                  </div>
-                )}
-                
-                <form onSubmit={handleRegisterDevice}>
-                  <div className="mb-4">
-                    <label className="block text-gray-900 text-sm font-bold mb-2">
-                      MAC 주소
-                    </label>
-                    
-                    <div className="mb-2">
-                      <button
-                        type="button"
-                        onClick={fetchCurrentMac}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm py-1 px-3 rounded inline-flex items-center"
-                        disabled={macLoading}
-                      >
-                        {macLoading ? (
-                          <span className="inline-flex items-center">
-                            <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-500 mr-2"></span>
-                            로딩 중...
-                          </span>
-                        ) : (
-                          <span className="font-medium">현재 MAC 주소 가져오기</span>
-                        )}
-                      </button>
-                    </div>
-                    
-                    <div className="flex space-x-2">
-                      {macParts.map((part, idx) => (
-                        <div key={idx} className="w-12">
-                          <input
-                            id={`macPart-${idx}`}
-                            type="text"
-                            className="w-full px-2 py-2 border border-gray-300 rounded-md text-center font-mono uppercase text-gray-900 font-semibold"
-                            value={part}
-                            onChange={(e) => handleMacPartChange(idx, e.target.value)}
-                            onKeyDown={(e) => handleMacPartKeyDown(idx, e)}
-                            maxLength={2}
-                            disabled={registering}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {macError && (
-                      <p className="text-red-500 text-xs mt-1">{macError}</p>
-                    )}
-                    
-                    <div className="mt-2">
-                      <label className="inline-flex items-center">
-                        <input
-                          type="checkbox"
-                          className="form-checkbox h-4 w-4 text-blue-600"
-                          checked={isManualInput}
-                          onChange={(e) => setIsManualInput(e.target.checked)}
-                        />
-                        <span className="ml-2 text-sm text-gray-900 font-medium">수동으로 MAC 주소 입력</span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <label className="block text-gray-900 text-sm font-bold mb-2">
-                      기기 이름
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 font-medium placeholder-gray-600"
-                      placeholder="기기 이름 입력 (예: 내 노트북)"
-                      value={deviceName}
-                      onChange={(e) => setDeviceName(e.target.value)}
-                      disabled={registering}
-                    />
-                  </div>
-                  
-                  <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                      onClick={() => setShowModal(false)}
-                      disabled={registering}
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      disabled={registering}
-                    >
-                      {registering ? (
-                        <span className="inline-flex items-center">
-                          <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></span>
-                          처리 중...
-                        </span>
-                      ) : (
-                        '등록하기'
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeviceRegistrationModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleRegisterDevice}
+        macAddress={macAddress}
+        deviceName={deviceName}
+        macParts={macParts}
+        macError={macError}
+        macLoading={macLoading}
+        registering={registering}
+        isManualInput={isManualInput}
+        onMacAddressChange={setMacAddress}
+        onDeviceNameChange={setDeviceName}
+        onMacPartChange={handleMacPartChange}
+        onMacPartKeyDown={handleMacPartKeyDown}
+        onManualInputChange={setIsManualInput}
+        onFetchCurrentMac={fetchCurrentMac}
+      />
 
       {/* DNS 등록 신청 다이얼로그 */}
       {dnsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-primary mb-4">
               {dnsDialog?.isResubmit ? 'DNS 재신청' : 'DNS 등록 신청'}
             </h3>
             
             {/* 도메인 형식 안내 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 도메인 형식 안내</h4>
-              <div className="text-sm text-blue-700 space-y-1">
+            <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md p-4 mb-4">
+              <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">📝 도메인 형식 안내</h4>
+              <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                 <p><strong>올바른 형식:</strong></p>
                 <ul className="list-disc list-inside ml-2 space-y-1">
                   <li><code>example.com</code> - 영문 도메인</li>
@@ -1021,36 +691,36 @@ export default function MyDevicesPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-secondary mb-2">
                   도메인 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={dnsForm.domain}
                   onChange={e => setDnsForm({ ...dnsForm, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  className="input-field"
                   placeholder="예: example.com, 사이트.kr"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">IP 주소</label>
+                <label className="block text-sm font-medium text-secondary mb-2">IP 주소</label>
                 <input
                   type="text"
                   value={dnsDialog?.ip || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                  className="input-field bg-gray-100 dark:bg-gray-700"
                   disabled
                 />
-                <p className="text-xs text-gray-500 mt-1">이 기기의 IP 주소가 자동으로 설정됩니다.</p>
+                <p className="text-xs text-secondary mt-1">이 기기의 IP 주소가 자동으로 설정됩니다.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-secondary mb-2">
                   신청 사유 <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={dnsForm.reason}
                   onChange={e => setDnsForm({ ...dnsForm, reason: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                  className="input-field"
                   placeholder="도메인이 필요한 이유를 간단히 설명해주세요"
                   rows={3}
                   required
@@ -1060,7 +730,7 @@ export default function MyDevicesPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setDnsDialog(null)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="btn-secondary"
               >
                 취소
               </button>
@@ -1092,7 +762,7 @@ export default function MyDevicesPage() {
                   }
                 }}
                 disabled={dnsSubmitting || !dnsForm.domain || !dnsForm.reason}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
+                className="btn-primary disabled:opacity-50"
               >
                 {dnsSubmitting ? '처리 중...' : '신청'}
               </button>
@@ -1107,27 +777,27 @@ export default function MyDevicesPage() {
       {/* 거절 사유 보기 다이얼로그 */}
       {rejectReasonDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">거절 사유</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-lg">
+            <h3 className="text-lg font-medium text-primary mb-4">거절 사유</h3>
             
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">도메인</label>
-                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded border">
+                <label className="block text-sm font-medium text-secondary mb-1">도메인</label>
+                <p className="text-sm text-primary bg-gray-50 dark:bg-gray-700 p-2 rounded border">
                   {rejectReasonDialog.domain}
                 </p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP 주소</label>
-                <p className="text-sm text-gray-900 bg-gray-50 p-2 rounded border">
+                <label className="block text-sm font-medium text-secondary mb-1">IP 주소</label>
+                <p className="text-sm text-primary bg-gray-50 dark:bg-gray-700 p-2 rounded border">
                   {rejectReasonDialog.ip}
                 </p>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">거절 사유</label>
-                <div className="text-sm text-gray-900 bg-red-50 p-3 rounded border border-red-200">
+                <label className="block text-sm font-medium text-secondary mb-1">거절 사유</label>
+                <div className="text-sm text-primary bg-red-50 dark:bg-red-900 p-3 rounded border border-red-200 dark:border-red-700">
                   {rejectReasonDialog.reason || '거절 사유가 없습니다.'}
                 </div>
               </div>
@@ -1136,7 +806,7 @@ export default function MyDevicesPage() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={() => setRejectReasonDialog(null)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="btn-secondary"
               >
                 닫기
               </button>

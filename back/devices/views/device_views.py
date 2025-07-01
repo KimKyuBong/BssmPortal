@@ -65,9 +65,46 @@ class DeviceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[IsSuperUser])
     def all(self, request):
         """모든 기기 조회 (관리자용)"""
-        devices = Device.objects.all()
-        serializer = self.get_serializer(devices, many=True)
-        return Response(serializer.data)
+        # 페이지네이션 설정
+        page = request.query_params.get('page', 1)
+        search = request.query_params.get('search', '')
+        page_size = request.query_params.get('page_size', 10)
+        
+        # 기본 쿼리셋
+        queryset = Device.objects.all().order_by('-created_at')
+        
+        # 검색어가 있는 경우 필터링
+        if search:
+            queryset = queryset.filter(
+                Q(mac_address__icontains=search) |
+                Q(device_name__icontains=search) |
+                Q(assigned_ip__icontains=search) |
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
+        
+        # 페이지네이션 적용
+        paginator = PageNumberPagination()
+        try:
+            paginator.page_size = int(page_size)
+        except (ValueError, TypeError):
+            paginator.page_size = 10
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+        
+        # 시리얼라이저로 데이터 변환
+        serializer = self.get_serializer(paginated_queryset, many=True)
+        
+        # 응답 데이터 구성
+        response_data = {
+            'results': serializer.data,
+            'total_pages': paginator.page.paginator.num_pages,
+            'total_count': paginator.page.paginator.count,
+            'current_page': int(page),
+            'page_size': paginator.page_size
+        }
+        
+        return Response(response_data)
 
     def perform_create(self, serializer):
         # 사용자의 현재 장치 수 확인

@@ -30,7 +30,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import equipment, { ModelBatchUpdateData, UpdatedEquipment } from '@/services/equipment';
 import { Equipment } from '@/services/api';
-import { message } from 'antd';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface ModelBatchUpdateProps {
   open: boolean;
@@ -38,6 +38,8 @@ interface ModelBatchUpdateProps {
 }
 
 export default function ModelBatchUpdate({ open, onClose }: ModelBatchUpdateProps) {
+  const { showSuccess, showError } = useToastContext();
+
   // 모델명 선택/입력
   const [modelName, setModelName] = useState<string>('');
   // 모델명 목록 (기존 모델들)
@@ -117,12 +119,12 @@ export default function ModelBatchUpdate({ open, onClose }: ModelBatchUpdateProp
     e.preventDefault();
     
     if (!modelName) {
-      message.error('모델명을 입력해주세요.');
+      showError('입력 오류', '모델명을 입력해주세요.');
       return;
     }
     
     if (manufactureYear === undefined && !purchaseDate && purchasePrice === undefined) {
-      message.error('생산년도, 구매일시, 구매가격 중 하나는 입력해야 합니다.');
+      showError('입력 오류', '생산년도, 구매일시, 구매가격 중 하나는 입력해야 합니다.');
       return;
     }
     
@@ -151,7 +153,7 @@ export default function ModelBatchUpdate({ open, onClose }: ModelBatchUpdateProp
       
       if (response.success) {
         // 성공 메시지 표시
-        message.success(response.message);
+        showSuccess('일괄 업데이트 완료', response.message);
         
         // 2초 후 모달 닫기
         setTimeout(() => {
@@ -165,11 +167,11 @@ export default function ModelBatchUpdate({ open, onClose }: ModelBatchUpdateProp
           setUpdatedEquipments([]);
         }, 2000);
       } else {
-        message.error(response.message || '일괄 업데이트에 실패했습니다.');
+        showError('일괄 업데이트 실패', response.message || '일괄 업데이트에 실패했습니다.');
       }
     } catch (error) {
       console.error('일괄 업데이트 오류:', error);
-      message.error('일괄 업데이트 처리 중 오류가 발생했습니다.');
+      showError('일괄 업데이트 오류', '일괄 업데이트 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }

@@ -70,7 +70,61 @@ export interface EquipmentHistory {
 
 // 장비 서비스 - 장비 관련 API 통신
 export const equipmentService = {
-  // 장비 목록 조회
+  // 장비 목록 조회 (페이지네이션 지원)
+  async getEquipmentList(page: number = 1, pageSize: number = 20, search?: string, status?: string, type?: string) {
+    try {
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('page_size', pageSize.toString());
+      
+      if (search) {
+        params.append('search', search);
+      }
+      if (status) {
+        params.append('status', status);
+      }
+      if (type) {
+        params.append('equipment_type', type);
+      }
+      
+      const response = await api.get<PaginatedResponse<Equipment>>(`/rentals/equipment/?${params.toString()}`);
+      
+      if (response.success) {
+        return {
+          success: true,
+          data: response.data,
+          message: response.message
+        };
+      }
+      
+      return {
+        success: response.success,
+        data: {
+          count: 0,
+          next: null,
+          previous: null,
+          results: []
+        },
+        message: response.message || '장비 목록을 가져오지 못했습니다.'
+      };
+    } catch (error) {
+      console.error('장비 목록 조회 중 오류:', error);
+      return {
+        success: false,
+        data: {
+          count: 0,
+          next: null,
+          previous: null,
+          results: []
+        },
+        error: {
+          message: '장비 목록을 조회하는 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
+
+  // 장비 목록 조회 (기존 함수 - 호환성 유지)
   async getAllEquipment() {
     try {
       const response = await api.get<{count: number, next: string | null, previous: string | null, results: Equipment[]}>('/rentals/equipment/');

@@ -7,7 +7,7 @@ export interface DnsRequest {
   ip: string;
   user: string;
   reason: string;
-  status: '대기' | '승인' | '거절' | '삭제됨';
+  status: 'pending' | 'approved' | 'rejected' | 'deleted';
   reject_reason?: string;
   created_at: string;
   processed_at?: string;
@@ -19,7 +19,17 @@ export interface DnsRecord {
   original_domain: string; // 원본 한글 도메인
   ip: string;
   user: string;
+  ssl_enabled: boolean;
   created_at: string;
+  ssl_certificate?: {
+    id: number;
+    domain: string;
+    status: string;
+    issued_at: string;
+    expires_at: string;
+    days_until_expiry: number;
+    is_expired: boolean;
+  };
 }
 
 const dnsService = {
@@ -30,10 +40,10 @@ const dnsService = {
     return res;
   },
   async approveRequest(id: number) {
-    return api.post(`/dns/request/${id}/approve/`, { action: '승인' });
+    return api.post(`/dns/request/${id}/approve/`, { action: 'approved' });
   },
   async rejectRequest(id: number, reject_reason: string) {
-    return api.post(`/dns/request/${id}/approve/`, { action: '거절', reason: reject_reason });
+    return api.post(`/dns/request/${id}/approve/`, { action: 'rejected', reason: reject_reason });
   },
   async applyDns() {
     return api.post('/dns/apply/');
@@ -71,6 +81,14 @@ const dnsService = {
   },
   async deleteMyRecord(id: number) {
     return api.delete(`/dns/records/my/${id}/delete/`);
+  },
+  async downloadCaCertificate() {
+    return api.get('/dns/ssl/ca/download/');
+  },
+  async downloadSslPackage(domain: string) {
+    return api.get(`/dns/ssl/packages/${domain}/download/`, {
+      responseType: 'blob'
+    });
   },
 };
 

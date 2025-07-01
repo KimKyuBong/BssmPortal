@@ -7,10 +7,13 @@ from .serializers import (
     CertificateAuthoritySerializer, CertificateGenerationRequestSerializer, CertificateFileSerializer
 )
 from .utils import apply_dns_records, to_punycode, validate_domain
-from .ssl_utils import generate_ssl_certificate, revoke_ssl_certificate, check_expiring_certificates, renew_ssl_certificate
+from .ssl_utils import generate_ssl_certificate, revoke_ssl_certificate, check_expiring_certificates, renew_ssl_certificate, create_ssl_package
 from django.utils import timezone
 from django.db import models
 import logging
+import os
+from django.conf import settings
+from django.http import FileResponse, Http404, HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +56,8 @@ class CustomDnsRequestApproveView(views.APIView):
         reason = request.data.get('reason', '')
         req.processed_at = timezone.now()
         
-        if action == '승인':
-            req.status = '승인'
+        if action == 'approved':
+            req.status = 'approved'
             # DNS 레코드 생성 또는 업데이트
             dns_record, created = CustomDnsRecord.objects.update_or_create(
                 domain=req.domain, 
@@ -74,8 +77,8 @@ class CustomDnsRequestApproveView(views.APIView):
                     logger.error(f"SSL 인증서 발급 실패: {e}")
                     # SSL 발급 실패해도 DNS는 승인 상태 유지
                     
-        elif action == '거절':
-            req.status = '거절'
+        elif action == 'rejected':
+            req.status = 'rejected'
             req.reject_reason = reason
             
         req.save()
@@ -170,9 +173,9 @@ class CustomDnsRecordDeleteView(generics.DestroyAPIView):
         # 해당 도메인의 승인된 신청들을 "삭제됨" 상태로 변경
         CustomDnsRequest.objects.filter(
             domain=domain, 
-            status='승인'
+            status='approved'
         ).update(
-            status='삭제됨',
+            status='deleted',
             processed_at=timezone.now()
         )
         
@@ -216,10 +219,10 @@ class MyDnsRecordDeleteView(generics.DestroyAPIView):
         # 해당 도메인의 승인된 신청들을 "삭제됨" 상태로 변경
         CustomDnsRequest.objects.filter(
             domain=domain, 
-            status='승인',
+            status='approved',
             user=request.user
         ).update(
-            status='삭제됨',
+            status='deleted',
             processed_at=timezone.now()
         )
         
@@ -239,8 +242,8 @@ class ApplyDnsRecordsView(views.APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request):
-        apply_dns_records()
-        return Response({'result': '적용 완료'})
+        result = apply_dns_records()
+        return Response(result)
 
 # SSL 관련 뷰들
 
@@ -317,20 +320,115 @@ class CertificateAuthorityView(views.APIView):
 
 class DownloadCaCertificateView(views.APIView):
     """CA 인증서 다운로드"""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # 로그인하지 않은 사용자도 다운로드 가능
 
     def get(self, request):
         try:
-            ca = CertificateAuthority.objects.filter(is_active=True).first()
-            if not ca:
-                return Response({'error': 'CA 인증서를 찾을 수 없습니다.'}, 
+            # 마운트된 SSL 디렉토리에서 CA 인증서 파일 찾기
+            ssl_ca_dir = getattr(settings, 'SSL_CA_DIR', '/etc/ssl/ca')
+            
+            # 실제 존재하는 파일명들 확인
+            possible_ca_files = [
+                'bssm_root_ca.crt',
+                'bssm_internal_ca.crt',
+                'ca.crt'
+            ]
+            
+            ca_cert_path = None
+            for filename in possible_ca_files:
+                test_path = os.path.join(ssl_ca_dir, filename)
+                if os.path.exists(test_path):
+                    ca_cert_path = test_path
+                    break
+            
+            # 파일이 존재하는지 확인
+            if not ca_cert_path:
+                logger.error(f"CA 인증서 파일을 찾을 수 없습니다. 검색 경로: {ssl_ca_dir}")
+                return Response({'error': 'CA 인증서 파일을 찾을 수 없습니다.'}, 
                               status=status.HTTP_404_NOT_FOUND)
             
-            response = Response(ca.certificate, content_type='application/x-pem-file')
-            response['Content-Disposition'] = 'attachment; filename="bssm_root_ca.crt"'
-            return response
+            # 파일 내용이 올바른 PEM 형식인지 확인
+            try:
+                with open(ca_cert_path, 'r') as f:
+                    certificate_content = f.read().strip()
+                
+                if not certificate_content.startswith('-----BEGIN CERTIFICATE-----'):
+                    logger.error("CA 인증서가 올바른 PEM 형식이 아닙니다.")
+                    return Response({'error': 'CA 인증서 형식이 올바르지 않습니다.'}, 
+                                  status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                # 파일 응답으로 직접 제공
+                response = FileResponse(
+                    open(ca_cert_path, 'rb'),
+                    content_type='application/x-pem-certificate'
+                )
+                response['Content-Disposition'] = 'attachment; filename="bssm_root_ca.crt"'
+                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response['Pragma'] = 'no-cache'
+                response['Expires'] = '0'
+                return response
+                
+            except Exception as e:
+                logger.error(f"CA 인증서 파일 읽기 실패: {e}")
+                return Response({'error': 'CA 인증서 파일을 읽을 수 없습니다.'}, 
+                              status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
         except Exception as e:
             logger.error(f"CA 인증서 다운로드 실패: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class DownloadDomainCertificateView(views.APIView):
+    """도메인별 SSL 인증서 다운로드"""
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request, domain):
+        try:
+            # 한글 도메인을 punycode로 변환
+            converted_domain = to_punycode(domain)
+            
+            # DNS 레코드 조회
+            dns_record = CustomDnsRecord.objects.get(domain=converted_domain)
+            
+            # SSL 인증서 확인 및 생성
+            ssl_cert = None
+            if hasattr(dns_record, 'ssl_certificate') and dns_record.ssl_certificate:
+                ssl_cert = dns_record.ssl_certificate
+                # 기존 인증서가 만료되지 않았다면 재사용
+                if ssl_cert.is_expired() or ssl_cert.status != '활성':
+                    # 만료된 인증서는 삭제하고 새로 생성
+                    ssl_cert.delete()
+                    ssl_cert = None
+            
+            # SSL 인증서가 없으면 생성
+            if not ssl_cert:
+                try:
+                    ssl_cert = generate_ssl_certificate(converted_domain, dns_record)
+                    logger.info(f"SSL 인증서 자동 생성 완료: {converted_domain}")
+                except Exception as e:
+                    logger.error(f"SSL 인증서 생성 실패 ({converted_domain}): {e}")
+                    return Response({'error': f'SSL 인증서 생성에 실패했습니다: {str(e)}'}, 
+                                  status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 인증서 내용이 올바른 PEM 형식인지 확인
+            certificate_content = ssl_cert.certificate.strip()
+            if not certificate_content.startswith('-----BEGIN CERTIFICATE-----'):
+                logger.error(f"도메인 인증서가 올바른 PEM 형식이 아닙니다: {converted_domain}")
+                return Response({'error': '인증서 형식이 올바르지 않습니다.'}, 
+                              status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 표준 MIME 타입 사용
+            response = Response(certificate_content, content_type='application/x-pem-certificate')
+            response['Content-Disposition'] = f'attachment; filename="{domain}_ssl_certificate.crt"'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
+            
+        except CustomDnsRecord.DoesNotExist:
+            return Response({'error': '등록되지 않은 도메인입니다.'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"도메인 인증서 다운로드 실패 ({domain}): {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GenerateCertificateView(views.APIView):
@@ -406,11 +504,10 @@ class GenerateCertificateView(views.APIView):
                 return Response({'error': 'CA 인증서를 찾을 수 없습니다.'}, 
                               status=status.HTTP_404_NOT_FOUND)
             
-            # 응답 데이터 구성
+            # 응답 데이터 구성 (개인키는 포함하지 않음)
             response_data = {
                 'domain': domain,  # 원본 도메인 반환
                 'certificate': ssl_cert.certificate,
-                'private_key': ssl_cert.private_key,
                 'certificate_chain': ssl_cert.certificate_chain or '',
                 'ca_certificate': ca.certificate,
                 'expires_at': ssl_cert.expires_at,
@@ -447,3 +544,33 @@ class MyDnsRecordsView(generics.ListAPIView):
         return CustomDnsRecord.objects.filter(
             models.Q(user=user) | models.Q(ip__in=user_ips)
         ).order_by('-created_at')
+
+class DownloadSslPackageView(views.APIView):
+    """원클릭 SSL 패키지 다운로드 (인증서 + 개인키 + CA + 설정파일)"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, domain):
+        try:
+            # 한글 도메인을 punycode로 변환
+            converted_domain = to_punycode(domain)
+            
+            # DNS 레코드 조회
+            dns_record = CustomDnsRecord.objects.get(domain=converted_domain)
+            
+            # SSL 패키지 생성
+            zip_data = create_ssl_package(converted_domain, dns_record)
+            
+            # HttpResponse를 사용하여 바이너리 데이터 직접 반환
+            response = HttpResponse(zip_data, content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename="{domain}_ssl_package.zip"'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
+            
+        except CustomDnsRecord.DoesNotExist:
+            return Response({'error': '등록되지 않은 도메인입니다.'}, 
+                          status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"SSL 패키지 다운로드 실패 ({domain}): {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

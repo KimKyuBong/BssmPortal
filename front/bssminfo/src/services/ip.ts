@@ -93,10 +93,38 @@ const ipService = {
 
   /**
    * 모든 IP 목록 조회 (관리자용)
+   * @param page 페이지 번호 (선택)
+   * @param search 검색어 (선택)
+   * @param pageSize 페이지당 개수 (선택)
    * @returns 장치 목록
    */
-  getAllIps: async () => {
-    return api.get<Device[]>('/admin/ip/all/');
+  getAllIps: async (page?: number, search?: string, pageSize?: number) => {
+    try {
+      let url = '/admin/ip/all/';
+      
+      // 쿼리 파라미터 추가
+      const params = new URLSearchParams();
+      if (page) params.append('page', page.toString());
+      if (search) params.append('search', search);
+      if (pageSize) params.append('page_size', pageSize.toString());
+      
+      const queryString = params.toString();
+      if (queryString) url += `?${queryString}`;
+      
+      console.log('모든 IP 목록 조회 요청 URL:', url);
+      const response = await api.get(url);
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('IP 목록 조회 오류:', error);
+      return {
+        success: false,
+        message: 'IP 목록을 가져오는 데 실패했습니다.'
+      };
+    }
   },
 
   /**

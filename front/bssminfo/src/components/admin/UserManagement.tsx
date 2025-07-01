@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Search, Download, UserPlus, X, Key, Trash2, User,
-  ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Settings
+  ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Settings, Upload, Plus, Users, FileText
 } from 'lucide-react';
 import { User as AdminUser, CreateUserRequest } from '@/services/admin';
 import adminService from '@/services/admin';
@@ -9,6 +9,8 @@ import CreateUserModal from './CreateUserModal';
 import EditUserModal from './EditUserModal';
 import TemplateModal from './TemplateModal';
 import ResetPasswordModal from './ResetPasswordModal';
+import { formatDateToKorean } from '@/utils/dateUtils';
+import { useToastContext } from '@/contexts/ToastContext';
 
 interface UserManagementProps {
   users: AdminUser[];
@@ -65,6 +67,7 @@ export default function UserManagement({
   hasPrevPage,
   onUpdateDeviceLimit
 }: UserManagementProps) {
+  const { showSuccess, showError } = useToastContext();
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -77,18 +80,6 @@ export default function UserManagement({
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
   
-  // 피드백 메시지 상태 추가
-  const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  
-  // 피드백 메시지 표시 함수
-  const showFeedback = (type: 'success' | 'error', message: string) => {
-    setFeedbackMessage({ type, message });
-    // 5초 후 메시지 사라지게 하기
-    setTimeout(() => {
-      setFeedbackMessage(null);
-    }, 5000);
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setImportFile(e.target.files[0]);
@@ -175,21 +166,21 @@ export default function UserManagement({
     const result = await onCreateUser(userData);
     if (result.success) {
       setShowCreateUserModal(false);
-      showFeedback('success', result.message);
+      showSuccess('사용자 생성 완료', result.message);
     } else {
-      showFeedback('error', result.message);
+      showError('사용자 생성 실패', result.message);
     }
   };
   
   // 사용자 삭제 처리 핸들러
   const handleDeleteUserClick = async (userId: number) => {
-    if (window.confirm('정말로 이 사용자를 삭제하시겠습니까?')) {
-      const result = await onDeleteUser(userId);
-      if (result.success) {
-        showFeedback('success', result.message);
-      } else {
-        showFeedback('error', result.message);
-      }
+    // confirm 대신 토스트로 확인 메시지 표시하고 바로 삭제 처리
+    showError('사용자 삭제', '정말로 이 사용자를 삭제하시겠습니까?');
+    const result = await onDeleteUser(userId);
+    if (result.success) {
+      showSuccess('사용자 삭제 완료', result.message);
+    } else {
+      showError('사용자 삭제 실패', result.message);
     }
   };
 
@@ -207,12 +198,12 @@ export default function UserManagement({
       await onResetPassword(selectedUserId);
       setShowResetPasswordModal(false);
       setSelectedUserId(null);
-      showFeedback('success', '비밀번호가 성공적으로 초기화되었습니다.');
+      showSuccess('비밀번호 초기화 완료', '비밀번호가 성공적으로 초기화되었습니다.');
       if (fetchUsers) {
         await fetchUsers();
       }
     } catch (error) {
-      showFeedback('error', '비밀번호 초기화 중 오류가 발생했습니다.');
+      showError('비밀번호 초기화 오류', '비밀번호 초기화 중 오류가 발생했습니다.');
     }
   };
 
@@ -227,15 +218,15 @@ export default function UserManagement({
       });
       
       if (result.success) {
-        showFeedback('success', '사용자 정보가 성공적으로 수정되었습니다.');
+        showSuccess('사용자 수정 완료', '사용자 정보가 성공적으로 수정되었습니다.');
         if (fetchUsers) {
           await fetchUsers();
         }
       } else {
-        showFeedback('error', '사용자 정보 수정 중 오류가 발생했습니다.');
+        showError('사용자 수정 실패', '사용자 정보 수정 중 오류가 발생했습니다.');
       }
     } catch (error) {
-      showFeedback('error', '사용자 정보 수정 중 오류가 발생했습니다.');
+      showError('사용자 수정 오류', '사용자 정보 수정 중 오류가 발생했습니다.');
       console.error('Edit user error:', error);
     }
   };
@@ -247,24 +238,6 @@ export default function UserManagement({
 
   return (
     <div className="bg-white shadow rounded-lg p-6">
-      {/* 피드백 메시지 표시 */}
-      {feedbackMessage && (
-        <div 
-          className={`mb-4 p-4 rounded-md ${
-            feedbackMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
-          } flex items-start`}
-        >
-          {feedbackMessage.type === 'success' ? (
-            <CheckCircle className="h-5 w-5 mr-2 mt-0.5" />
-          ) : (
-            <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
-          )}
-          <div>
-            <p className="text-sm font-medium">{feedbackMessage.message}</p>
-          </div>
-        </div>
-      )}
-      
       <div className="flex justify-end items-center mb-6">
         <div className="flex space-x-2">
           <div className="relative">
@@ -352,8 +325,8 @@ export default function UserManagement({
         </ul>
       </div>
       
-      {/* 선택된 사용자에 대한 일괄 작업 버튼 */}
-      {selectedCount && (
+      {/* 선택된 사용자가 있을 때 표시되는 액션 바 */}
+      {selectedCount !== undefined && selectedCount > 0 && (
         <div className="bg-gray-50 p-3 rounded-md mb-4 flex items-center justify-between">
           <div className="text-sm text-gray-700">
             <span className="font-medium">{selectedCount}명</span>의 사용자가 선택됨
@@ -419,7 +392,7 @@ export default function UserManagement({
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.id}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {user.username}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -428,7 +401,7 @@ export default function UserManagement({
                         <User className="h-6 w-6 text-gray-500" />
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.user_name || '이름 없음'}</div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{user.user_name || '이름 없음'}</div>
                       </div>
                     </div>
                   </td>
@@ -458,7 +431,7 @@ export default function UserManagement({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(user.created_at).toLocaleDateString()}
+                    {user.created_at ? formatDateToKorean(user.created_at) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" onClick={(e) => e.stopPropagation()}>
                     <button

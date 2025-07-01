@@ -1,9 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import AudioPlayer, { RHAP_UI } from 'react-h5-audio-player';
+import 'react-h5-audio-player/lib/styles.css';
 import { broadcastService } from '../../services/broadcastService';
 import { PreviewDetailResponse, PreviewApprovalRequest, PreviewInfo } from '../../types/broadcast';
-import { X, Play, Pause, CheckCircle, XCircle, AlertCircle, Volume2, Clock, MapPin } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Volume2, Clock, MapPin } from 'lucide-react';
+import { useToastContext } from '@/contexts/ToastContext';
+import Modal from '../ui/Modal';
 
 interface PreviewModalProps {
   previewId: string;
@@ -14,39 +18,21 @@ interface PreviewModalProps {
 }
 
 export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, onSuccess }: PreviewModalProps) {
+  const { showSuccess, showError } = useToastContext();
   const [previewDetail, setPreviewDetail] = useState<PreviewDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<any>(null);
 
   useEffect(() => {
     if (isOpen && previewId) {
-      // previewInfo가 있으면 그것을 사용, 없으면 API 호출
-      if (previewInfo) {
-        setPreviewDetail({
-          success: true,
-          preview_info: {
-            ...previewInfo,
-            job_type: previewInfo.job_type as 'audio' | 'text',
-            params: {
-              target_rooms: [], // 기본값 설정
-              language: 'ko'
-            }
-          },
-          timestamp: new Date().toISOString()
-        });
-        loadAudioUrlFromPreviewInfo(previewInfo);
-      } else {
-        loadPreviewDetail();
-        loadAudioUrl();
-      }
+      // 항상 PreviewDetailView API를 호출하여 audio_base64를 포함한 완전한 정보를 가져오기
+      loadPreviewDetail();
     }
     
     // 컴포넌트 언마운트 시 Blob URL 정리
@@ -55,7 +41,7 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
         URL.revokeObjectURL(audioUrl);
       }
     };
-  }, [isOpen, previewId, previewInfo]);
+  }, [isOpen, previewId]);
 
   const loadPreviewDetail = async () => {
     try {
@@ -64,6 +50,8 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
       const response = await broadcastService.getPreviewDetail(previewId);
       if (response.success) {
         setPreviewDetail(response);
+        // previewDetail 설정 후 오디오 URL 로드
+        await loadAudioUrl(response);
       } else {
         setError('프리뷰 상세 정보를 불러오는데 실패했습니다.');
       }
@@ -75,18 +63,18 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
     }
   };
 
-  const loadAudioUrl = async () => {
+  const loadAudioUrl = async (response: PreviewDetailResponse) => {
     try {
       setAudioLoading(true);
       
       // 디버깅 로그 추가
-      console.log('previewDetail:', previewDetail);
-      console.log('audio_base64 exists:', !!previewDetail?.preview_info?.audio_base64);
-      console.log('audio_base64 length:', previewDetail?.preview_info?.audio_base64?.length);
+      console.log('previewDetail:', response);
+      console.log('audio_base64 exists:', !!response.preview_info?.audio_base64);
+      console.log('audio_base64 length:', response.preview_info?.audio_base64?.length);
       
       // 오직 audio_base64만 사용
-      if (previewDetail?.preview_info?.audio_base64) {
-        const base64Data = previewDetail.preview_info.audio_base64;
+      if (response.preview_info?.audio_base64) {
+        const base64Data = response.preview_info.audio_base64;
         console.log('Processing base64 data, length:', base64Data.length);
         
         const binaryString = atob(base64Data);
@@ -99,8 +87,16 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
         setAudioUrl(url);
         console.log('Audio URL created successfully');
       } else {
-        console.log('No audio_base64 found in previewDetail');
-        setError('오디오 파일이 없습니다.');
+        console.log('No audio_base64 found in previewDetail, fetching from broadcast server...');
+        // audio_base64가 없으면 방송서버에서 오디오를 가져오기
+        try {
+          const audioUrl = await broadcastService.getPreviewAudioUrl(previewId);
+          setAudioUrl(audioUrl);
+          console.log('Audio URL created successfully from broadcast server');
+        } catch (audioError) {
+          console.error('Failed to fetch audio from broadcast server:', audioError);
+          setError('오디오 파일을 불러올 수 없습니다.');
+        }
       }
     } catch (err) {
       console.error('오디오 URL 로드 실패:', err);
@@ -108,80 +104,6 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
     } finally {
       setAudioLoading(false);
     }
-  };
-
-  const loadAudioUrlFromPreviewInfo = async (info: PreviewInfo) => {
-    try {
-      setAudioLoading(true);
-      
-      console.log('Using previewInfo for audio:', info);
-      console.log('audio_base64 exists:', !!info.audio_base64);
-      console.log('audio_base64 length:', info.audio_base64?.length);
-      
-      if (info.audio_base64) {
-        const base64Data = info.audio_base64;
-        console.log('Processing base64 data from previewInfo, length:', base64Data.length);
-        
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const blob = new Blob([bytes], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        console.log('Audio URL created successfully from previewInfo');
-      } else {
-        console.log('No audio_base64 found in previewInfo');
-        setError('오디오 파일이 없습니다.');
-      }
-    } catch (err) {
-      console.error('오디오 URL 로드 실패 (previewInfo):', err);
-      setError('오디오 파일을 로드할 수 없습니다.');
-    } finally {
-      setAudioLoading(false);
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = parseFloat(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-    }
-  };
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const handleApprove = async () => {
@@ -194,33 +116,15 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
       const response = await broadcastService.approvePreview(previewId, request);
       
       if (response.success) {
-        // 토스트 메시지로 변경
-        const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full';
-        toast.textContent = '방송이 시작됩니다';
-        document.body.appendChild(toast);
-        
-        // 애니메이션 효과
-        setTimeout(() => {
-          toast.classList.remove('translate-x-full');
-        }, 100);
-        
-        // 3초 후 제거
-        setTimeout(() => {
-          toast.classList.add('translate-x-full');
-          setTimeout(() => {
-            document.body.removeChild(toast);
-          }, 300);
-        }, 3000);
-        
+        showSuccess('방송 승인 완료', '방송이 시작됩니다');
         onSuccess();
         onClose();
       } else {
-        alert('프리뷰 승인에 실패했습니다: ' + response.message);
+        showError('프리뷰 승인 실패', '프리뷰 승인에 실패했습니다: ' + response.message);
       }
     } catch (err) {
       console.error('프리뷰 승인 실패:', err);
-      alert('프리뷰 승인에 실패했습니다.');
+      showError('프리뷰 승인 오류', '프리뷰 승인에 실패했습니다.');
     } finally {
       setApproving(false);
     }
@@ -232,15 +136,15 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
       const response = await broadcastService.rejectPreview(previewId);
       
       if (response.success) {
-        alert('프리뷰가 거부되었습니다.');
+        showSuccess('프리뷰 거부 완료', '프리뷰가 거부되었습니다.');
         onSuccess();
         onClose();
       } else {
-        alert('프리뷰 거부에 실패했습니다: ' + response.message);
+        showError('프리뷰 거부 실패', '프리뷰 거부에 실패했습니다: ' + response.message);
       }
     } catch (err) {
       console.error('프리뷰 거부 실패:', err);
-      alert('프리뷰 거부에 실패했습니다.');
+      showError('프리뷰 거부 오류', '프리뷰 거부에 실패했습니다.');
     } finally {
       setRejecting(false);
     }
@@ -263,214 +167,278 @@ export default function PreviewModal({ previewId, previewInfo, isOpen, onClose, 
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        {/* 헤더 */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">방송 프리뷰</h2>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="방송 프리뷰"
+      size="2xl"
+    >
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+            <span className="text-red-800 dark:text-red-300">{error}</span>
+          </div>
+        </div>
+      ) : previewDetail ? (
+        <div className="space-y-6">
+          {/* 프리뷰 정보 카드 */}
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                <Volume2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {previewDetail.preview_info.job_type === 'text' ? '텍스트 방송' : '오디오 방송'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">프리뷰 ID: {previewDetail.preview_info.preview_id}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center bg-white dark:bg-gray-700 p-2 rounded-lg">
+                <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-gray-700 dark:text-gray-300">
+                  {formatDate(previewDetail.preview_info.created_at)}
+                </span>
+              </div>
+              {previewDetail.preview_info.estimated_duration > 0 && (
+                <div className="flex items-center bg-white dark:bg-gray-700 p-2 rounded-lg">
+                  <Volume2 className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {formatDuration(previewDetail.preview_info.estimated_duration)}
+                  </span>
+                </div>
+              )}
+              {previewDetail.preview_info.params.target_rooms && 
+               Array.isArray(previewDetail.preview_info.params.target_rooms) && 
+               previewDetail.preview_info.params.target_rooms.length > 0 && (
+                <div className="flex items-center bg-white dark:bg-gray-700 p-2 rounded-lg col-span-2">
+                  <MapPin className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-gray-700 dark:text-gray-300">
+                    대상 교실: {previewDetail.preview_info.params.target_rooms.join(', ')}호
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* React H5 Audio Player */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
+            <div className="text-center mb-6">
+              <button
+                onClick={() => {
+                  if (playerRef.current) {
+                    const audio = playerRef.current.audio.current;
+                    if (audio.paused) {
+                      audio.play();
+                      setIsPlaying(true);
+                    } else {
+                      audio.pause();
+                      setIsPlaying(false);
+                    }
+                  }
+                }}
+                className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 transition-all duration-200"
+              >
+                {isPlaying ? (
+                  <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                )}
+              </button>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">프리뷰 확인</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                방송 내용을 미리 들어보고 승인 또는 거부를 결정하세요
+              </p>
+            </div>
+
+            {audioLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                <span className="text-gray-600 dark:text-gray-400">오디오 로딩중...</span>
+              </div>
+            ) : audioUrl ? (
+              <div className="custom-audio-player">
+                <AudioPlayer
+                  ref={playerRef}
+                  src={audioUrl}
+                  autoPlay={false}
+                  showJumpControls={false}
+                  showFilledProgress={true}
+                  showFilledVolume={true}
+                  layout="horizontal"
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={() => setIsPlaying(false)}
+                  style={{
+                    borderRadius: '12px',
+                    backgroundColor: 'transparent'
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                오디오 파일을 불러올 수 없습니다.
+              </div>
+            )}
+          </div>
+
+          {/* 액션 버튼 */}
+          <div className="flex items-center justify-center space-x-4">
             <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200 transition-colors"
+              onClick={handleReject}
+              disabled={rejecting}
+              className="flex items-center px-6 py-3 border-2 border-red-500 text-red-500 dark:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-4 focus:ring-red-200 dark:focus:ring-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              <X className="h-6 w-6" />
+              {rejecting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500 mr-2"></div>
+                  처리중...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-5 w-5 mr-2" />
+                  거부
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={approving}
+              className="flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-green-300 dark:focus:ring-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              {approving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  처리중...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                  승인
+                </>
+              )}
             </button>
           </div>
         </div>
+      ) : null}
 
-        <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-                <span className="text-red-800">{error}</span>
-              </div>
-            </div>
-          ) : previewDetail ? (
-            <div className="space-y-6">
-              {/* 프리뷰 정보 카드 */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="bg-blue-100 p-2 rounded-lg">
-                    <Volume2 className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {previewDetail.preview_info.job_type === 'text' ? '텍스트 방송' : '오디오 방송'}
-                    </h3>
-                    <p className="text-sm text-gray-600">프리뷰 ID: {previewDetail.preview_info.preview_id}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center bg-white p-2 rounded-lg">
-                    <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                    <span className="text-gray-700">
-                      {formatDate(previewDetail.preview_info.created_at)}
-                    </span>
-                  </div>
-                  {previewDetail.preview_info.estimated_duration > 0 && (
-                    <div className="flex items-center bg-white p-2 rounded-lg">
-                      <Volume2 className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-gray-700">
-                        {formatDuration(previewDetail.preview_info.estimated_duration)}
-                      </span>
-                    </div>
-                  )}
-                  {previewDetail.preview_info.params.target_rooms.length > 0 && (
-                    <div className="flex items-center bg-white p-2 rounded-lg col-span-2">
-                      <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-gray-700">
-                        대상 교실: {previewDetail.preview_info.params.target_rooms.join(', ')}호
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+      <style jsx global>{`
+        .custom-audio-player .rhap_container {
+          background: transparent !important;
+          box-shadow: none !important;
+          border-radius: 12px !important;
+        }
+        
+        .custom-audio-player .rhap_progress-bar {
+          background-color: #e5e7eb !important;
+          border-radius: 6px !important;
+        }
+        
+        .custom-audio-player .rhap_progress-filled {
+          background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
+          border-radius: 6px !important;
+        }
+        
+        .custom-audio-player .rhap_progress-indicator {
+          background: #3b82f6 !important;
+          border: 2px solid #ffffff !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .custom-audio-player .rhap_volume-bar {
+          background-color: #e5e7eb !important;
+          border-radius: 4px !important;
+        }
+        
+        .custom-audio-player .rhap_volume-filled {
+          background: linear-gradient(to right, #3b82f6, #8b5cf6) !important;
+          border-radius: 4px !important;
+        }
+        
+        .custom-audio-player .rhap_volume-indicator {
+          background: #3b82f6 !important;
+          border: 2px solid #ffffff !important;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        .custom-audio-player .rhap_button-clear {
+          color: #3b82f6 !important;
+          font-size: 18px !important;
+          width: 36px !important;
+          height: 36px !important;
+          border-radius: 50% !important;
+          background: #f3f4f6 !important;
+          color: #6b7280 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          transition: all 0.2s ease-in-out !important;
+          border: 1px solid #e5e7eb !important;
+        }
+        
+        .custom-audio-player .rhap_button-clear:hover {
+          background: #e5e7eb !important;
+          color: #374151 !important;
+          transform: scale(1.05) !important;
+        }
+        
+        .custom-audio-player .rhap_main-controls {
+          display: none !important;
+        }
+        
+        .custom-audio-player .rhap_time {
+          color: #6b7280 !important;
+          font-size: 14px !important;
+        }
+        
+        .custom-audio-player .rhap_additional-controls {
+          display: none !important;
+        }
+        
+        .custom-audio-player .rhap_volume-controls {
+          justify-content: center !important;
+        }
 
-              {/* 오디오 플레이어 */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Volume2 className="h-8 w-8 text-white" />
-                  </div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">프리뷰 확인</h4>
-                  <p className="text-sm text-gray-600">
-                    방송 내용을 미리 들어보고 승인 또는 거부를 결정하세요
-                  </p>
-                </div>
-
-                {/* 숨겨진 오디오 엘리먼트 */}
-                <audio
-                  ref={audioRef}
-                  src={audioUrl || undefined}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onEnded={handleEnded}
-                  preload="metadata"
-                />
-
-                {/* 커스텀 플레이어 컨트롤 */}
-                <div className="space-y-4">
-                  {/* 재생/일시정지 버튼 */}
-                  <div className="flex justify-center">
-                    <button
-                      onClick={handlePlayPause}
-                      disabled={!audioUrl || audioLoading}
-                      className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {audioLoading ? (
-                        <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                          로딩중...
-                        </>
-                      ) : isPlaying ? (
-                        <>
-                          <Pause className="h-5 w-5 mr-2" />
-                          일시정지
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-5 w-5 mr-2" />
-                          재생
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* 진행률 바 */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>{formatTime(currentTime)}</span>
-                      <span>{formatTime(duration)}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration || 0}
-                      value={currentTime}
-                      onChange={handleSeek}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                      style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 액션 버튼 */}
-              <div className="flex items-center justify-center space-x-4">
-                <button
-                  onClick={handleReject}
-                  disabled={rejecting}
-                  className="flex items-center px-6 py-3 border-2 border-red-500 text-red-500 rounded-xl hover:bg-red-50 focus:outline-none focus:ring-4 focus:ring-red-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {rejecting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500 mr-2"></div>
-                      처리중...
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-5 w-5 mr-2" />
-                      거부
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleApprove}
-                  disabled={approving}
-                  className="flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 shadow-lg"
-                >
-                  {approving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      처리중...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      승인
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        <style jsx>{`
-          .slider::-webkit-slider-thumb {
-            appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-          }
-          
-          .slider::-moz-range-thumb {
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-          }
-        `}</style>
-      </div>
-    </div>
+        /* 다크모드 스타일 */
+        .dark .custom-audio-player .rhap_progress-bar {
+          background-color: #374151 !important;
+        }
+        
+        .dark .custom-audio-player .rhap_volume-bar {
+          background-color: #374151 !important;
+        }
+        
+        .dark .custom-audio-player .rhap_button-clear {
+          background: #4b5563 !important;
+          color: #9ca3af !important;
+          border: 1px solid #6b7280 !important;
+        }
+        
+        .dark .custom-audio-player .rhap_button-clear:hover {
+          background: #6b7280 !important;
+          color: #d1d5db !important;
+        }
+        
+        .dark .custom-audio-player .rhap_progress-indicator {
+          border: 2px solid #1f2937 !important;
+        }
+        
+        .dark .custom-audio-player .rhap_volume-indicator {
+          border: 2px solid #1f2937 !important;
+        }
+      `}</style>
+    </Modal>
   );
 } 

@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Laptop, Wifi, Shield, UserCog, Server, DatabaseIcon, BarChart, Users, User, History, Network, Ban, BookOpen, Home, Settings, Volume2 } from 'lucide-react';
+import { Laptop, Wifi, Shield, UserCog, Server, DatabaseIcon, BarChart, Users, User, History, Network, Ban, BookOpen, Home, Settings, Volume2, GraduationCap, Crown, Monitor, FileText, Radio, Mic, Headphones, Database, Globe, Activity } from 'lucide-react';
 import authService from '@/services/auth';
 import adminService from '@/services/admin';
 import api from '@/services/api';
+import { Card, CardLink, Heading, Text } from '@/components/ui/StyledComponents';
 
 // 시스템 상태 타입 정의
 interface SystemStatusDetails {
@@ -89,8 +90,8 @@ export default function Dashboard() {
 
   if (loading || !user) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
       </div>
     );
   }
@@ -107,247 +108,221 @@ export default function Dashboard() {
   };
   
   return (
-    <div>
-      {/* 간단한 헤더 */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{getDashboardTitle()}</h1>
-        <p className="text-gray-600 mt-1">환영합니다, {user.username} 님!</p>
-      </div>
-      
-      {/* 에러 메시지 */}
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+    <div className="page-container">
+      <div className="page-content">
+        {/* 간단한 헤더 */}
+        <div className="page-header">
+          <div className="page-header-flex">
+            <div>
+              <Heading level={1} className="page-title">{getDashboardTitle()}</Heading>
+              <Text className="page-subtitle">환영합니다, {user.username} 님!</Text>
+            </div>
+          </div>
         </div>
-      )}
-      
-      {/* 메뉴 바로가기 카드 (모든 사용자에게 표시) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <Link 
-          href="/dashboard"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <Home className="w-8 h-8 text-blue-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">대시보드</h2>
-            <p className="text-sm text-gray-500">홈 화면으로 이동</p>
-          </div>
-        </Link>
         
-        <Link 
-          href="/dashboard/user"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <User className="w-8 h-8 text-indigo-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">내 정보</h2>
-            <p className="text-sm text-gray-500">사용자 정보 관리</p>
+        {/* 에러 메시지 */}
+        {error && (
+          <div className="error-message">
+            <div className="error-content">
+              <Text className="error-text">{error}</Text>
+            </div>
           </div>
-        </Link>
+        )}
         
-        <Link 
-          href="/dashboard/user/my-devices"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <Laptop className="w-8 h-8 text-blue-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">내 IP 관리</h2>
-            <p className="text-sm text-gray-500">IP 주소 등록 및 관리</p>
-          </div>
-        </Link>
-        
-        <Link 
-          href="/dashboard/user/ip-assignments"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <Network className="w-8 h-8 text-green-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">내 IP 발급 내역</h2>
-            <p className="text-sm text-gray-500">IP 발급 내역 조회</p>
-          </div>
-        </Link>
-        
-        <Link 
-          href="/dashboard/user/rentals"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <BookOpen className="w-8 h-8 text-orange-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">장비 대여</h2>
-            <p className="text-sm text-gray-500">장비 대여 신청</p>
-          </div>
-        </Link>
-        
-        <Link 
-          href="/dashboard/user/rental-history"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <History className="w-8 h-8 text-purple-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">장비 대여 내역</h2>
-            <p className="text-sm text-gray-500">장비 대여 기록 확인</p>
-          </div>
-        </Link>
-        
-        <Link 
-          href="/dashboard/user/change-password"
-          className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-        >
-          <Settings className="w-8 h-8 text-gray-500 mr-4" />
-          <div>
-            <h2 className="text-lg font-medium text-gray-900">비밀번호 변경</h2>
-            <p className="text-sm text-gray-500">계정 비밀번호 변경</p>
-          </div>
-        </Link>
-      </div>
-      
-      {/* 교사 전용 메뉴 */}
-      {user.is_staff && !user.is_superuser && (
-        <>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">교사 기능</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Link 
-              href="/dashboard/teacher/broadcast"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Volume2 className="w-8 h-8 text-indigo-500 mr-4" />
+        {/* 공통 메뉴 */}
+        <div className="mb-8">
+          <Heading level={2} className="mb-4 flex items-center">
+            <Home className="w-6 h-6 mr-2 text-blue-500" />
+            공통 메뉴
+          </Heading>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <CardLink href="/dashboard">
+              <Home className="icon-large text-blue-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">방송하기</h2>
-                <p className="text-sm text-gray-500">텍스트 및 오디오 방송</p>
+                <Heading level={3}>대시보드</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">홈 화면으로 이동</Text>
               </div>
-            </Link>
-          </div>
-        </>
-      )}
-      
-      {/* 관리자 전용 메뉴 */}
-      {user.is_superuser && (
-        <>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">관리자 기능</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <Link 
-              href="/dashboard/admin"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Users className="w-8 h-8 text-orange-500 mr-4" />
-              <div>
-                <h2 className="text-lg font-medium text-gray-900">사용자 관리</h2>
-                <p className="text-sm text-gray-500">사용자 계정 관리</p>
-              </div>
-            </Link>
+            </CardLink>
             
-            <Link 
-              href="/dashboard/admin/ip-management"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Ban className="w-8 h-8 text-red-500 mr-4" />
+            <CardLink href="/dashboard/user">
+              <User className="icon-large text-indigo-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">IP 관리</h2>
-                <p className="text-sm text-gray-500">장치 및 IP 블랙리스트 관리</p>
+                <Heading level={3}>내 정보</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">사용자 정보 관리</Text>
               </div>
-            </Link>
+            </CardLink>
             
-            <Link 
-              href="/dashboard/admin/ip-assignments"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Network className="w-8 h-8 text-blue-500 mr-4" />
+            <CardLink href="/dashboard/user/my-ips">
+              <Laptop className="icon-large text-blue-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">IP 할당 내역</h2>
-                <p className="text-sm text-gray-500">사용자 IP 할당 내역 조회</p>
+                <Heading level={3}>내 IP 관리</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">IP 주소 등록 및 관리</Text>
               </div>
-            </Link>
+            </CardLink>
             
-            <Link 
-              href="/dashboard/admin/equipment"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Shield className="w-8 h-8 text-green-500 mr-4" />
+            <CardLink href="/dashboard/user/ip-assignments">
+              <Network className="icon-large text-green-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">장비 관리</h2>
-                <p className="text-sm text-gray-500">대여 가능한 장비 관리</p>
+                <Heading level={3}>내 IP 발급 내역</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">IP 발급 내역 조회</Text>
               </div>
-            </Link>
+            </CardLink>
             
-            <Link 
-              href="/dashboard/admin/rental-requests"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <BookOpen className="w-8 h-8 text-purple-500 mr-4" />
+            <CardLink href="/dashboard/user/rentals">
+              <BookOpen className="icon-large text-orange-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">대여 요청 관리</h2>
-                <p className="text-sm text-gray-500">장비 대여 요청 관리</p>
+                <Heading level={3}>장비 대여</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">장비 대여 신청</Text>
               </div>
-            </Link>
+            </CardLink>
             
-            <Link 
-              href="/dashboard/admin/broadcast-management"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
-            >
-              <Volume2 className="w-8 h-8 text-indigo-500 mr-4" />
+            <CardLink href="/dashboard/user/rental-history">
+              <History className="icon-large text-purple-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">방송관리</h2>
-                <p className="text-sm text-gray-500">전체 방송 이력 및 프리뷰 관리</p>
+                <Heading level={3}>장비 대여 내역</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">장비 대여 기록 확인</Text>
               </div>
-            </Link>
+            </CardLink>
+            
+            <CardLink href="/dashboard/user/change-password">
+              <Settings className="icon-large text-gray-500 mr-4" />
+              <div>
+                <Heading level={3}>비밀번호 변경</Heading>
+                <Text className="text-sm text-gray-500 dark:text-gray-400">계정 비밀번호 변경</Text>
+              </div>
+            </CardLink>
           </div>
-          
-          {/* 시스템 상태 섹션 (관리자만 볼 수 있음) */}
-          {systemStatus && (
-            <div className="bg-white shadow rounded-lg p-6 mb-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">시스템 상태</h2>
-              
-              <div className="flex items-center mb-4">
-                <div className={`w-3 h-3 rounded-full mr-2 ${
-                  systemStatus.status?.includes('정상') ? 'bg-green-500' : 'bg-red-500'
-                }`}></div>
-                <p className="text-gray-700 font-medium">{systemStatus.status}</p>
-                <p className="text-gray-500 text-sm ml-4">마지막 업데이트: {new Date(systemStatus.timestamp || '').toLocaleString()}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* CPU 사용량 */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <Server className="w-5 h-5 text-blue-500 mr-2" />
-                    <h3 className="text-md font-medium text-gray-700">CPU 사용량</h3>
-                  </div>
-                  <p className="text-2xl font-bold text-blue-600">{systemStatus.details?.cpu || 'N/A'}</p>
+        </div>
+        
+        {/* 교사 전용 메뉴 */}
+        {user.is_staff && (
+          <div className="mb-8">
+            <Heading level={2} className="mb-4 flex items-center">
+              <GraduationCap className="w-6 h-6 mr-2 text-indigo-500" />
+              교사 기능
+            </Heading>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <CardLink href="/dashboard/teacher/broadcast">
+                <Volume2 className="icon-large text-indigo-500 mr-4" />
+                <div>
+                  <Heading level={3}>방송하기</Heading>
+                  <Text className="text-sm text-gray-500 dark:text-gray-400">텍스트 및 오디오 방송</Text>
                 </div>
+              </CardLink>
+            </div>
+          </div>
+        )}
+        
+        {/* 관리자 전용 메뉴 */}
+        {user.is_superuser && (
+          <>
+            <div className="mb-8">
+              <Heading level={2} className="mb-4 flex items-center">
+                <Crown className="w-6 h-6 mr-2 text-yellow-500" />
+                관리자 기능
+              </Heading>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <CardLink href="/dashboard/admin/users">
+                  <Users className="icon-large text-orange-500 mr-4" />
+                  <div>
+                    <Heading level={3}>사용자 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">사용자 계정 관리</Text>
+                  </div>
+                </CardLink>
                 
-                {/* 메모리 사용량 */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <BarChart className="w-5 h-5 text-green-500 mr-2" />
-                    <h3 className="text-md font-medium text-gray-700">메모리 사용량</h3>
+                <CardLink href="/dashboard/admin/ip-management">
+                  <Ban className="icon-large text-red-500 mr-4" />
+                  <div>
+                    <Heading level={3}>IP 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">장치 및 IP 블랙리스트 관리</Text>
                   </div>
-                  <p className="text-2xl font-bold text-green-600">{systemStatus.details?.memory || 'N/A'}</p>
-                </div>
+                </CardLink>
                 
-                {/* 디스크 사용량 */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <DatabaseIcon className="w-5 h-5 text-yellow-500 mr-2" />
-                    <h3 className="text-md font-medium text-gray-700">디스크 사용량</h3>
+                <CardLink href="/dashboard/admin/ip-assignments">
+                  <Network className="icon-large text-blue-500 mr-4" />
+                  <div>
+                    <Heading level={3}>IP 발급 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">전체 IP 발급 내역 관리</Text>
                   </div>
-                  <p className="text-2xl font-bold text-yellow-600">{systemStatus.details?.disk || 'N/A'}</p>
-                </div>
+                </CardLink>
                 
-                {/* 네트워크 상태 */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center mb-2">
-                    <Wifi className="w-5 h-5 text-purple-500 mr-2" />
-                    <h3 className="text-md font-medium text-gray-700">네트워크 상태</h3>
+                <CardLink href="/dashboard/admin/equipment">
+                  <Laptop className="icon-large text-green-500 mr-4" />
+                  <div>
+                    <Heading level={3}>장비 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">장비 등록 및 관리</Text>
                   </div>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {systemStatus.details?.network === 'online' ? '정상' : '오프라인'}
-                  </p>
-                </div>
+                </CardLink>
+                
+                <CardLink href="/dashboard/admin/rentals">
+                  <BookOpen className="icon-large text-purple-500 mr-4" />
+                  <div>
+                    <Heading level={3}>대여 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">장비 대여 신청 관리</Text>
+                  </div>
+                </CardLink>
+                
+                <CardLink href="/dashboard/admin/broadcast-management">
+                  <Volume2 className="icon-large text-indigo-500 mr-4" />
+                  <div>
+                    <Heading level={3}>방송 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">전체 방송 이력 및 프리뷰 관리</Text>
+                  </div>
+                </CardLink>
+                
+                <CardLink href="/dashboard/admin/dns">
+                  <Server className="icon-large text-cyan-500 mr-4" />
+                  <div>
+                    <Heading level={3}>DNS 관리</Heading>
+                    <Text className="text-sm text-gray-500 dark:text-gray-400">DNS 설정 관리</Text>
+                  </div>
+                </CardLink>
               </div>
             </div>
-          )}
-        </>
-      )}
+            
+            {/* 시스템 상태 (관리자만) */}
+            {systemStatus && (
+              <div className="mb-8">
+                <Heading level={2} className="mb-4 flex items-center">
+                  <Activity className="w-6 h-6 mr-2 text-green-500" />
+                  시스템 상태
+                </Heading>
+                <Card>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {systemStatus.details?.cpu || 'N/A'}
+                      </div>
+                      <Text className="text-sm text-gray-600 dark:text-gray-400">CPU 사용률</Text>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {systemStatus.details?.memory || 'N/A'}
+                      </div>
+                      <Text className="text-sm text-gray-600 dark:text-gray-400">메모리 사용률</Text>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                        {systemStatus.details?.disk || 'N/A'}
+                      </div>
+                      <Text className="text-sm text-gray-600 dark:text-gray-400">디스크 사용률</Text>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                        {systemStatus.details?.active_processes || 'N/A'}
+                      </div>
+                      <Text className="text-sm text-gray-600 dark:text-gray-400">활성 프로세스</Text>
+                    </div>
+                  </div>
+                  <Text className="mt-4 text-sm text-gray-500 dark:text-gray-400 text-center">
+                    마지막 업데이트: {systemStatus.timestamp ? new Date(systemStatus.timestamp).toLocaleString('ko-KR') : 'N/A'}
+                  </Text>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 } 

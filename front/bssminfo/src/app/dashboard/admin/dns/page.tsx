@@ -1,7 +1,22 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Globe, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import dnsService, { DnsRequest, DnsRecord } from '@/services/dns';
+import { parseDomain, convertDomainsToUnicode, punycodeToUnicode, unicodeToPunycode } from '@/utils/punycode';
+import { 
+  Card, 
+  Heading, 
+  Text, 
+  Input, 
+  Button, 
+  Badge,
+  Alert,
+  Modal,
+  Tabs,
+  Tab,
+  Textarea
+} from '@/components/ui/StyledComponents';
+import DnsTable from '@/components/admin/DnsTable';
 
 export default function AdminDnsManagementPage() {
   const [tab, setTab] = useState(0);
@@ -11,7 +26,15 @@ export default function AdminDnsManagementPage() {
   const [rejectedRequests, setRejectedRequests] = useState<DnsRequest[]>([]);
   const [deletedRecords, setDeletedRecords] = useState<DnsRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; type: 'success' | 'error' | 'info' | 'warning' }>({ open: false, message: '', type: 'success' });
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
   const [rejectReason, setRejectReason] = useState('');
 
@@ -21,15 +44,36 @@ export default function AdminDnsManagementPage() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; record: DnsRecord | null }>({ open: false, record: null });
   const [recordForm, setRecordForm] = useState({ domain: '', ip: '' });
 
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setNotification({
+      show: true,
+      message,
+      type
+    });
+    
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, 6000);
+  };
+
   const fetchRequests = async () => {
     setLoading(true);
     try {
       const res = await dnsService.getRequests();
       const allRequests = res.data;
-      setRequests(allRequests.filter((req: DnsRequest) => req.status === '대기'));
-      setRejectedRequests(allRequests.filter((req: DnsRequest) => req.status === '거절'));
+      // 타입 캐스팅으로 변환
+      const convertedRequests = allRequests.map((req: any) => {
+        const isPunycode = req.domain && req.domain.includes('xn--');
+        return {
+          ...req,
+          domain: isPunycode ? punycodeToUnicode(req.domain) : req.domain,
+          original_domain: req.domain
+        };
+      });
+      setRequests(convertedRequests.filter((req: any) => req.status === '대기'));
+      setRejectedRequests(convertedRequests.filter((req: any) => req.status === '거절'));
     } catch (e) {
-      setSnackbar({ open: true, message: '신청 목록을 불러오지 못했습니다.', type: 'error' });
+      showNotification('신청 목록을 불러오지 못했습니다.', 'error');
     } finally {
       setLoading(false);
     }
@@ -40,12 +84,20 @@ export default function AdminDnsManagementPage() {
     try {
       const res = await dnsService.getAllRecords();
       const allRecords = res.data;
-      setRecords(allRecords);
-      setApprovedRecords(allRecords); // 승인된 도메인들
-      // 삭제된 도메인은 별도 API가 필요할 수 있으므로 일단 빈 배열로 설정
+      // 타입 캐스팅으로 변환
+      const convertedRecords = allRecords.map((rec: any) => {
+        const isPunycode = rec.domain && rec.domain.includes('xn--');
+        return {
+          ...rec,
+          domain: isPunycode ? punycodeToUnicode(rec.domain) : rec.domain,
+          original_domain: rec.domain
+        };
+      });
+      setRecords(convertedRecords);
+      setApprovedRecords(convertedRecords);
       setDeletedRecords([]);
     } catch (e) {
-      setSnackbar({ open: true, message: '등록 도메인 목록을 불러오지 못했습니다.', type: 'error' });
+      showNotification('등록 도메인 목록을 불러오지 못했습니다.', 'error');
     } finally {
       setLoading(false);
     }
@@ -58,22 +110,20 @@ export default function AdminDnsManagementPage() {
     else if (tab === 3) fetchRecords();
   }, [tab]);
 
+  // 퓨니코드 변환 테스트
   useEffect(() => {
-    if (snackbar.open) {
-      const timer = setTimeout(() => {
-        setSnackbar({ ...snackbar, open: false });
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [snackbar.open]);
+    console.log('퓨니코드 변환 테스트:');
+    console.log('한글 -> 퓨니코드:', unicodeToPunycode('한글.bssm.hs.kr'));
+    console.log('퓨니코드 -> 한글:', punycodeToUnicode('xn--bj0bj06e.bssm.hs.kr'));
+  }, []);
 
   const handleApprove = async (id: number) => {
     try {
       await dnsService.approveRequest(id);
-      setSnackbar({ open: true, message: '승인 완료', type: 'success' });
+      showNotification('승인 완료', 'success');
       fetchRequests();
     } catch {
-      setSnackbar({ open: true, message: '승인 실패', type: 'error' });
+      showNotification('승인 실패', 'error');
     }
   };
 
@@ -81,21 +131,21 @@ export default function AdminDnsManagementPage() {
     if (!rejectDialog.id) return;
     try {
       await dnsService.rejectRequest(rejectDialog.id, rejectReason);
-      setSnackbar({ open: true, message: '거절 완료', type: 'success' });
+      showNotification('거절 완료', 'success');
       setRejectDialog({ open: false, id: null });
       setRejectReason('');
       fetchRequests();
     } catch {
-      setSnackbar({ open: true, message: '거절 실패', type: 'error' });
+      showNotification('거절 실패', 'error');
     }
   };
 
   const handleApply = async () => {
     try {
       await dnsService.applyDns();
-      setSnackbar({ open: true, message: '동기화 완료', type: 'success' });
+      showNotification('동기화 완료', 'success');
     } catch {
-      setSnackbar({ open: true, message: '동기화 실패', type: 'error' });
+      showNotification('동기화 실패', 'error');
     }
   };
 
@@ -103,7 +153,7 @@ export default function AdminDnsManagementPage() {
   const handleAddRecord = async () => {
     try {
       const response = await dnsService.createRecord(recordForm);
-      setSnackbar({ open: true, message: '도메인이 추가되었습니다.', type: 'success' });
+      showNotification('도메인이 추가되었습니다.', 'success');
       setAddDialog(false);
       setRecordForm({ domain: '', ip: '' });
       fetchRecords();
@@ -114,7 +164,7 @@ export default function AdminDnsManagementPage() {
       } else if (error?.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       }
-      setSnackbar({ open: true, message: errorMessage, type: 'error' });
+      showNotification(errorMessage, 'error');
     }
   };
 
@@ -122,7 +172,7 @@ export default function AdminDnsManagementPage() {
     if (!editDialog.record) return;
     try {
       const response = await dnsService.updateRecord(editDialog.record.id, recordForm);
-      setSnackbar({ open: true, message: '도메인이 수정되었습니다.', type: 'success' });
+      showNotification('도메인이 수정되었습니다.', 'success');
       setEditDialog({ open: false, record: null });
       setRecordForm({ domain: '', ip: '' });
       fetchRecords();
@@ -133,7 +183,7 @@ export default function AdminDnsManagementPage() {
       } else if (error?.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       }
-      setSnackbar({ open: true, message: errorMessage, type: 'error' });
+      showNotification(errorMessage, 'error');
     }
   };
 
@@ -141,16 +191,46 @@ export default function AdminDnsManagementPage() {
     if (!deleteDialog.record) return;
     try {
       await dnsService.deleteRecord(deleteDialog.record.id);
-      setSnackbar({ open: true, message: '도메인이 삭제되었습니다.', type: 'success' });
+      showNotification('도메인이 삭제되었습니다.', 'success');
       setDeleteDialog({ open: false, record: null });
       fetchRecords();
     } catch {
-      setSnackbar({ open: true, message: '도메인 삭제 실패', type: 'error' });
+      showNotification('도메인 삭제 실패', 'error');
+    }
+  };
+
+  const handleDownloadSslPackage = async (domain: string) => {
+    try {
+      const response = await dnsService.downloadSslPackage(domain);
+      
+      if (response.success && response.data) {
+        // ZIP 파일 다운로드
+        const blob = new Blob([response.data], { type: 'application/zip' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${domain}_ssl_package.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showNotification('SSL 패키지 다운로드 완료 - 매번 새로운 개인키가 생성됩니다', 'success');
+      } else {
+        throw new Error('SSL 패키지 다운로드에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('SSL 패키지 다운로드 실패:', error);
+      let errorMessage = 'SSL 패키지 다운로드에 실패했습니다.';
+      if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      showNotification(errorMessage, 'error');
     }
   };
 
   const openEditDialog = (record: DnsRecord) => {
-    setRecordForm({ domain: record.original_domain, ip: record.ip });
+    setRecordForm({ domain: record.original_domain || record.domain || '', ip: record.ip });
     setEditDialog({ open: true, record });
   };
 
@@ -159,530 +239,390 @@ export default function AdminDnsManagementPage() {
     setAddDialog(true);
   };
 
-  // 스낵바 스타일 클래스
-  const getSnackbarClasses = () => {
-    const baseClasses = "fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300";
-    switch (snackbar.type) {
-      case 'success': return `${baseClasses} bg-green-500 text-white`;
-      case 'error': return `${baseClasses} bg-red-500 text-white`;
-      case 'warning': return `${baseClasses} bg-yellow-500 text-white`;
-      case 'info': return `${baseClasses} bg-blue-500 text-white`;
-      default: return `${baseClasses} bg-gray-500 text-white`;
+  // 도메인 입력 시 퓨니코드 변환 결과를 보여주는 함수
+  const getDomainPreview = (domain: string) => {
+    if (!domain) return null;
+    
+    try {
+      // 한글이 포함된 도메인인지 확인
+      const hasKorean = /[가-힣]/.test(domain);
+      if (hasKorean) {
+        const punycode = unicodeToPunycode(domain);
+        return {
+          original: domain,
+          punycode: punycode,
+          type: 'korean'
+        };
+      }
+      
+      // 퓨니코드인지 확인
+      if (domain.includes('xn--')) {
+        const unicode = punycodeToUnicode(domain);
+        return {
+          original: unicode,
+          punycode: domain,
+          type: 'punycode'
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      return null;
     }
   };
 
+  const domainPreview = getDomainPreview(recordForm.domain);
+
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">교내 DNS 관리</h1>
+    <div className="p-4 lg:p-6">
+      {/* 알림 표시 */}
+      {notification.show && (
+        <div className="mb-4">
+          <Alert 
+            type={notification.type} 
+            message={notification.message}
+            onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+          />
+        </div>
+      )}
+
+      <Heading level={1} className="mb-6 flex items-center">
+        <Globe className="w-8 h-8 mr-3 text-blue-500" />
+        교내 DNS 관리
+      </Heading>
       
       {/* 탭 네비게이션 */}
-      <div className="border-b border-gray-200 mb-6">
+      <Tabs className="mb-6">
         <nav className="-mb-px flex space-x-8">
-          <button
+          <Tab
+            active={tab === 0}
             onClick={() => setTab(0)}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 0 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            icon={<CheckCircle className="w-4 h-4" />}
           >
             승인된 도메인 ({approvedRecords.length})
-          </button>
-          <button
+          </Tab>
+          <Tab
+            active={tab === 1}
             onClick={() => setTab(1)}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 1 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            icon={<Clock className="w-4 h-4" />}
           >
             신청 목록 ({requests.length})
-          </button>
-          <button
+          </Tab>
+          <Tab
+            active={tab === 2}
             onClick={() => setTab(2)}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 2 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            icon={<XCircle className="w-4 h-4" />}
           >
             거절된 신청 ({rejectedRequests.length})
-          </button>
-          <button
+          </Tab>
+          <Tab
+            active={tab === 3}
             onClick={() => setTab(3)}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              tab === 3 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            icon={<AlertCircle className="w-4 h-4" />}
           >
             삭제된 도메인 ({deletedRecords.length})
-          </button>
+          </Tab>
         </nav>
-      </div>
+      </Tabs>
 
       {/* 승인된 도메인 목록 탭 */}
       {tab === 0 && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">승인된 도메인 목록</h2>
-            <button
-              onClick={openAddDialog}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              도메인 추가
-            </button>
-          </div>
-          
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="space-y-6">
+          {/* 헤더 및 액션 카드 */}
+          <Card>
+            <div className="flex justify-between items-center">
+              <Heading level={3}>승인된 도메인 목록</Heading>
+              <Button
+                onClick={openAddDialog}
+                className="flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>도메인 추가</span>
+              </Button>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">도메인</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {approvedRecords.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{rec.original_domain}</div>
-                          {rec.domain !== rec.original_domain && (
-                            <div className="text-sm text-gray-500">({rec.domain})</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.ip}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.created_at}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => openEditDialog(rec)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteDialog({ open: true, record: rec })}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </Card>
           
-          {/* 동기화 버튼 - 승인된 도메인 탭에서만 표시 */}
-          <div className="mt-4">
-            <button
+          {/* 테이블 카드 */}
+          <Card>
+            <DnsTable
+              type="approved"
+              data={approvedRecords}
+              loading={loading}
+              isAdmin={true}
+              onEdit={openEditDialog}
+              onDelete={(record) => setDeleteDialog({ open: true, record })}
+              onDownloadSslPackage={handleDownloadSslPackage}
+            />
+          </Card>
+          
+          {/* 동기화 버튼 카드 */}
+          <Card>
+            <Button
               onClick={handleApply}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-2"
             >
-              동기화(적용)
-            </button>
-          </div>
+              <Globe className="w-4 h-4" />
+              <span>동기화(적용)</span>
+            </Button>
+          </Card>
         </div>
       )}
 
       {/* 신청 목록 탭 */}
       {tab === 1 && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">도메인 등록 신청 목록</h2>
+        <div className="space-y-6">
+          {/* 헤더 카드 */}
+          <Card>
+            <Heading level={3}>도메인 등록 신청 목록</Heading>
+          </Card>
           
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">도메인</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청자</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사유</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">처리</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {requests.map((req) => (
-                    <tr key={req.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{req.original_domain}</div>
-                          {req.domain !== req.original_domain && (
-                            <div className="text-sm text-gray-500">({req.domain})</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.ip}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.user}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.reason}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          req.status === '대기' ? 'bg-yellow-100 text-yellow-800' :
-                          req.status === '승인' ? 'bg-green-100 text-green-800' :
-                          req.status === '삭제됨' ? 'bg-gray-100 text-gray-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {req.status === '대기' && (
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleApprove(req.id)}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                            >
-                              승인
-                            </button>
-                            <button
-                              onClick={() => setRejectDialog({ open: true, id: req.id })}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                            >
-                              거절
-                            </button>
-                          </div>
-                        )}
-                        {req.status === '거절' && req.reject_reason && (
-                          <div className="text-xs text-red-600">사유: {req.reject_reason}</div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* 테이블 카드 */}
+          <Card>
+            <DnsTable
+              type="pending"
+              data={requests}
+              loading={loading}
+              onApprove={handleApprove}
+              onReject={(id) => setRejectDialog({ open: true, id })}
+            />
+          </Card>
         </div>
       )}
 
-      {/* 거절된 신청 목록 탭 */}
+      {/* 거절된 신청 탭 */}
       {tab === 2 && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">거절된 도메인 신청 목록</h2>
+        <div className="space-y-6">
+          {/* 헤더 카드 */}
+          <Card>
+            <Heading level={3}>거절된 도메인 신청 목록</Heading>
+          </Card>
           
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">도메인</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">신청자</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">거절 사유</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">처리일</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {rejectedRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{req.original_domain}</div>
-                          {req.domain !== req.original_domain && (
-                            <div className="text-sm text-gray-500">({req.domain})</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.ip}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{req.user}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {req.reject_reason || '사유 없음'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {req.processed_at || '-'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* 테이블 카드 */}
+          <Card>
+            <DnsTable
+              type="rejected"
+              data={rejectedRequests}
+              loading={loading}
+            />
+          </Card>
         </div>
       )}
 
-      {/* 삭제된 도메인 목록 탭 */}
+      {/* 삭제된 도메인 탭 */}
       {tab === 3 && (
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">삭제된 도메인 목록</h2>
+        <div className="space-y-6">
+          {/* 헤더 카드 */}
+          <Card>
+            <Heading level={3}>삭제된 도메인 목록</Heading>
+          </Card>
           
-          {loading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">도메인</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등록일</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">삭제일</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {deletedRecords.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.id}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{rec.original_domain}</div>
-                          {rec.domain !== rec.original_domain && (
-                            <div className="text-sm text-gray-500">({rec.domain})</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.ip}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{rec.created_at}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">-</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-
-
-      {/* 스낵바 */}
-      {snackbar.open && (
-        <div className={getSnackbarClasses()}>
-          <div className="flex items-center justify-between">
-            <span>{snackbar.message}</span>
-            <button
-              onClick={() => setSnackbar({ ...snackbar, open: false })}
-              className="ml-4 text-white hover:text-gray-200"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          {/* 테이블 카드 */}
+          <Card>
+            <DnsTable
+              type="deleted"
+              data={deletedRecords}
+              loading={loading}
+            />
+          </Card>
         </div>
       )}
 
       {/* 거절 다이얼로그 */}
       {rejectDialog.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">도메인 등록 요청 거절</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">거절 사유</label>
-              <textarea
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={3}
-              />
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setRejectDialog({ open: false, id: null })}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleReject}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                거절
-              </button>
-            </div>
+        <Modal isOpen={rejectDialog.open} onClose={() => setRejectDialog({ open: false, id: null })}>
+          <Heading level={3} className="mb-4">도메인 등록 요청 거절</Heading>
+          <div className="mb-4">
+            <Text className="block text-sm font-medium mb-2">거절 사유</Text>
+            <Textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="거절 사유를 입력하세요"
+            />
           </div>
-        </div>
+          <div className="flex justify-end space-x-3">
+            <Button
+              onClick={() => setRejectDialog({ open: false, id: null })}
+              variant="secondary"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleReject}
+              variant="danger"
+            >
+              거절
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {/* 도메인 추가 다이얼로그 */}
       {addDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">새 도메인 추가</h3>
-            
-            {/* 도메인 형식 안내 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 도메인 형식 안내</h4>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p><strong>올바른 형식:</strong></p>
-                <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><code>example.com</code> - 영문 도메인</li>
-                  <li><code>사이트.kr</code> - 한글 + 영문 확장자</li>
-                  <li><code>도메인.한국</code> - 한글 도메인</li>
-                  <li><code>my-site.info</code> - 하이픈 포함 (시작/끝 제외)</li>
-                </ul>
-                <p className="mt-2"><strong>지원 확장자:</strong></p>
-                <p className="text-xs">.com, .net, .org, .kr, .한국, .info, .app, .dev, .io, .tech 등</p>
-              </div>
+        <Modal isOpen={addDialog} onClose={() => setAddDialog(false)}>
+          <Heading level={3} className="mb-4">새 도메인 추가</Heading>
+          
+          {/* 도메인 형식 안내 */}
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <Text className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>도메인 형식 안내:</strong><br />
+              • 일반 도메인: example.bssm.hs.kr<br />
+              • 한글 도메인: 한글.bssm.hs.kr (자동으로 punycode 변환)<br />
+              • IP 주소: 10.129.50.88
+            </Text>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <Text className="block text-sm font-medium mb-2">도메인</Text>
+              <Input
+                value={recordForm.domain}
+                onChange={e => setRecordForm(prev => ({ ...prev, domain: e.target.value }))}
+                placeholder="example.bssm.hs.kr"
+              />
+              
+              {/* 퓨니코드 변환 미리보기 */}
+              {domainPreview && (
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <Text className="text-sm font-medium mb-2">도메인 변환 결과:</Text>
+                  <div className="space-y-1">
+                    <div className="flex items-center">
+                      <span className="text-base font-semibold text-gray-900 dark:text-white">
+                        {domainPreview.original}
+                      </span>
+                      <Badge variant="info" className="ml-2 text-xs">
+                        {domainPreview.type === 'korean' ? '한글 도메인' : '변환 결과'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                        {domainPreview.punycode}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                        (퓨니코드)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  도메인 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={recordForm.domain}
-                  onChange={e => setRecordForm({ ...recordForm, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: example.com, 사이트.kr"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  IP 주소 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={recordForm.ip}
-                  onChange={e => setRecordForm({ ...recordForm, ip: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: 192.168.1.100"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setAddDialog(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleAddRecord}
-                disabled={!recordForm.domain || !recordForm.ip}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                추가
-              </button>
+            <div>
+              <Text className="block text-sm font-medium mb-2">IP 주소</Text>
+              <Input
+                value={recordForm.ip}
+                onChange={e => setRecordForm(prev => ({ ...prev, ip: e.target.value }))}
+                placeholder="10.129.50.88"
+              />
             </div>
           </div>
-        </div>
+          
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button
+              onClick={() => setAddDialog(false)}
+              variant="secondary"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleAddRecord}
+              variant="primary"
+            >
+              추가
+            </Button>
+          </div>
+        </Modal>
       )}
 
-      {/* 도메인 편집 다이얼로그 */}
-      {editDialog.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">도메인 편집</h3>
-            
-            {/* 도메인 형식 안내 */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 도메인 형식 안내</h4>
-              <div className="text-sm text-blue-700 space-y-1">
-                <p><strong>올바른 형식:</strong></p>
-                <ul className="list-disc list-inside ml-2 space-y-1">
-                  <li><code>example.com</code> - 영문 도메인</li>
-                  <li><code>사이트.kr</code> - 한글 + 영문 확장자</li>
-                  <li><code>도메인.한국</code> - 한글 도메인</li>
-                  <li><code>my-site.info</code> - 하이픈 포함 (시작/끝 제외)</li>
-                </ul>
-                <p className="mt-2"><strong>지원 확장자:</strong></p>
-                <p className="text-xs">.com, .net, .org, .kr, .한국, .info, .app, .dev, .io, .tech 등</p>
-              </div>
+      {/* 도메인 수정 다이얼로그 */}
+      {editDialog.open && editDialog.record && (
+        <Modal isOpen={editDialog.open} onClose={() => setEditDialog({ open: false, record: null })}>
+          <Heading level={3} className="mb-4">도메인 수정</Heading>
+          
+          <div className="space-y-4">
+            <div>
+              <Text className="block text-sm font-medium mb-2">도메인</Text>
+              <Input
+                value={recordForm.domain}
+                onChange={e => setRecordForm(prev => ({ ...prev, domain: e.target.value }))}
+                placeholder="example.bssm.hs.kr"
+              />
+              
+              {/* 퓨니코드 변환 미리보기 */}
+              {domainPreview && (
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <Text className="text-sm font-medium mb-2">도메인 변환 결과:</Text>
+                  <div className="space-y-1">
+                    <div className="flex items-center">
+                      <span className="text-base font-semibold text-gray-900 dark:text-white">
+                        {domainPreview.original}
+                      </span>
+                      <Badge variant="info" className="ml-2 text-xs">
+                        {domainPreview.type === 'korean' ? '한글 도메인' : '변환 결과'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                        {domainPreview.punycode}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                        (퓨니코드)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  도메인 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={recordForm.domain}
-                  onChange={e => setRecordForm({ ...recordForm, domain: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: example.com, 사이트.kr"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  IP 주소 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={recordForm.ip}
-                  onChange={e => setRecordForm({ ...recordForm, ip: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="예: 192.168.1.100"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setEditDialog({ open: false, record: null })}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleEditRecord}
-                disabled={!recordForm.domain || !recordForm.ip}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                저장
-              </button>
+            <div>
+              <Text className="block text-sm font-medium mb-2">IP 주소</Text>
+              <Input
+                value={recordForm.ip}
+                onChange={e => setRecordForm(prev => ({ ...prev, ip: e.target.value }))}
+                placeholder="10.129.50.88"
+              />
             </div>
           </div>
-        </div>
+          
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button
+              onClick={() => setEditDialog({ open: false, record: null })}
+              variant="secondary"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleEditRecord}
+              variant="primary"
+            >
+              수정
+            </Button>
+          </div>
+        </Modal>
       )}
 
       {/* 도메인 삭제 확인 다이얼로그 */}
-      {deleteDialog.open && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">도메인 삭제 확인</h3>
-            <p className="text-gray-700 mb-6">
-              정말로 도메인 "{deleteDialog.record?.original_domain}"을(를) 삭제하시겠습니까?
-            </p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setDeleteDialog({ open: false, record: null })}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDeleteRecord}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                삭제
-              </button>
-            </div>
+      {deleteDialog.open && deleteDialog.record && (
+        <Modal isOpen={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, record: null })}>
+          <Heading level={3} className="mb-4">도메인 삭제 확인</Heading>
+          
+          <Text className="mb-4">
+            정말로 도메인 <strong>{deleteDialog.record.domain}</strong>을(를) 삭제하시겠습니까?
+          </Text>
+          
+          <div className="flex justify-end space-x-3">
+            <Button
+              onClick={() => setDeleteDialog({ open: false, record: null })}
+              variant="secondary"
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleDeleteRecord}
+              variant="danger"
+            >
+              삭제
+            </Button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

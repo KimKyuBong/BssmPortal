@@ -5,7 +5,7 @@ from .views import (
     AudioPreviewView, TextPreviewView, PreviewListView, 
     PreviewDetailView, PreviewApprovalView, PreviewRejectView,
     TestExternalPreviewView, broadcast_status, preview_audio_file, download_audio_file, download_history_audio,
-    AdminBroadcastHistoryView, AdminPreviewListView, BroadcastHistoryDetailView
+    AdminBroadcastHistoryView, AdminPreviewListView, BroadcastHistoryDetailView, ReuseHistoryAudioView
 )
 
 app_name = 'broadcast'
@@ -21,7 +21,9 @@ urlpatterns = [
     
     # 방송 이력
     path('history/', BroadcastHistoryView.as_view(), name='broadcast_history'),
-    path('history/<int:history_id>/', BroadcastHistoryDetailView.as_view(), name='broadcast_history_detail'),
+    path('history/<int:history_id>/', BroadcastHistoryView.as_view(), name='broadcast_history_delete'),
+    path('history/<int:history_id>/detail/', BroadcastHistoryDetailView.as_view(), name='broadcast_history_detail'),
+    path('history/<int:history_id>/reuse/', ReuseHistoryAudioView.as_view(), name='reuse_history_audio'),
     path('history/audio/<int:history_id>/download/', download_history_audio, name='history_audio_download'),
     
     # 어드민 전용 API

@@ -505,6 +505,82 @@ const rentalService = {
         message: 'IP 할당 내역을 불러오는데 실패했습니다.'
       };
     }
+  },
+
+  // 관리자 직접 대여 생성
+  async createRentalByAdmin(data: {
+    equipment: number;
+    user: number;
+    due_date?: string;
+    notes?: string;
+  }): Promise<ApiResponse<Rental>> {
+    try {
+      const response = await api.post('/rentals/items/', data);
+      
+      // 성공 응답 처리
+      return {
+        success: true,
+        data: response.data,
+        message: '대여가 성공적으로 생성되었습니다.'
+      };
+    } catch (error: any) {
+      console.error('대여 생성 오류:', error);
+      
+      // Axios 에러 처리
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+        
+        let errorMessage = '대여 생성 중 오류가 발생했습니다.';
+        
+        // HTTP 상태 코드별 에러 메시지
+        switch (status) {
+          case 400:
+            errorMessage = errorData.detail || '잘못된 요청입니다. 모든 필수 정보를 확인해주세요.';
+            break;
+          case 401:
+            errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
+            break;
+          case 403:
+            errorMessage = '권한이 없습니다. 관리자 권한이 필요합니다.';
+            break;
+          case 404:
+            errorMessage = '요청한 장비나 사용자를 찾을 수 없습니다.';
+            break;
+          case 405:
+            errorMessage = '허용되지 않는 요청입니다. API 엔드포인트를 확인해주세요.';
+            break;
+          case 409:
+            errorMessage = '이미 대여 중인 장비입니다.';
+            break;
+          case 500:
+            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          default:
+            errorMessage = errorData.detail || `오류가 발생했습니다. (${status})`;
+        }
+        
+        return {
+          success: false,
+          error: { detail: errorMessage },
+          message: errorMessage
+        };
+      } else if (error.request) {
+        // 네트워크 오류
+        return {
+          success: false,
+          error: { detail: '네트워크 연결을 확인해주세요.' },
+          message: '네트워크 연결을 확인해주세요.'
+        };
+      } else {
+        // 기타 오류
+        return {
+          success: false,
+          error: { detail: error.message || '알 수 없는 오류가 발생했습니다.' },
+          message: error.message || '알 수 없는 오류가 발생했습니다.'
+        };
+      }
+    }
   }
 };
 

@@ -31,8 +31,8 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '내 IP 관리', 
       icon: <Laptop className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/user/my-devices',
-      isActive: (pathname: string) => isActive('/dashboard/user/my-devices', pathname)
+      href: '/dashboard/user/my-ips',
+      isActive: (pathname: string) => isActive('/dashboard/user/my-ips', pathname)
     },
     { 
       name: '내 IP 발급 내역', 
@@ -75,8 +75,8 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
     { 
       name: '사용자 관리', 
       icon: <Users className="mr-3 h-5 w-5" />, 
-      href: '/dashboard/admin', 
-      isActive: (pathname: string) => isActive('/dashboard/admin', pathname)
+      href: '/dashboard/admin/users', 
+      isActive: (pathname: string) => isActive('/dashboard/admin/users', pathname)
     },
     {
       name: 'IP 관리',

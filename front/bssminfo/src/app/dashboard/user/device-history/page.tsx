@@ -6,6 +6,9 @@ import authService from '@/services/auth';
 import adminService from '@/services/admin';
 import ipService from '@/services/ip';
 import { Laptop, User, Calendar, Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { userService } from '@/services/userService';
+import { DateInput } from '@/components/ui/StyledComponents';
+import { formatDateToKorean } from '@/utils/dateUtils';
 
 // 기기 이력 타입 정의
 interface DeviceHistory {
@@ -192,13 +195,7 @@ export default function DeviceHistoryPage() {
   // 날짜 포맷팅
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatDateToKorean(date);
   };
   
   if (loading) {
@@ -261,24 +258,22 @@ export default function DeviceHistoryPage() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">시작 날짜</label>
-            <input
-              type="date"
+            <DateInput
+              label="시작 날짜"
               name="startDate"
               value={filters.startDate}
-              onChange={handleFilterChange}
-              className="w-full border rounded-md py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(value) => setFilters(prev => ({ ...prev, startDate: value }))}
+              className="w-full"
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">종료 날짜</label>
-            <input
-              type="date"
+            <DateInput
+              label="종료 날짜"
               name="endDate"
               value={filters.endDate}
-              onChange={handleFilterChange}
-              className="w-full border rounded-md py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(value) => setFilters(prev => ({ ...prev, endDate: value }))}
+              className="w-full"
             />
           </div>
         </div>

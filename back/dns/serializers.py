@@ -32,9 +32,6 @@ class CertificateAuthoritySerializer(serializers.ModelSerializer):
         model = CertificateAuthority
         fields = ['id', 'name', 'certificate', 'is_active', 'created_at']
         read_only_fields = ['id', 'created_at']
-        extra_kwargs = {
-            'private_key': {'write_only': True}  # 개인키는 반환하지 않음
-        }
 
 class CertificateGenerationRequestSerializer(serializers.Serializer):
     """인증서 생성 요청 시리얼라이저"""
@@ -49,10 +46,9 @@ class CertificateGenerationRequestSerializer(serializers.Serializer):
         return value
 
 class CertificateFileSerializer(serializers.Serializer):
-    """인증서 파일 응답 시리얼라이저"""
+    """인증서 파일 응답 시리얼라이저 (개인키는 포함하지 않음)"""
     domain = serializers.CharField()
     certificate = serializers.CharField(help_text="인증서 PEM 파일 내용")
-    private_key = serializers.CharField(help_text="개인키 PEM 파일 내용")
     certificate_chain = serializers.CharField(help_text="인증서 체인 PEM 파일 내용", allow_blank=True)
     ca_certificate = serializers.CharField(help_text="CA 인증서 PEM 파일 내용")
     expires_at = serializers.DateTimeField(help_text="만료일시")

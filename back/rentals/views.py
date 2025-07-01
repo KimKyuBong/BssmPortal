@@ -67,19 +67,41 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     serializer_class = EquipmentSerializer
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['asset_number', 'serial_number', 'description']
+    search_fields = [
+        'asset_number', 
+        'serial_number', 
+        'description', 
+        'manufacturer', 
+        'model_name', 
+        'management_number',
+        'rentals__user__username',
+        'rentals__user__first_name',
+        'rentals__user__last_name'
+    ]
     ordering_fields = ['asset_number', 'equipment_type', 'status', 'acquisition_date']
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = EquipmentPagination
     
     def get_queryset(self):
-        return Equipment.objects.prefetch_related(
+        queryset = Equipment.objects.prefetch_related(
             Prefetch(
                 'rentals',
                 queryset=Rental.objects.filter(status='RENTED').select_related('user').order_by('-rental_date'),
                 to_attr='current_rentals'
             )
-        ).all()
+        )
+        
+        # 상태 필터링
+        status = self.request.query_params.get('status', None)
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        # 장비 타입 필터링
+        equipment_type = self.request.query_params.get('equipment_type', None)
+        if equipment_type:
+            queryset = queryset.filter(equipment_type=equipment_type)
+        
+        return queryset
     
     def get_permissions(self):
         """
@@ -1088,6 +1110,22 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             equipment.status = 'RENTED'
             equipment.save()
             
+            # 장비 대여 이력 기록
+            EquipmentHistory.objects.create(
+                equipment=equipment,
+                action='RENTED',
+                user=request.user,
+                new_value={
+                    'rental_id': rental.id,
+                    'user_id': rental.user.id,
+                    'username': rental.user.username,
+                    'rental_date': rental.rental_date.isoformat(),
+                    'due_date': rental.due_date.isoformat(),
+                    'status': 'RENTED'
+                },
+                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+            )
+            
         elif rental_request.request_type == 'RETURN':
             # 현재 사용자의 해당 장비 대여 정보 검색
             try:
@@ -1115,6 +1153,25 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             equipment = rental_request.equipment
             equipment.status = 'AVAILABLE'
             equipment.save()
+            
+            # 장비 반납 이력 기록
+            EquipmentHistory.objects.create(
+                equipment=equipment,
+                action='RETURNED',
+                user=request.user,
+                old_value={
+                    'rental_id': rental.id,
+                    'user_id': rental.user.id,
+                    'username': rental.user.username,
+                    'status': 'RENTED'
+                },
+                new_value={
+                    'status': 'AVAILABLE',
+                    'return_date': rental.return_date.isoformat(),
+                    'returned_to': request.user.username if request.user.is_staff else None
+                },
+                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+            )
         
         rental_request.save()
         serializer = self.get_serializer(rental_request)
@@ -1227,6 +1284,22 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                 equipment.status = 'RENTED'
                 equipment.save()
                 
+                # 장비 대여 이력 기록
+                EquipmentHistory.objects.create(
+                    equipment=equipment,
+                    action='RENTED',
+                    user=request.user,
+                    new_value={
+                        'rental_id': rental.id,
+                        'user_id': rental.user.id,
+                        'username': rental.user.username,
+                        'rental_date': rental.rental_date.isoformat(),
+                        'due_date': rental.due_date.isoformat(),
+                        'status': 'RENTED'
+                    },
+                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+                )
+                
             elif rental_request.request_type == 'RETURN':
                 # 중복된 대여 기록 정리 후 가장 최근 대여 정보 검색
                 rentals = Rental.objects.filter(
@@ -1259,6 +1332,25 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                 equipment = rental_request.equipment
                 equipment.status = 'AVAILABLE'
                 equipment.save()
+                
+                # 장비 반납 이력 기록
+                EquipmentHistory.objects.create(
+                    equipment=equipment,
+                    action='RETURNED',
+                    user=request.user,
+                    old_value={
+                        'rental_id': rental.id,
+                        'user_id': rental.user.id,
+                        'username': rental.user.username,
+                        'status': 'RENTED'
+                    },
+                    new_value={
+                        'status': 'AVAILABLE',
+                        'return_date': rental.return_date.isoformat(),
+                        'returned_to': request.user.username if request.user.is_staff else None
+                    },
+                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+                )
             
             rental_request.save()
             serializer = self.get_serializer(rental_request)
@@ -1491,6 +1583,8 @@ class EquipmentMacAddressViewSet(viewsets.ModelViewSet):
                     rental = Rental.objects.create(
                         user=user,
                         equipment=equipment,
+                        rental_date=timezone.now(),
+                        due_date=timezone.now() + timezone.timedelta(days=30),  # 30일 후 반납 예정
                         status='RENTED',
                         notes=f'MAC 주소({current_mac})를 통한 자동 대여'
                     )
@@ -1498,6 +1592,22 @@ class EquipmentMacAddressViewSet(viewsets.ModelViewSet):
                     # 장비 상태 업데이트
                     equipment.status = 'RENTED'
                     equipment.save()
+                    
+                    # 장비 대여 이력 기록
+                    EquipmentHistory.objects.create(
+                        equipment=equipment,
+                        action='RENTED',
+                        user=request.user,
+                        new_value={
+                            'rental_id': rental.id,
+                            'user_id': rental.user.id,
+                            'username': rental.user.username,
+                            'rental_date': rental.rental_date.isoformat(),
+                            'due_date': rental.due_date.isoformat(),
+                            'status': 'RENTED'
+                        },
+                        details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+                    )
                     
                     return Response({
                         'message': '로그인 및 장비 대여가 완료되었습니다.',

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "./ThemeProvider";
+import { ToastProvider } from "@/contexts/ToastContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -10,10 +12,6 @@ const fontClass = "font-sans";
 export const metadata: Metadata = {
   title: "부산소프트웨어마이스터고 정보 포털",
   description: "부산소프트웨어마이스터고 정보 시스템",
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/logo.png',
-  }
 };
 
 export default function RootLayout({
@@ -22,9 +20,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
-      <body className={inter.className}>
-        {children}
+    <html lang="ko" suppressHydrationWarning>
+      <body className={`${inter.className} bg-background text-foreground transition-colors duration-300`}>
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

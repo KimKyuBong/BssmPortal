@@ -18,6 +18,7 @@ class BroadcastHistorySerializer(serializers.ModelSerializer):
     broadcast_type_display = serializers.CharField(source='get_broadcast_type_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     audio_base64 = serializers.SerializerMethodField()
+    target_rooms = serializers.SerializerMethodField()
     
     class Meta:
         model = BroadcastHistory
@@ -25,16 +26,31 @@ class BroadcastHistorySerializer(serializers.ModelSerializer):
             'id', 'broadcast_type', 'broadcast_type_display', 'content', 
             'target_rooms', 'language', 'auto_off', 'status', 'status_display',
             'error_message', 'broadcasted_by_username', 'created_at', 'completed_at',
-            'audio_file', 'audio_base64'
+            'preview', 'audio_base64'
         ]
         read_only_fields = ['id', 'created_at', 'completed_at']
     
+    def get_target_rooms(self, obj):
+        """target_rooms를 안전하게 배열로 반환"""
+        if obj.target_rooms is None:
+            return []
+        if isinstance(obj.target_rooms, list):
+            return obj.target_rooms
+        if isinstance(obj.target_rooms, str):
+            try:
+                import json
+                return json.loads(obj.target_rooms)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
+    
     def get_audio_base64(self, obj):
         """오디오 파일이 있으면 base64로 인코딩하여 반환"""
-        if obj.audio_file and obj.audio_file.file:
+        # 프리뷰가 있고 프리뷰에 오디오 파일이 있는 경우
+        if obj.preview and obj.preview.audio_file and obj.preview.audio_file.file:
             try:
                 import base64
-                with obj.audio_file.file.open('rb') as f:
+                with obj.preview.audio_file.file.open('rb') as f:
                     audio_data = f.read()
                     return base64.b64encode(audio_data).decode('utf-8')
             except Exception as e:

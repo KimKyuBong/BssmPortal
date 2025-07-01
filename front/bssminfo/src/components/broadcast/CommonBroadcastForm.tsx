@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { broadcastService } from '../../services/broadcastService';
 import { DeviceMatrix } from '../../types/broadcast';
 import { Building, Send } from 'lucide-react';
+import { Card, Heading, Text, Button, Spinner } from '@/components/ui/StyledComponents';
 
 interface CommonBroadcastFormProps {
   children?: React.ReactNode;
@@ -67,7 +68,9 @@ export default function CommonBroadcastForm({
 
   // 전체 선택/해제
   const handleSelectAll = () => {
-    const allRoomIds = activeDevices.map(device => device.room_id.toString());
+    // 할당된 장치들만 필터링 (장치로 시작하지 않는 장치들)
+    const assignedDevices = activeDevices.filter(device => !device.device_name.startsWith('장치'));
+    const allRoomIds = assignedDevices.map(device => device.room_id.toString());
     setTargetRooms(allRoomIds);
   };
 
@@ -92,11 +95,11 @@ export default function CommonBroadcastForm({
   };
 
   return (
-    <div className="bg-white p-3 sm:p-6 rounded-lg shadow border">
+    <Card>
       {children}
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+        <div className="mb-4 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 text-sm">
           {error}
         </div>
       )}
@@ -106,45 +109,51 @@ export default function CommonBroadcastForm({
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 gap-2">
             <div className="flex items-center">
-              <Building className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 mr-2" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900">방송할 장치 선택</h3>
+              <Building className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500 dark:text-gray-400 mr-2" />
+              <Heading level={3} className="text-base sm:text-lg">방송할 장치 선택</Heading>
             </div>
             <div className="flex gap-2">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handleSelectAll}
-                className="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                className="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
               >
                 전체 선택
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handleDeselectAll}
-                className="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                className="px-2 py-1 sm:px-3 sm:py-1 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
               >
                 전체 해제
-              </button>
+              </Button>
             </div>
           </div>
 
           {isLoadingMatrix ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="mt-2 text-gray-500">장치 정보를 불러오는 중...</p>
+              <Spinner size="lg" className="mx-auto" />
+              <Text className="mt-2 text-gray-500 dark:text-gray-400">장치 정보를 불러오는 중...</Text>
             </div>
           ) : matrixError ? (
             <div className="text-center py-8">
-              <p className="text-red-500">{matrixError}</p>
-              <button
+              <Text className="text-red-500 dark:text-red-400">{matrixError}</Text>
+              <Button
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={loadDeviceMatrix}
-                className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                className="mt-2"
               >
                 다시 시도
-              </button>
+              </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 max-h-96 overflow-y-auto border rounded-lg p-2 sm:p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-2 sm:p-4 bg-gray-50 dark:bg-gray-900">
               {activeDevices
                 .filter(device => !device.device_name.startsWith('장치'))
                 .map((device) => (
@@ -155,7 +164,7 @@ export default function CommonBroadcastForm({
                     className={`p-2 sm:p-3 border rounded-lg flex flex-col items-center justify-center transition-colors min-h-[60px] sm:min-h-[80px] ${
                       targetRooms.includes(device.room_id.toString())
                         ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                     title={device.device_name}
                   >
@@ -173,39 +182,33 @@ export default function CommonBroadcastForm({
 
         {/* 선택된 장치 표시 */}
         {targetRooms.length > 0 && (
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
             <div className="flex items-center">
               <div className="h-4 w-4 text-blue-500 mr-2">✓</div>
-              <span className="text-sm text-blue-800">
+              <Text className="text-sm text-blue-800 dark:text-blue-300">
                 선택된 장치: {targetRooms.length}개
-              </span>
+              </Text>
             </div>
-            <div className="mt-1 text-xs text-blue-600">
+            <Text className="mt-1 text-xs text-blue-600 dark:text-blue-400">
               {targetRooms.map(roomId => {
                 const device = activeDevices.find(d => d.room_id.toString() === roomId);
                 return device ? `${device.device_name} (${device.room_id})` : roomId;
               }).join(', ')}
-            </div>
+            </Text>
           </div>
-        )}
-
-        {targetRooms.length === 0 && (
-          <p className="mt-2 text-sm text-gray-500">
-            장치를 선택하지 않으면 모든 활성화된 장치에 방송됩니다.
-          </p>
         )}
 
         {/* 전송 버튼 */}
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
-            disabled={loading || targetRooms.length === 0}
-            className="w-full sm:w-auto flex justify-center items-center px-4 sm:px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+            disabled={loading}
+            className="flex items-center"
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                전송 중...
+                <Spinner size="sm" className="mr-2" />
+                처리 중...
               </>
             ) : (
               <>
@@ -213,9 +216,9 @@ export default function CommonBroadcastForm({
                 {submitText || '방송 전송'}
               </>
             )}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 } 

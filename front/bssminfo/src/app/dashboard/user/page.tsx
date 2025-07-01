@@ -10,6 +10,8 @@ import Link from 'next/link';
 import { User as UserIcon, LogOut, Mail, Key, Calendar, Package, NetworkIcon, Users, Shield, Database, Laptop, Server, HardDrive, Cpu, BarChart } from 'lucide-react';
 import api from '@/services/api';
 import type { Equipment, Rental, RentalRequest } from '@/services/api';
+import DeviceTable from '@/components/ui/DeviceTable';
+import { formatDateToKorean } from '@/utils/dateUtils';
 
 // Device 타입 확장
 interface ExtendedDevice extends Device {
@@ -137,131 +139,83 @@ export default function UserDashboard() {
   
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* 메인 콘텐츠 */}
       <div className="max-w-7xl mx-auto">
         {/* 사용자 정보 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-medium text-gray-900 mb-4">내 정보</h2>
-          
-          {user && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-4">
-                    <UserIcon className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">이름</p>
-                    <p className="font-medium text-gray-900">{user.username}</p>
-                  </div>
+        <div className="card mb-6">
+          <h2 className="text-xl font-medium text-primary mb-4">내 정보</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-medium text-secondary mb-2">기본 정보</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-secondary">아이디:</span>
+                  <p className="font-medium text-primary">{user.username}</p>
                 </div>
-                
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mr-4">
-                    <Key className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">아이디</p>
-                    <p className="font-medium text-gray-900">{user.username}</p>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-secondary">이름:</span>
+                  <p className="font-medium text-primary">{user.username}</p>
                 </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 mr-4">
-                    <Mail className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">이메일</p>
-                    <p className="font-medium text-gray-900">{user.email || '등록된 이메일이 없습니다.'}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 mr-4">
-                    <Calendar className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">가입일</p>
-                    <p className="font-medium text-gray-900">{user.date_joined ? new Date(user.date_joined).toLocaleDateString() : '-'}</p>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-secondary">권한:</span>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    user.is_superuser ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                    user.is_staff ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}>
+                    {user.is_superuser ? '관리자' : user.is_staff ? '교사' : '학생'}
+                  </span>
                 </div>
               </div>
             </div>
-          )}
+            <div>
+              <h3 className="text-lg font-medium text-secondary mb-2">연락처 정보</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-secondary">이메일:</span>
+                  <p className="font-medium text-primary">{user.email || '등록된 이메일이 없습니다.'}</p>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-secondary">가입일:</span>
+                  <p className="font-medium text-primary">{user.date_joined ? formatDateToKorean(user.date_joined) : '-'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* 발급받은 IP 정보 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="card mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-gray-900">발급받은 IP</h2>
+            <h2 className="text-xl font-medium text-primary">발급받은 IP</h2>
             <Link 
-              href="/dashboard/user/my-devices" 
-              className="text-sm text-blue-600 hover:text-blue-800"
+              href="/dashboard/user/my-ips" 
+              className="link text-sm"
             >
               전체 보기 &rarr;
             </Link>
           </div>
           
           {devices.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      장치 이름
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      MAC 주소
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      IP 주소
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      상태
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {devices.map((device) => (
-                    <tr key={device.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {device.device_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {device.mac_address}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {device.assigned_ip || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          device.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {device.is_active ? '활성' : '비활성'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DeviceTable
+              devices={devices}
+              showActions={false}
+            />
           ) : (
-            <div className="text-center py-4 text-gray-500">
+            <div className="text-center py-4 text-muted">
               <NetworkIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
               <p>등록된 IP가 없습니다.</p>
               <Link 
-                href="/dashboard/user/my-devices" 
-                className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+                href="/dashboard/user/my-ips" 
+                className="link mt-2 inline-block text-sm"
               >
                 IP 관리로 이동
               </Link>
@@ -270,12 +224,12 @@ export default function UserDashboard() {
         </div>
         
         {/* 대여한 장비 현황 */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="card mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-gray-900">대여한 장비 현황</h2>
+            <h2 className="text-xl font-medium text-primary">대여한 장비 현황</h2>
             <Link 
               href="/dashboard/user/rentals" 
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="link text-sm"
             >
               전체 보기 &rarr;
             </Link>
@@ -283,39 +237,38 @@ export default function UserDashboard() {
           
           {rentals.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="table">
+                <thead>
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col">
                       장비명
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col">
                       대여일
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col">
                       반납 예정일
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col">
                       상태
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody>
                   {rentals.map((rental) => (
                     <tr key={rental.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="whitespace-nowrap text-sm font-medium text-primary">
                         {rental.equipment.asset_number}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(rental.rental_date).toLocaleDateString()}
+                      <td className="whitespace-nowrap text-sm text-secondary">
+                        {rental.rental_date ? formatDateToKorean(rental.rental_date) : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(rental.due_date).toLocaleDateString()}
+                      <td className="whitespace-nowrap text-sm text-secondary">
+                        {rental.due_date ? formatDateToKorean(rental.due_date) : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          rental.status === 'RENTED' ? 'bg-green-100 text-green-800' : 
-                          'bg-gray-100 text-gray-800'
+                          rental.status === 'RENTED' ? 'status-completed' : 'status-pending'
                         }`}>
                           {rental.status === 'RENTED' ? '대여 중' : rental.status_display}
                         </span>
@@ -326,12 +279,12 @@ export default function UserDashboard() {
               </table>
             </div>
           ) : (
-            <div className="text-center py-4 text-gray-500">
+            <div className="text-center py-4 text-muted">
               <Package className="w-12 h-12 text-gray-300 mx-auto mb-2" />
               <p>대여한 장비가 없습니다.</p>
               <Link 
                 href="/dashboard/user/rentals" 
-                className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+                className="link mt-2 inline-block text-sm"
               >
                 장비 대여 페이지로 이동
               </Link>
@@ -342,25 +295,25 @@ export default function UserDashboard() {
         {/* 관리 메뉴 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <Link 
-            href="/dashboard/user/my-devices"
-            className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
+            href="/dashboard/user/my-ips"
+            className="card-hover"
           >
             <Laptop className="w-8 h-8 text-blue-500 mr-4" />
             <div>
-              <h2 className="text-lg font-medium text-gray-900">내 IP 관리</h2>
-              <p className="text-sm text-gray-500">내 기기 등록 및 IP 관리</p>
+              <h2 className="text-lg font-medium text-primary">내 IP 관리</h2>
+              <p className="text-sm text-secondary">내 기기 등록 및 IP 관리</p>
             </div>
           </Link>
           
           {isAdmin && (
             <Link 
-              href="/dashboard/admin"
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 flex items-center"
+              href="/dashboard/admin/users"
+              className="card-hover"
             >
               <Shield className="w-8 h-8 text-purple-500 mr-4" />
               <div>
-                <h2 className="text-lg font-medium text-gray-900">관리자 페이지</h2>
-                <p className="text-sm text-gray-500">계정 현황 및 시스템 설정</p>
+                <h2 className="text-lg font-medium text-primary">관리자 페이지</h2>
+                <p className="text-sm text-secondary">계정 현황 및 시스템 설정</p>
               </div>
             </Link>
           )}
@@ -368,11 +321,11 @@ export default function UserDashboard() {
         
         {/* 시스템 상태 - 관리자만 볼 수 있음 */}
         {isAdmin && systemStatus && (
-          <div className="bg-white shadow rounded-lg p-6 mb-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">시스템 상태</h2>
+          <div className="card mb-8">
+            <h2 className="text-lg font-medium text-primary mb-4">시스템 상태</h2>
             
             {error && (
-              <div className="p-4 bg-red-50 text-red-700 rounded-lg mb-4">
+              <div className="p-4 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg mb-4">
                 {error}
               </div>
             )}
@@ -383,45 +336,45 @@ export default function UserDashboard() {
                   <div className={`w-3 h-3 rounded-full mr-2 ${
                     systemStatus.status.includes('정상') ? 'bg-green-500' : 'bg-red-500'
                   }`}></div>
-                  <p className="text-gray-700 font-medium">{systemStatus.status}</p>
-                  <p className="text-gray-500 text-sm ml-4">마지막 업데이트: {new Date(systemStatus.timestamp).toLocaleString()}</p>
+                  <p className="text-secondary font-medium">{systemStatus.status}</p>
+                  <p className="text-muted text-sm ml-4">마지막 업데이트: {new Date(systemStatus.timestamp).toLocaleString()}</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   {/* CPU 사용량 */}
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
                     <div className="flex items-center mb-2">
                       <Cpu className="w-5 h-5 text-blue-500 mr-2" />
-                      <h3 className="text-md font-medium text-gray-700">CPU 사용량</h3>
+                      <h3 className="text-md font-medium text-secondary">CPU 사용량</h3>
                     </div>
-                    <p className="text-2xl font-bold text-blue-600">{systemStatus.details.cpu}</p>
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{systemStatus.details.cpu}</p>
                   </div>
                   
                   {/* 메모리 사용량 */}
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
                     <div className="flex items-center mb-2">
                       <BarChart className="w-5 h-5 text-green-500 mr-2" />
-                      <h3 className="text-md font-medium text-gray-700">메모리 사용량</h3>
+                      <h3 className="text-md font-medium text-secondary">메모리 사용량</h3>
                     </div>
-                    <p className="text-2xl font-bold text-green-600">{systemStatus.details.memory}</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{systemStatus.details.memory}</p>
                   </div>
                   
                   {/* 디스크 사용량 */}
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
                     <div className="flex items-center mb-2">
                       <HardDrive className="w-5 h-5 text-yellow-500 mr-2" />
-                      <h3 className="text-md font-medium text-gray-700">디스크 사용량</h3>
+                      <h3 className="text-md font-medium text-secondary">디스크 사용량</h3>
                     </div>
-                    <p className="text-2xl font-bold text-yellow-600">{systemStatus.details.disk}</p>
+                    <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{systemStatus.details.disk}</p>
                   </div>
                   
                   {/* 네트워크 상태 */}
-                  <div className="border rounded-lg p-4">
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
                     <div className="flex items-center mb-2">
                       <Server className="w-5 h-5 text-purple-500 mr-2" />
-                      <h3 className="text-md font-medium text-gray-700">네트워크 상태</h3>
+                      <h3 className="text-md font-medium text-secondary">네트워크 상태</h3>
                     </div>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                       {systemStatus.details.network === 'online' ? '정상' : '오프라인'}
                     </p>
                   </div>
@@ -429,35 +382,47 @@ export default function UserDashboard() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* 시스템 로드 */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-md font-medium text-gray-700 mb-2">시스템 로드</h3>
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
+                    <h3 className="text-md font-medium text-secondary mb-2">시스템 로드</h3>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <p className="text-sm text-gray-500">1분</p>
-                        <p className="font-medium">{systemStatus.details.load_avg['1min'].toFixed(2)}</p>
+                        <p className="text-sm text-muted">1분</p>
+                        <p className="font-medium text-primary">
+                          {systemStatus.details.load_avg?.['1min'] !== undefined 
+                            ? systemStatus.details.load_avg['1min'].toFixed(2) 
+                            : 'N/A'}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">5분</p>
-                        <p className="font-medium">{systemStatus.details.load_avg['5min'].toFixed(2)}</p>
+                        <p className="text-sm text-muted">5분</p>
+                        <p className="font-medium text-primary">
+                          {systemStatus.details.load_avg?.['5min'] !== undefined 
+                            ? systemStatus.details.load_avg['5min'].toFixed(2) 
+                            : 'N/A'}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">15분</p>
-                        <p className="font-medium">{systemStatus.details.load_avg['15min'].toFixed(2)}</p>
+                        <p className="text-sm text-muted">15분</p>
+                        <p className="font-medium text-primary">
+                          {systemStatus.details.load_avg?.['15min'] !== undefined 
+                            ? systemStatus.details.load_avg['15min'].toFixed(2) 
+                            : 'N/A'}
+                        </p>
                       </div>
                     </div>
                   </div>
                   
                   {/* 기타 정보 */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-md font-medium text-gray-700 mb-2">기타 정보</h3>
+                  <div className="border rounded-lg p-4 dark:border-gray-600">
+                    <h3 className="text-md font-medium text-secondary mb-2">기타 정보</h3>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-sm text-gray-500">활성 프로세스</p>
-                        <p className="font-medium">{systemStatus.details.active_processes}</p>
+                        <p className="text-sm text-muted">활성 프로세스</p>
+                        <p className="font-medium text-primary">{systemStatus.details.active_processes}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">부팅 시간</p>
-                        <p className="font-medium text-xs">{systemStatus.details.boot_time}</p>
+                        <p className="text-sm text-muted">부팅 시간</p>
+                        <p className="font-medium text-primary text-xs">{systemStatus.details.boot_time}</p>
                       </div>
                     </div>
                   </div>

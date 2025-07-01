@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog } from '@headlessui/react';
+import { Modal, Heading, Text, Input, Button } from '@/components/ui/StyledComponents';
 
 interface ResetPasswordModalProps {
   isOpen: boolean;
@@ -37,62 +37,54 @@ export default function ResetPasswordModal({ isOpen, onClose, onSubmit, username
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      className="fixed inset-0 z-10 overflow-y-auto"
-    >
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="fixed inset-0 bg-black opacity-30" />
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <Heading level={3} className="mb-4">
+        {username}의 비밀번호 초기화
+      </Heading>
 
-        <div className="relative bg-white rounded-lg max-w-md w-full mx-4 p-6">
-          <Dialog.Title className="text-lg font-medium text-gray-900 mb-4">
-            {username}의 비밀번호 초기화
-          </Dialog.Title>
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                새 비밀번호
-              </label>
-              <div className="flex space-x-2">
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 placeholder-gray-500"
-                  placeholder="새 비밀번호를 입력하세요"
-                />
-                <button
-                  type="button"
-                  onClick={generateRandomPassword}
-                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                >
-                  랜덤 생성
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isLoading ? '처리 중...' : '확인'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <Text className="block text-sm font-medium text-gray-700 mb-1">
+            새 비밀번호
+          </Text>
+          <div className="flex space-x-2">
+            <Input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="새 비밀번호를 입력하세요"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={generateRandomPassword}
+              size="sm"
+            >
+              랜덤 생성
+            </Button>
+          </div>
         </div>
-      </div>
-    </Dialog>
+
+        <div className="flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onClose}
+            size="sm"
+          >
+            취소
+          </Button>
+          <Button
+            type="submit"
+            disabled={isLoading}
+            size="sm"
+          >
+            {isLoading ? '처리 중...' : '확인'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 } 

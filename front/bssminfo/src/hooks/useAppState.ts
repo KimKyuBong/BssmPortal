@@ -11,8 +11,28 @@ export const useAppState = () => {
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // 사이드바 상태 초기화 (로컬 스토리지에서 복원하거나 기본값 사용)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarOpen');
+      if (saved !== null) {
+        return JSON.parse(saved);
+      }
+      // 기본값: 데스크톱에서는 열린 상태, 모바일에서는 닫힌 상태
+      return window.innerWidth >= 1024;
+    }
+    return true; // SSR 시 기본값
+  });
+  
   const [error, setError] = useState<string | null>(null);
+
+  // 사이드바 상태를 로컬 스토리지에 저장
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebarOpen', JSON.stringify(sidebarOpen));
+    }
+  }, [sidebarOpen]);
 
   // 경로 활성화 상태 확인 함수
   const isActive = useCallback((href: string, currentPath: string) => {
@@ -26,7 +46,7 @@ export const useAppState = () => {
       return currentPath === '/dashboard/admin' || currentPath === '/dashboard/admin/';
     }
     
-    // 메인 경로(/dashboard/user)와 하위 경로(/dashboard/user/my-devices)를 명확히 구분
+    // 메인 경로(/dashboard/user)와 하위 경로(/dashboard/user/my-ips)를 명확히 구분
     if (href === '/dashboard/user') {
       return currentPath === '/dashboard/user' || currentPath === '/dashboard/user/';
     }
@@ -99,7 +119,7 @@ export const useAppState = () => {
 
   // 사이드바 토글
   const toggleSidebar = useCallback(() => {
-    setSidebarOpen(prev => !prev);
+    setSidebarOpen((prev: boolean) => !prev);
   }, []);
 
   // 컴포넌트 마운트 시 사용자 정보 가져오기

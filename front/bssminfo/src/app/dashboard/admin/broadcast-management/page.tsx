@@ -3,6 +3,20 @@
 import React, { useEffect, useState } from "react";
 import { broadcastService } from "@/services/broadcastService";
 import { BroadcastHistory, PreviewListItem } from "@/types/broadcast";
+import { 
+  Volume2, 
+  MessageSquare, 
+  History, 
+  Eye, 
+  Play, 
+  Pause, 
+  RefreshCw, 
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  User,
+  Activity
+} from "lucide-react";
 
 export default function BroadcastManagementPage() {
   const [history, setHistory] = useState<BroadcastHistory[]>([]);
@@ -11,6 +25,7 @@ export default function BroadcastManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'history' | 'previews'>('history');
 
   useEffect(() => {
     fetchData();
@@ -70,42 +85,182 @@ export default function BroadcastManagementPage() {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <span className="broadcast-status broadcast-status-completed">완료</span>;
+      case 'failed':
+        return <span className="broadcast-status broadcast-status-failed">실패</span>;
+      case 'pending':
+        return <span className="broadcast-status broadcast-status-pending">대기중</span>;
+      default:
+        return <span className="broadcast-status bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">{status}</span>;
+    }
+  };
+
+  const getBroadcastTypeIcon = (type: string) => {
+    switch (type) {
+      case 'text':
+        return <MessageSquare className="broadcast-icon-small text-blue-500" />;
+      case 'audio':
+        return <Volume2 className="broadcast-icon-small text-purple-500" />;
+      default:
+        return <MessageSquare className="broadcast-icon-small text-gray-500" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <div className="page-content">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">방송관리 (어드민)</h1>
-        {error && <div className="text-red-500 mb-4">{error}</div>}
-        {loading ? (
-          <div>로딩중...</div>
-        ) : (
-          <>
-            <section className="mb-10">
-              <h2 className="text-xl font-semibold mb-2">방송 이력 전체</h2>
-              <div className="bg-white shadow rounded-lg p-4">
-                <table className="w-full text-sm">
+    <div className="page-container">
+      <div className="page-content">
+        {/* 헤더 섹션 */}
+        <div className="page-header">
+          <div className="page-header-flex">
+            <div>
+              <h1 className="page-title">방송 관리 시스템</h1>
+              <p className="page-subtitle">전체 방송 이력 및 프리뷰 관리</p>
+            </div>
+            
+            {/* 통계 정보 */}
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <History className="icon text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">총 방송</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{history.length}회</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Eye className="icon text-purple-500" />
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">프리뷰</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{previews.length}개</p>
+                </div>
+              </div>
+              <button
+                onClick={fetchData}
+                className="btn btn-secondary flex items-center"
+              >
+                <RefreshCw className="icon-small mr-2" />
+                새로고침
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="error-message">
+            <div className="error-content">
+              <AlertCircle className="icon text-red-500 mr-3" />
+              <span className="error-text">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* 탭 네비게이션 */}
+        <div className="card p-0 mb-8">
+          <nav className="flex space-x-1 p-2">
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`tab flex-1 py-3 px-4 flex items-center justify-center ${
+                activeTab === 'history' ? 'tab-active' : 'tab-inactive'
+              }`}
+            >
+              <History className="icon-small mr-2" />
+              <span className="font-medium">방송 이력</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('previews')}
+              className={`tab flex-1 py-3 px-4 flex items-center justify-center ${
+                activeTab === 'previews' ? 'tab-active' : 'tab-inactive'
+              }`}
+            >
+              <Eye className="icon-small mr-2" />
+              <span className="font-medium">프리뷰</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* 탭 컨텐츠 */}
+        <div className="broadcast-card">
+          {activeTab === 'history' && (
+            <div>
+              <div className="flex items-center mb-6">
+                <History className="broadcast-icon-large text-blue-500 mr-3" />
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">전체 방송 이력</h2>
+                  <p className="text-gray-600 dark:text-gray-400">모든 사용자의 방송 이력을 확인합니다</p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>타입</th>
-                      <th>내용</th>
-                      <th>방송자</th>
-                      <th>상태</th>
-                      <th>생성일</th>
-                      <th>오디오</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">타입</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">내용</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">방송자</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">상태</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">생성일</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">오디오</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.map((item) => (
-                      <tr key={item.id} className="border-t">
-                        <td>{item.broadcast_type_display}</td>
-                        <td>{item.content}</td>
-                        <td>{item.broadcasted_by_username}</td>
-                        <td>{item.status_display}</td>
-                        <td>{item.created_at}</td>
-                        <td>
+                      <tr key={item.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            {getBroadcastTypeIcon(item.broadcast_type)}
+                            <span className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
+                              {item.broadcast_type_display}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="text-sm text-gray-900 dark:text-white max-w-xs truncate">{item.content}</p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            <User className="broadcast-icon-small text-gray-500 mr-2" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{item.broadcasted_by_username}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(item.status)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            <Clock className="broadcast-icon-small text-gray-500 mr-2" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{formatDate(item.created_at)}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
                           {item.audio_file?.download_url ? (
-                            <audio controls src={item.audio_file.download_url} />
+                            <audio controls className="h-8" src={item.audio_file.download_url} />
                           ) : (
-                            "-"
+                            <span className="text-sm text-gray-500">-</span>
                           )}
                         </td>
                       </tr>
@@ -113,48 +268,98 @@ export default function BroadcastManagementPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
-            <section>
-              <h2 className="text-xl font-semibold mb-2">생성된 프리뷰 전체</h2>
-              <div className="bg-white shadow rounded-lg p-4">
-                <table className="w-full text-sm">
+            </div>
+          )}
+
+          {activeTab === 'previews' && (
+            <div>
+              <div className="flex items-center mb-6">
+                <Eye className="broadcast-icon-large text-purple-500 mr-3" />
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">프리뷰 관리</h2>
+                  <p className="text-gray-600 dark:text-gray-400">생성된 모든 프리뷰를 확인하고 관리합니다</p>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
                   <thead>
-                    <tr>
-                      <th>프리뷰ID</th>
-                      <th>타입</th>
-                      <th>상태</th>
-                      <th>생성일</th>
-                      <th>예상길이</th>
-                      <th>오디오</th>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">프리뷰ID</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">타입</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">상태</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">생성일</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">예상길이</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">오디오</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previews.map((item) => (
-                      <tr key={item.preview_id} className="border-t">
-                        <td>{item.preview_id}</td>
-                        <td>{item.job_type === 'text' ? '텍스트' : '오디오'}</td>
-                        <td>{item.status}</td>
-                        <td>{item.created_at}</td>
-                        <td>{item.estimated_duration}s</td>
-                        <td>
-                          <button
-                            className={`px-2 py-1 rounded ${playingPreviewId === item.preview_id ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
-                            onClick={() => handlePlayPreview(item.preview_id)}
-                          >
-                            {playingPreviewId === item.preview_id ? '정지' : '오디오 재생'}
-                          </button>
-                          {playingPreviewId === item.preview_id && audioUrl && (
-                            <audio controls autoPlay src={audioUrl} onEnded={() => setPlayingPreviewId(null)} />
-                          )}
+                      <tr key={item.preview_id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-mono text-gray-900 dark:text-white">{item.preview_id}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            {getBroadcastTypeIcon(item.job_type)}
+                            <span className="ml-2 text-sm font-medium text-gray-900 dark:text-white">
+                              {item.job_type === 'text' ? '텍스트' : '오디오'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {getStatusBadge(item.status)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center">
+                            <Clock className="broadcast-icon-small text-gray-500 mr-2" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{formatDate(item.created_at)}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{item.estimated_duration}s</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handlePlayPreview(item.preview_id)}
+                              className={`broadcast-button ${
+                                playingPreviewId === item.preview_id 
+                                  ? 'broadcast-button-primary' 
+                                  : 'broadcast-button-secondary'
+                              } flex items-center`}
+                            >
+                              {playingPreviewId === item.preview_id ? (
+                                <>
+                                  <Pause className="broadcast-icon-small mr-1" />
+                                  정지
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="broadcast-icon-small mr-1" />
+                                  재생
+                                </>
+                              )}
+                            </button>
+                            {playingPreviewId === item.preview_id && audioUrl && (
+                              <audio 
+                                controls 
+                                autoPlay 
+                                className="h-8" 
+                                src={audioUrl} 
+                                onEnded={() => setPlayingPreviewId(null)} 
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </section>
-          </>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { broadcastService } from '../../services/broadcastService';
 import { PreviewListItem } from '../../types/broadcast';
-import { Eye, Play, Pause, Volume2, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Eye, Play, Pause, Volume2, Clock, CheckCircle, XCircle, AlertCircle, MessageSquare } from 'lucide-react';
+import { Card, Heading, Text, Button, Spinner } from '@/components/ui/StyledComponents';
+import { useToastContext } from '@/contexts/ToastContext';
 
 export default function PreviewList() {
   const [previews, setPreviews] = useState<PreviewListItem[]>([]);
@@ -11,6 +13,7 @@ export default function PreviewList() {
   const [error, setError] = useState<string | null>(null);
   const [playingPreview, setPlayingPreview] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const { showError } = useToastContext();
 
   useEffect(() => {
     loadPreviews();
@@ -67,7 +70,7 @@ export default function PreviewList() {
       setAudioElement(audio);
     } catch (err) {
       console.error('프리뷰 재생 실패:', err);
-      alert('프리뷰 재생에 실패했습니다.');
+      showError('프리뷰 재생 실패', '프리뷰 재생에 실패했습니다.');
     }
   };
 
@@ -75,7 +78,7 @@ export default function PreviewList() {
     switch (status) {
       case 'ready':
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
-      case 'approved':
+      case '승인':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'rejected':
         return <XCircle className="h-4 w-4 text-red-500" />;
@@ -88,7 +91,7 @@ export default function PreviewList() {
     switch (status) {
       case 'ready':
         return '대기중';
-      case 'approved':
+      case '승인':
         return '승인됨';
       case 'rejected':
         return '거부됨';
@@ -117,41 +120,45 @@ export default function PreviewList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <Spinner size="lg" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <Card className="bg-red-50 border-red-200">
         <div className="flex items-center">
           <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
-          <span className="text-red-800">{error}</span>
+          <Text className="text-red-800">{error}</Text>
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">방송 프리뷰</h3>
-        <button
-          onClick={loadPreviews}
-          className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          새로고침
-        </button>
+      <div className="flex items-center justify-between mb-4">
+        <Heading level={3}>방송 프리뷰</Heading>
+        <div className="flex items-center space-x-2">
+          <Button
+            onClick={loadPreviews}
+            size="sm"
+          >
+            새로고침
+          </Button>
+        </div>
       </div>
 
       {previews.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          프리뷰가 없습니다.
-        </div>
+        <Card>
+          <Text className="text-center py-8 text-gray-500 dark:text-gray-400">
+            프리뷰가 없습니다.
+          </Text>
+        </Card>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
+        <Card>
+          <ul className="divide-y divide-gray-200 dark:divide-gray-700">
             {previews.map((preview) => (
               <li key={preview.preview_id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
@@ -159,9 +166,9 @@ export default function PreviewList() {
                     <Eye className="h-5 w-5 text-blue-500" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-2">
-                        <p className="text-sm font-medium text-gray-900">
+                        <Text className="text-sm font-medium text-gray-900 dark:text-white">
                           {preview.job_type === 'text' ? '텍스트 방송' : '오디오 방송'}
-                        </p>
+                        </Text>
                         {getStatusIcon(preview.status)}
                       </div>
                       <div className="flex items-center space-x-4 mt-1 text-xs text-gray-500">
@@ -188,9 +195,10 @@ export default function PreviewList() {
                     }`}>
                       {getStatusText(preview.status)}
                     </span>
-                    <button
+                    <Button
                       onClick={() => handlePlayPreview(preview.preview_id)}
-                      className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      variant="secondary"
+                      size="sm"
                     >
                       {playingPreview === preview.preview_id ? (
                         <>
@@ -203,13 +211,13 @@ export default function PreviewList() {
                           재생
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
-        </div>
+        </Card>
       )}
     </div>
   );

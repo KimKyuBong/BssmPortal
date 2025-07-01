@@ -81,7 +81,7 @@ class BroadcastHistory(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="상태")
     error_message = models.TextField(blank=True, null=True, verbose_name="오류 메시지")
     external_response = models.JSONField(blank=True, null=True, verbose_name="외부 API 응답")
-    audio_file = models.ForeignKey(AudioFile, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="방송 오디오 파일")
+    preview = models.ForeignKey('BroadcastPreview', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="프리뷰")
     broadcasted_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="방송자")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="완료일")

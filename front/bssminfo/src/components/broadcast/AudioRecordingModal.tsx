@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { X, Mic, Square, Play, Pause, RotateCcw, Check } from 'lucide-react';
+import Modal from '../ui/Modal';
 
 interface AudioRecordingModalProps {
   open: boolean;
@@ -230,175 +231,163 @@ export default function AudioRecordingModal({
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <Mic className="h-5 w-5 mr-2 text-blue-500" />
-            오디오 녹음
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
+    <Modal
+      isOpen={open}
+      onClose={handleClose}
+      title="오디오 녹음"
+      size="md"
+    >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-800 text-sm">{error}</p>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        {/* 녹음 상태 표시 */}
+        <div className="text-center">
+          {isRecording && (
+            <div className="flex items-center justify-center text-red-600 mb-2">
+              <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
+              <span className="font-medium">녹음 중...</span>
+            </div>
+          )}
+          <div className="text-2xl font-mono text-gray-900">
+            {formatTime(isRecording ? recordingTime : (audioDuration || 0))}
+          </div>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-800 text-sm">{error}</p>
+        {/* 녹음 컨트롤 */}
+        {!recordedBlob && (
+          <div className="space-y-4">
+            {/* 오디오 설정 */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">음질 설정</h3>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={audioSettings.echoCancellation}
+                    onChange={(e) => setAudioSettings(prev => ({
+                      ...prev,
+                      echoCancellation: e.target.checked
+                    }))}
+                    className="mr-2 rounded"
+                  />
+                  <span className="text-sm text-gray-700">에코 제거</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={audioSettings.noiseSuppression}
+                    onChange={(e) => setAudioSettings(prev => ({
+                      ...prev,
+                      noiseSuppression: e.target.checked
+                    }))}
+                    className="mr-2 rounded"
+                  />
+                  <span className="text-sm text-gray-700">노이즈 제거</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={audioSettings.autoGainControl}
+                    onChange={(e) => setAudioSettings(prev => ({
+                      ...prev,
+                      autoGainControl: e.target.checked
+                    }))}
+                    className="mr-2 rounded"
+                  />
+                  <span className="text-sm text-gray-700">자동 볼륨 조절</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                모든 옵션을 끄면 원음에 가까운 녹음이 됩니다.
+              </p>
+            </div>
+
+            {/* 녹음 버튼 */}
+            <div className="flex justify-center">
+              {!isRecording ? (
+                <button
+                  onClick={startRecording}
+                  className="flex items-center px-6 py-3 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                >
+                  <Mic className="h-5 w-5 mr-2" />
+                  녹음 시작
+                </button>
+              ) : (
+                <button
+                  onClick={stopRecording}
+                  className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                >
+                  <Square className="h-5 w-5 mr-2" />
+                  녹음 중지
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        <div className="space-y-6">
-          {/* 녹음 상태 표시 */}
-          <div className="text-center">
-            {isRecording && (
-              <div className="flex items-center justify-center text-red-600 mb-2">
-                <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
-                <span className="font-medium">녹음 중...</span>
-              </div>
-            )}
-            <div className="text-2xl font-mono text-gray-900">
-              {formatTime(isRecording ? recordingTime : (audioDuration || 0))}
-            </div>
-          </div>
-
-          {/* 녹음 컨트롤 */}
-          {!recordedBlob && (
-            <div className="space-y-4">
-              {/* 오디오 설정 */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">음질 설정</h3>
-                <div className="space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={audioSettings.echoCancellation}
-                      onChange={(e) => setAudioSettings(prev => ({
-                        ...prev,
-                        echoCancellation: e.target.checked
-                      }))}
-                      className="mr-2 rounded"
-                    />
-                    <span className="text-sm text-gray-700">에코 제거</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={audioSettings.noiseSuppression}
-                      onChange={(e) => setAudioSettings(prev => ({
-                        ...prev,
-                        noiseSuppression: e.target.checked
-                      }))}
-                      className="mr-2 rounded"
-                    />
-                    <span className="text-sm text-gray-700">노이즈 제거</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={audioSettings.autoGainControl}
-                      onChange={(e) => setAudioSettings(prev => ({
-                        ...prev,
-                        autoGainControl: e.target.checked
-                      }))}
-                      className="mr-2 rounded"
-                    />
-                    <span className="text-sm text-gray-700">자동 볼륨 조절</span>
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  모든 옵션을 끄면 원음에 가까운 녹음이 됩니다.
-                </p>
-              </div>
-
-              {/* 녹음 버튼 */}
-              <div className="flex justify-center">
-                {!isRecording ? (
-                  <button
-                    onClick={startRecording}
-                    className="flex items-center px-6 py-3 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
-                  >
-                    <Mic className="h-5 w-5 mr-2" />
-                    녹음 시작
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopRecording}
-                    className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-                  >
-                    <Square className="h-5 w-5 mr-2" />
-                    녹음 중지
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 녹음된 오디오 재생 */}
-          {recordedBlob && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center space-x-3">
-                <button
-                  onClick={togglePlayback}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                >
-                  {isPlaying ? (
-                    <>
-                      <Pause className="h-4 w-4 mr-2" />
-                      정지
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-4 w-4 mr-2" />
-                      재생
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={reRecord}
-                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  재녹음
-                </button>
-              </div>
-
-              <audio
-                ref={audioRef}
-                src={recordedUrl!}
-                onEnded={handleAudioEnded}
-                onLoadedMetadata={handleAudioLoadedMetadata}
-                className="w-full"
-              />
-            </div>
-          )}
-
-          {/* 액션 버튼 */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              취소
-            </button>
-            {recordedBlob && (
+        {/* 녹음된 오디오 재생 */}
+        {recordedBlob && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center space-x-3">
               <button
-                onClick={handleComplete}
+                onClick={togglePlayback}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               >
-                <Check className="h-4 w-4 mr-2" />
-                사용하기
+                {isPlaying ? (
+                  <>
+                    <Pause className="h-4 w-4 mr-2" />
+                    정지
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4 mr-2" />
+                    재생
+                  </>
+                )}
               </button>
-            )}
+              <button
+                onClick={reRecord}
+                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                재녹음
+              </button>
+            </div>
+
+            <audio
+              ref={audioRef}
+              src={recordedUrl!}
+              onEnded={handleAudioEnded}
+              onLoadedMetadata={handleAudioLoadedMetadata}
+              className="w-full"
+            />
           </div>
+        )}
+
+        {/* 액션 버튼 */}
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            취소
+          </button>
+          {recordedBlob && (
+            <button
+              onClick={handleComplete}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              사용하기
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 } 

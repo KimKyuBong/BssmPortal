@@ -17,6 +17,17 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'False'
 # 환경변수에서 허용된 호스트 가져오기
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else []
 
+# 한글 도메인과 punycode 도메인 추가
+ALLOWED_HOSTS.extend([
+    '정보포털.com',
+    'xn--on3bn7rslhcxc.com',
+    '정보포털.한국',
+    'xn--on3bn7rslhcxc.xn--3e0b707e',
+    'localhost',
+    '127.0.0.1',
+    '10.129.55.253',
+])
+
 # 앱 등록
 INSTALLED_APPS = [
     'django.contrib.admin',

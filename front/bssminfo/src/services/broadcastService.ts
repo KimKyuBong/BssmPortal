@@ -40,6 +40,10 @@ export const broadcastService = {
       formData.append('target_rooms', JSON.stringify(data.target_rooms));
     }
 
+    if (data.use_original) {
+      formData.append('use_original', data.use_original.toString());
+    }
+
     const response = await api.post(`${BASE_URL}/audio/`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -101,7 +105,13 @@ export const broadcastService = {
 
   // 방송 이력 상세 조회 (오디오 base64 포함)
   async getHistoryDetail(historyId: number): Promise<{ success: boolean; history: BroadcastHistory }> {
-    const response = await api.get(`${BASE_URL}/history/${historyId}/`);
+    const response = await api.get(`${BASE_URL}/history/${historyId}/detail/`);
+    return response.data;
+  },
+
+  // 방송 이력 삭제
+  async deleteHistory(historyId: number): Promise<{ success: boolean; message: string }> {
+    const response = await api.delete(`${BASE_URL}/history/${historyId}/`);
     return response.data;
   },
 
@@ -128,23 +138,19 @@ export const broadcastService = {
   // 프리뷰 오디오 파일 URL 생성
   async getPreviewAudioUrl(previewId: string): Promise<string> {
     try {
-      // 인증 토큰을 헤더로 전달하여 오디오 파일 가져오기
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-      const token = localStorage.getItem('access_token');
-      
-      const response = await fetch(`${baseUrl}/api/broadcast/preview/${previewId}.mp3`, {
+      // api 서비스를 사용하여 오디오 파일 가져오기
+      const response = await api.get(`/broadcast/preview/${previewId}.mp3`, {
+        responseType: 'blob',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Accept': 'audio/*'
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`오디오 파일을 가져올 수 없습니다: ${response.status}`);
+      if (response.success && response.data) {
+        return URL.createObjectURL(response.data);
+      } else {
+        throw new Error('오디오 파일을 가져올 수 없습니다.');
       }
-      
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
     } catch (error) {
       console.error('프리뷰 오디오 파일 가져오기 실패:', error);
       throw error;
@@ -196,10 +202,8 @@ export const broadcastService = {
   },
 
   // 방송 이력에서 오디오 파일 재사용
-  async reuseHistoryAudio(historyId: number): Promise<{ success: boolean; message: string; preview_info?: any }> {
-    const response = await api.post(`${BASE_URL}/history/`, {
-      history_id: historyId
-    });
+  async reuseHistoryAudio(historyId: number): Promise<{ success: boolean; message: string; status?: string; preview_info?: any }> {
+    const response = await api.post(`${BASE_URL}/history/${historyId}/reuse/`);
     return response.data;
   },
 }; 

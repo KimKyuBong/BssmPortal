@@ -1,5 +1,7 @@
 import os
 import datetime
+import zipfile
+import io
 from cryptography import x509
 from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
 from cryptography.hazmat.primitives import hashes, serialization
@@ -237,43 +239,31 @@ class CertificateManager:
             
             # PEM 형식으로 변환
             server_cert_pem = server_cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
-            server_key_pem = server_private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            ).decode('utf-8')
             
             # 만료일 계산
             expires_at = timezone.now() + datetime.timedelta(days=validity_days)
             
-            # 데이터베이스에 저장
+            # 데이터베이스에 저장 (개인키는 저장하지 않음)
             ssl_cert, created = SslCertificate.objects.update_or_create(
                 dns_record=dns_record,
                 defaults={
                     'domain': domain,
                     'certificate': server_cert_pem,
-                    'private_key': server_key_pem,
                     'certificate_chain': ca.certificate,
                     'status': '활성',
                     'expires_at': expires_at
                 }
             )
             
-            # 파일로도 저장
+            # 인증서 파일만 저장 (개인키는 저장하지 않음)
             cert_path = os.path.join(self.cert_dir, f'{domain}.crt')
-            key_path = os.path.join(self.key_dir, f'{domain}.key')
             chain_path = os.path.join(self.cert_dir, f'{domain}_chain.crt')
             
             with open(cert_path, 'w') as f:
                 f.write(server_cert_pem)
             
-            with open(key_path, 'w') as f:
-                f.write(server_key_pem)
-            
             with open(chain_path, 'w') as f:
                 f.write(server_cert_pem + ca.certificate)
-            
-            os.chmod(key_path, 0o600)
             
             logger.info(f"SSL 인증서 생성 완료: {domain} (유효기간: {validity_days}일)")
             return ssl_cert
@@ -292,10 +282,9 @@ class CertificateManager:
             # 파일 삭제
             domain = ssl_cert.domain
             cert_path = os.path.join(self.cert_dir, f'{domain}.crt')
-            key_path = os.path.join(self.key_dir, f'{domain}.key')
             chain_path = os.path.join(self.cert_dir, f'{domain}_chain.crt')
             
-            for path in [cert_path, key_path, chain_path]:
+            for path in [cert_path, chain_path]:
                 if os.path.exists(path):
                     os.remove(path)
             
@@ -357,4 +346,182 @@ def check_expiring_certificates(days_threshold=30):
 def renew_ssl_certificate(ssl_cert):
     """SSL 인증서 갱신 함수"""
     manager = CertificateManager()
-    return manager.renew_certificate(ssl_cert) 
+    return manager.renew_certificate(ssl_cert)
+
+def create_ssl_package(domain: str, dns_record: CustomDnsRecord) -> bytes:
+    """SSL 인증서 패키지를 ZIP 파일로 생성 (개인키는 임시 생성 후 즉시 삭제)"""
+    try:
+        # SSL 인증서 생성 또는 가져오기
+        ssl_cert = None
+        if hasattr(dns_record, 'ssl_certificate') and dns_record.ssl_certificate:
+            ssl_cert = dns_record.ssl_certificate
+            if ssl_cert.is_expired() or ssl_cert.status != '활성':
+                ssl_cert.delete()
+                ssl_cert = None
+        
+        if not ssl_cert:
+            ssl_cert = generate_ssl_certificate(domain, dns_record)
+        
+        # CA 인증서 가져오기
+        ca = CertificateAuthority.objects.filter(is_active=True).first()
+        if not ca:
+            raise Exception("CA 인증서를 찾을 수 없습니다.")
+        
+        # 개인키 임시 생성 (기존 인증서와 매칭되는 키)
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.hazmat.primitives import serialization
+        
+        # 기존 인증서에서 공개키 추출하여 개인키 재생성
+        cert = x509.load_pem_x509_certificate(ssl_cert.certificate.encode('utf-8'))
+        
+        # 새로운 개인키 생성 (매번 다르게)
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048,
+        )
+        
+        # 새로운 인증서 생성 (기존과 동일한 정보로)
+        ca_cert = x509.load_pem_x509_certificate(ca.certificate.encode('utf-8'))
+        ca_private_key = serialization.load_pem_private_key(
+            ca.private_key.encode('utf-8'),
+            password=None
+        )
+        
+        # 새로운 인증서 생성
+        new_cert = x509.CertificateBuilder().subject_name(
+            cert.subject
+        ).issuer_name(
+            ca_cert.subject
+        ).public_key(
+            private_key.public_key()
+        ).serial_number(
+            x509.random_serial_number()  # 새로운 시리얼 번호
+        ).not_valid_before(
+            datetime.datetime.utcnow()
+        ).not_valid_after(
+            datetime.datetime.utcnow() + datetime.timedelta(days=36500)  # 100년
+        ).add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(private_key.public_key()),
+            critical=False,
+        ).add_extension(
+            x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_private_key.public_key()),
+            critical=False,
+        ).add_extension(
+            x509.BasicConstraints(ca=False, path_length=None),
+            critical=True,
+        ).add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=True,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False,
+            ),
+            critical=True,
+        ).add_extension(
+            x509.ExtendedKeyUsage([
+                ExtendedKeyUsageOID.SERVER_AUTH,
+            ]),
+            critical=True,
+        ).add_extension(
+            x509.SubjectAlternativeName([
+                x509.DNSName(domain)
+            ]),
+            critical=False,
+        ).sign(ca_private_key, hashes.SHA256())
+        
+        # 개인키를 PEM 형식으로 변환
+        private_key_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode('utf-8')
+        
+        # ZIP 파일 생성
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # 새로운 서버 인증서
+            new_cert_pem = new_cert.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+            zip_file.writestr(f'{domain}_server.crt', new_cert_pem)
+            
+            # 임시 생성된 서버 개인키
+            zip_file.writestr(f'{domain}_server.key', private_key_pem)
+            
+            # CA 인증서
+            zip_file.writestr('bssm_root_ca.crt', ca.certificate)
+            
+            # nginx 설정 예시
+            nginx_config = f"""# {domain} SSL 설정 예시
+server {{
+    listen 443 ssl;
+    server_name {domain};
+    
+    ssl_certificate /path/to/{domain}_server.crt;
+    ssl_certificate_key /path/to/{domain}_server.key;
+    
+    # SSL 설정
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    
+    # 나머지 설정...
+    location / {{
+        root /var/www/html;
+        index index.html index.htm;
+    }}
+}}
+
+# HTTP에서 HTTPS로 리다이렉트
+server {{
+    listen 80;
+    server_name {domain};
+    return 301 https://$server_name$request_uri;
+}}
+"""
+            zip_file.writestr('nginx_ssl_example.conf', nginx_config)
+            
+            # 설치 가이드
+            install_guide = f"""# {domain} SSL 인증서 설치 가이드
+
+## ⚠️ 중요 안내
+이 패키지는 매번 다운로드할 때마다 새로운 개인키가 생성됩니다.
+이전에 다운로드한 개인키와는 다른 키이므로, 기존 설정을 업데이트해야 합니다.
+
+## 1. CA 인증서 설치 (브라우저 신뢰용)
+- bssm_root_ca.crt 파일을 더블클릭하여 브라우저에 설치
+- "신뢰할 수 있는 루트 인증 기관"으로 설치
+
+## 2. nginx 설정
+- {domain}_server.crt: 서버 인증서 (새로 생성됨)
+- {domain}_server.key: 서버 개인키 (새로 생성됨)
+- nginx_ssl_example.conf: 설정 예시 파일
+
+## 3. nginx 설정 적용
+1. 인증서 파일들을 안전한 위치에 복사
+2. nginx 설정 파일에 SSL 설정 추가
+3. nginx 재시작: sudo systemctl restart nginx
+
+## 4. 확인
+- https://{domain} 접속 테스트
+- 브라우저에서 보안 경고 없이 접속되는지 확인
+
+## 주의사항
+- 개인키 파일({domain}_server.key)은 절대 공개하지 마세요
+- 파일 권한을 적절히 설정하세요 (개인키: 600)
+- 이 패키지를 다시 다운로드하면 새로운 키가 생성됩니다
+"""
+            zip_file.writestr('INSTALL_GUIDE.txt', install_guide)
+        
+        # 개인키는 메모리에서 즉시 삭제 (Python 가비지 컬렉션)
+        del private_key
+        del private_key_pem
+        
+        return zip_buffer.getvalue()
+        
+    except Exception as e:
+        logger.error(f"SSL 패키지 생성 실패 ({domain}): {e}")
+        raise 

@@ -40,11 +40,64 @@ yarn install
 `.env.local` 파일을 생성하고 다음 내용을 추가합니다:
 
 ```
-# API 서버 URL
-NEXT_PUBLIC_API_URL=http://localhost:8000
+# API 서버 URL (백엔드 기본 주소만 설정, /api는 자동으로 추가됨)
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 
-# 백엔드 서버 URL (서버 사이드에서 사용)
-BACKEND_URL=http://localhost:8000
+### 백엔드 주소 변경 방법
+
+프론트엔드에서 백엔드 주소를 변경하는 방법은 여러 가지가 있습니다:
+
+#### 1. 환경 변수 파일 사용 (권장)
+
+`.env.local` 파일에서 `NEXT_PUBLIC_API_BASE_URL` 값을 변경:
+
+```bash
+# 로컬 개발용
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+
+# 서버용
+NEXT_PUBLIC_API_BASE_URL=http://10.1.0.13:8000
+
+# 다른 서버용
+NEXT_PUBLIC_API_BASE_URL=http://your-server-ip:8000
+```
+
+#### 2. package.json 스크립트 사용
+
+미리 정의된 스크립트를 사용하여 백엔드 주소를 변경:
+
+```bash
+# 로컬 백엔드 (localhost:8000)
+yarn dev:local
+
+# 서버 백엔드 (10.1.0.13:8000)
+yarn dev:server
+
+# 기본 설정 (환경 변수 파일 사용)
+yarn dev
+```
+
+#### 3. 커맨드 라인에서 직접 설정
+
+```bash
+# 로컬 백엔드
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 yarn dev
+
+# 서버 백엔드
+NEXT_PUBLIC_API_BASE_URL=http://10.1.0.13:8000 yarn dev
+
+# 다른 주소
+NEXT_PUBLIC_API_BASE_URL=http://your-custom-address:8000 yarn dev
+```
+
+#### 4. 배포 환경에서
+
+배포 시에는 Nginx 프록시 설정을 사용하므로 `/api` 경로를 사용합니다:
+
+```bash
+# 배포용 (Nginx 프록시 사용)
+NEXT_PUBLIC_API_BASE_URL=/api yarn build
 ```
 
 4. 개발 서버 실행
@@ -80,7 +133,7 @@ src/
 
 ## 백엔드 연동
 
-이 프론트엔드는 Django 백엔드 API와 통신합니다. 백엔드 서버는 기본적으로 `http://localhost:8000`에서 실행되어야 합니다. 다른 URL을 사용하는 경우 `.env.local` 파일에서 `NEXT_PUBLIC_API_URL`과 `BACKEND_URL` 값을 변경하세요.
+이 프론트엔드는 Django 백엔드 API와 통신합니다. 백엔드 서버는 기본적으로 `http://localhost:8000`에서 실행되어야 합니다. 다른 URL을 사용하는 경우 `.env.local` 파일에서 `NEXT_PUBLIC_API_BASE_URL` 값을 변경하세요.
 
 ### API 엔드포인트
 

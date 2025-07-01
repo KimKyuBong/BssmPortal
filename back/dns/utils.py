@@ -1,11 +1,20 @@
 import os
 import toml
 import re
+import asyncio
+import json
+import requests
 from typing import List, Tuple
 from .models import CustomDnsRecord
 import idna
 
+# EXTERNAL_PIHOLE_API 환경변수에서 주소를 받아 ws://[주소]:8000/ws/pihole/ 형태로 사용
+API_HOST = os.environ.get("EXTERNAL_PIHOLE_API", "localhost")
+# 기존 TOML 경로 (백업용)
 TOML_PATH = "/etc/pihole/pihole.toml"
+
+# Pi-hole API endpoint (FastAPI)
+PIHOLE_API_SYNC = f"http://{API_HOST}/api/sync"
 
 # 한글 도메인을 punycode로 변환
 def to_punycode(domain: str) -> str:
@@ -104,8 +113,50 @@ def ensure_default_dns_record():
     default_ip = '10.129.55.253'
     CustomDnsRecord.objects.update_or_create(domain=default_domain, defaults={'ip': default_ip})
 
-# [dns] hosts 배열을 읽어 (domain, ip) 리스트 반환
+# 외부 Pi-hole 서비스 연결 확인
+def check_external_service():
+    """외부 Pi-hole 서비스 연결 상태 확인"""
+    try:
+        response = requests.get(f"{API_HOST}/health", timeout=5)
+        return response.status_code == 200
+    except:
+        return False
+
+# 도메인 추가 (HTTP)
+def add_domain_via_api(domain: str, ip: str) -> dict:
+    try:
+        url = f"{PIHOLE_API_SYNC}/add_domain"
+        payload = {"domain": domain, "ip": ip}
+        resp = requests.post(url, json=payload, timeout=5)
+        return resp.json() if resp.ok else {"success": False, "message": resp.text}
+    except Exception as e:
+        print(f"API 오류: {e}")
+        return {"success": False, "message": f"API 연결 실패: {str(e)}"}
+
+# 도메인 제거 (HTTP)
+def remove_domain_via_api(domain: str) -> dict:
+    try:
+        url = f"{PIHOLE_API_SYNC}/remove_domain"
+        payload = {"domain": domain}
+        resp = requests.post(url, json=payload, timeout=5)
+        return resp.json() if resp.ok else {"success": False, "message": resp.text}
+    except Exception as e:
+        print(f"API 오류: {e}")
+        return {"success": False, "message": f"API 연결 실패: {str(e)}"}
+
+# Pi-hole 상태 조회 (HTTP)
+def get_pihole_status_via_api() -> dict:
+    try:
+        url = f"{PIHOLE_API_SYNC}/status"
+        resp = requests.get(url, timeout=5)
+        return resp.json() if resp.ok else {"status": "error", "message": resp.text}
+    except Exception as e:
+        print(f"API 오류: {e}")
+        return {"status": "error", "message": f"API 연결 실패: {str(e)}"}
+
+# 기존 TOML 방식 (백업용)
 def read_custom_list() -> List[Tuple[str, str]]:
+    """기존 TOML 파일 읽기 (백업용)"""
     records = []
     try:
         with open(TOML_PATH, 'r', encoding='utf-8') as f:
@@ -118,12 +169,11 @@ def read_custom_list() -> List[Tuple[str, str]]:
         print(f"Error reading toml: {e}")
     return records
 
-# [dns] hosts 배열을 records로 덮어씀
 def write_custom_list(records: List[Tuple[str, str]]) -> bool:
+    """기존 TOML 파일 쓰기 (백업용)"""
     try:
         with open(TOML_PATH, 'r', encoding='utf-8') as f:
             data = toml.load(f)
-        # 도메인이 이미 punycode로 변환되어 있다고 가정하고 그대로 사용
         data.setdefault('dns', {})['hosts'] = [f"{ip} {domain}" for domain, ip in records]
         with open(TOML_PATH, 'w', encoding='utf-8') as f:
             toml.dump(data, f)
@@ -132,34 +182,54 @@ def write_custom_list(records: List[Tuple[str, str]]) -> bool:
         print(f"Error writing toml: {e}")
         return False
 
-# 도메인 추가
+# 새로운 WebSocket 기반 도메인 추가
 def add_domain_to_custom_list(domain: str, ip: str) -> bool:
     domain = to_punycode(domain)
     records = read_custom_list()
     for existing_domain, _ in records:
         if existing_domain == domain:
-            return False  # 이미 존재함
+            return False
     records.append((domain, ip))
     return write_custom_list(records)
 
-# 도메인 삭제
+# 새로운 WebSocket 기반 도메인 제거
 def remove_domain_from_custom_list(domain: str) -> bool:
     domain = to_punycode(domain)
     records = read_custom_list()
     original_count = len(records)
     records = [(d, ip) for d, ip in records if d != domain]
     if len(records) == original_count:
-        return False  # 도메인이 존재하지 않음
+        return False
     return write_custom_list(records)
 
-# DB의 CustomDnsRecord 전체를 toml에 반영
+# DB의 CustomDnsRecord 전체를 외부 서비스에 반영
 def apply_dns_records():
     ensure_default_dns_record()
+    from .models import CustomDnsRecord
     records = CustomDnsRecord.objects.all()
-    # 도메인이 이미 punycode로 변환되어 저장되었으므로 그대로 사용
-    record_list = [(rec.domain, rec.ip) for rec in records]
-    write_custom_list(record_list)
-    return {'result': '파일 생성 완료, Pi-hole에서 자동 감지됨'}
+    record_list = [{"domain": rec.domain, "ip": rec.ip} for rec in records]
+    print("[동기화 요청] FastAPI로 보낼 레코드 목록:")
+    for rec in record_list:
+        print(f"  - {rec['domain']} -> {rec['ip']}")
+    try:
+        resp = requests.post(PIHOLE_API_SYNC, json={"records": record_list}, timeout=10)
+        if resp.ok:
+            return resp.json()
+        else:
+            return {'result': f'Pi-hole API 동기화 실패: {resp.text}'}
+    except Exception as e:
+        print(f"Pi-hole API 동기화 오류: {e}")
+        return {'result': f'Pi-hole API 동기화 오류: {str(e)}'}
+
+# Pi-hole 상태 조회
+def get_pihole_status():
+    if not check_external_service():
+        return {"status": "offline", "message": "외부 Pi-hole 서비스에 연결할 수 없습니다."}
+    try:
+        status = get_pihole_status_via_api()
+        return status
+    except Exception as e:
+        return {"status": "error", "message": f"상태 조회 실패: {str(e)}"}
 
 def get_dns_info_for_device(device):
     """디바이스에 대한 DNS 정보를 반환"""
@@ -192,7 +262,7 @@ def get_dns_info_for_device(device):
                 'status': latest_request.status,
                 'domain': from_punycode(latest_request.domain),
                 'request_id': latest_request.id,
-                'reject_reason': latest_request.reject_reason if latest_request.status == '거절' else None,
+                'reject_reason': latest_request.reject_reason if latest_request.status == 'rejected' else None,
                 'created_at': latest_request.created_at.isoformat() if latest_request.created_at else None
             }
     except Exception:

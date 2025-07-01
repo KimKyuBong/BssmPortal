@@ -156,35 +156,35 @@ export default function ChangePassword() {
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-md">
-      <h1 className="text-3xl font-extrabold mb-6 text-center text-gray-800">
-        {isInitialPassword ? '📋 초기 비밀번호 변경 (필수)' : '🔒 비밀번호 변경'}
-      </h1>
-      
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          {typeof error === 'object' ? JSON.stringify(error) : error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-          {success}
-        </div>
-      )}
-      
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+    <div className="flex justify-center items-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="card max-w-lg w-full mx-auto px-8 py-10">
+        <h1 className="text-2xl font-bold mb-6 text-center text-primary">
+          {isInitialPassword ? '📋 초기 비밀번호 변경 (필수)' : '🔒 비밀번호 변경'}
+        </h1>
+        
+        {error && (
+          <div className="mb-4 error-message">
+            {typeof error === 'object' ? JSON.stringify(error) : error}
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-400 text-green-700 rounded-md p-3">
+            {success}
+          </div>
+        )}
+        
         <form className="space-y-6" onSubmit={handleSubmit}>
           {!isInitialPassword && (
             <div>
-              <label htmlFor="oldPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="oldPassword" className="block text-sm font-medium text-secondary mb-1">
                 현재 비밀번호
               </label>
               <input
@@ -194,15 +194,14 @@ export default function ChangePassword() {
                 required={!isInitialPassword}
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="input-field w-full"
                 placeholder="현재 비밀번호를 입력하세요"
                 disabled={isLoading}
               />
             </div>
           )}
-          
           <div>
-            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="newPassword" className="block text-sm font-medium text-secondary mb-1">
               새 비밀번호
             </label>
             <input
@@ -212,14 +211,13 @@ export default function ChangePassword() {
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="새 비밀번호를 입력하세요 (최소 8자)"
+              className="input-field w-full"
+              placeholder="새 비밀번호를 입력하세요"
               disabled={isLoading}
             />
           </div>
-          
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-secondary mb-1">
               새 비밀번호 확인
             </label>
             <input
@@ -229,25 +227,18 @@ export default function ChangePassword() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="input-field w-full"
               placeholder="새 비밀번호를 다시 입력하세요"
               disabled={isLoading}
             />
           </div>
-          
-          <div>
-            <button
-              type="submit"
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                isLoading 
-                  ? 'bg-blue-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
-              disabled={isLoading}
-            >
-              {isLoading ? '처리 중...' : '비밀번호 변경'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="btn-primary w-full"
+            disabled={isLoading}
+          >
+            {isLoading ? '처리 중...' : '비밀번호 변경'}
+          </button>
         </form>
       </div>
     </div>

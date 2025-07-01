@@ -5,17 +5,17 @@ from django.conf import settings
 
 class CustomDnsRequest(models.Model):
     STATUS_CHOICES = (
-        ('대기', '대기'),
-        ('승인', '승인'),
-        ('거절', '거절'),
-        ('삭제됨', '삭제됨'),  # 승인 후 도메인이 삭제된 경우
+        ('pending', '대기'),
+        ('approved', '승인'),
+        ('rejected', '거절'),
+        ('deleted', '삭제됨'),  # 승인 후 도메인이 삭제된 경우
     )
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     domain = models.CharField(max_length=255)
     ip = models.GenericIPAddressField()
     reason = models.TextField()
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='대기')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     reject_reason = models.TextField(blank=True, null=True)
     ssl_enabled = models.BooleanField(default=False, verbose_name='SSL 인증서 발급')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,7 +49,6 @@ class SslCertificate(models.Model):
     dns_record = models.OneToOneField(CustomDnsRecord, on_delete=models.CASCADE, related_name='ssl_certificate')
     domain = models.CharField(max_length=255)
     certificate = models.TextField(verbose_name='인증서 (PEM 형식)')
-    private_key = models.TextField(verbose_name='개인키 (PEM 형식)')
     certificate_chain = models.TextField(blank=True, null=True, verbose_name='인증서 체인')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='발급중')
     issued_at = models.DateTimeField(auto_now_add=True)

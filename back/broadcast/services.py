@@ -244,7 +244,7 @@ class BroadcastService:
     def get_broadcast_history(self, limit: int = 50) -> List[Dict]:
         """방송 이력 조회 - 딕셔너리 형태로 반환"""
         history_list = []
-        histories = BroadcastHistory.objects.select_related('broadcasted_by', 'audio_file').all()[:limit]
+        histories = BroadcastHistory.objects.select_related('broadcasted_by', 'preview').all()[:limit]
         
         for history in histories:
             history_dict = {
@@ -261,14 +261,12 @@ class BroadcastService:
                 'completed_at': history.completed_at.isoformat() if history.completed_at else None,
             }
             
-            # 오디오 파일 정보 추가
-            if history.audio_file:
-                history_dict['audio_file'] = {
-                    'id': history.audio_file.id,
-                    'original_filename': history.audio_file.original_filename,
-                    'file_size_mb': history.audio_file.get_file_size_mb(),
-                    'duration': history.audio_file.duration,
-                    'download_url': f"/api/broadcast/history/audio/{history.id}/download/"
+            # 프리뷰 정보 추가
+            if history.preview:
+                history_dict['preview'] = {
+                    'preview_id': history.preview.preview_id,
+                    'status': history.preview.status,
+                    'created_at': history.preview.created_at.isoformat()
                 }
             
             history_list.append(history_dict)
@@ -278,7 +276,7 @@ class BroadcastService:
     def get_broadcast_history_by_user(self, user, limit: int = 50) -> List[Dict]:
         """사용자별 방송 이력 조회 - 딕셔너리 형태로 반환"""
         history_list = []
-        histories = BroadcastHistory.objects.select_related('broadcasted_by', 'audio_file').filter(broadcasted_by=user)[:limit]
+        histories = BroadcastHistory.objects.select_related('broadcasted_by', 'preview').filter(broadcasted_by=user)[:limit]
         
         for history in histories:
             history_dict = {
@@ -295,14 +293,12 @@ class BroadcastService:
                 'completed_at': history.completed_at.isoformat() if history.completed_at else None,
             }
             
-            # 오디오 파일 정보 추가
-            if history.audio_file:
-                history_dict['audio_file'] = {
-                    'id': history.audio_file.id,
-                    'original_filename': history.audio_file.original_filename,
-                    'file_size_mb': history.audio_file.get_file_size_mb(),
-                    'duration': history.audio_file.duration,
-                    'download_url': f"/api/broadcast/history/audio/{history.id}/download/"
+            # 프리뷰 정보 추가
+            if history.preview:
+                history_dict['preview'] = {
+                    'preview_id': history.preview.preview_id,
+                    'status': history.preview.status,
+                    'created_at': history.preview.created_at.isoformat()
                 }
             
             history_list.append(history_dict)

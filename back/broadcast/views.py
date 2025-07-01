@@ -19,6 +19,8 @@ import wave
 import struct
 import math
 import base64
+import json
+from datetime import datetime, timedelta
 
 from .models import DeviceMatrix, BroadcastHistory, AudioFile, BroadcastSchedule, BroadcastPreview
 from .services import BroadcastService
@@ -37,6 +39,22 @@ from .serializers import (
 from .permissions import IsTeacher
 
 logger = logging.getLogger(__name__)
+
+def parse_target_rooms_from_formdata(target_rooms_data):
+    """FormData에서 target_rooms를 안전하게 배열로 변환"""
+    if not target_rooms_data:
+        return []
+    
+    if isinstance(target_rooms_data, list):
+        return target_rooms_data
+    
+    if isinstance(target_rooms_data, str):
+        try:
+            return json.loads(target_rooms_data)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    
+    return []
 
 class DeviceMatrixView(APIView):
     """장치 매트릭스 관련 뷰 - 4행 16열 매트릭스 반환"""
@@ -227,7 +245,7 @@ class TextBroadcastView(APIView):
             # 방송서버에서 오디오 파일을 가져와서 base64로 인코딩
             audio_base64 = None
             try:
-                audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_info.get('preview_id')}.mp3"
+                audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_info.get('preview_id')}"
                 audio_response = requests.get(audio_url, timeout=30)
                 if audio_response.status_code == 200:
                     audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
@@ -244,7 +262,7 @@ class TextBroadcastView(APIView):
                 'preview_info': {
                     'preview_id': preview_info.get('preview_id'),
                     'job_type': 'text',
-                    'preview_url': f"/api/broadcast/preview/{preview_info.get('preview_id')}.mp3",
+                    'preview_url': f"/api/broadcast/preview/{preview_info.get('preview_id')}",
                     'estimated_duration': preview_info.get('estimated_duration', 0),
                     'created_at': preview.created_at.isoformat(),
                     'status': preview.status,
@@ -293,7 +311,7 @@ class AudioBroadcastView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # 파일 크기 검증
-            max_size = settings.BROADCAST_CONFIG['MAX_AUDIO_SIZE'] * 1024 * 1024  # MB to bytes
+            max_size = settings.BROADCAST_CONFIG['MAX_AUDIO_SIZE'] * 1024 * 1024
             if audio_file.size > max_size:
                 return Response({
                     'success': False,
@@ -303,13 +321,26 @@ class AudioBroadcastView(APIView):
             # 방송서버 URL (실제 방송서버 주소)
             broadcast_server_url = "http://10.129.55.251:10200/api/broadcast/audio"
             
-            # 방송서버로 전송할 데이터 (form-data 형식)
+            # 방송서버로 전송할 데이터 준비
             broadcast_data = {
-                'auto_off': serializer.validated_data.get('auto_off', False)
+                'auto_off': str(serializer.validated_data.get('auto_off', False)).lower()
             }
             
-            if serializer.validated_data.get('target_rooms'):
-                broadcast_data['target_rooms'] = ','.join(map(str, serializer.validated_data.get('target_rooms', [])))
+            # use_original 파라미터가 있으면 추가
+            if request.data.get('use_original'):
+                use_original_value = request.data.get('use_original')
+                # 문자열을 boolean으로 변환
+                if isinstance(use_original_value, str):
+                    broadcast_data['use_original'] = use_original_value.lower() == 'true'
+                else:
+                    broadcast_data['use_original'] = bool(use_original_value)
+            
+            # target_rooms를 안전하게 배열로 변환
+            target_rooms = parse_target_rooms_from_formdata(request.data.get('target_rooms', []))
+            
+            # target_rooms가 있으면 방송서버로 전송
+            if target_rooms:
+                broadcast_data['target_rooms'] = ','.join(map(str, target_rooms))
             
             # 오디오 파일 추가
             files = {'audio_file': (audio_file.name, audio_file, 'audio/mpeg')}
@@ -327,23 +358,17 @@ class AudioBroadcastView(APIView):
                 error_message = '방송서버 연결에 실패했습니다.'
                 try:
                     error_data = broadcast_response.json()
-                    logger.error(f"방송서버 JSON 에러 데이터: {error_data}")
                     if error_data.get('message'):
                         error_message = error_data.get('message')
                     elif error_data.get('detail'):
                         error_message = error_data.get('detail')
-                except Exception as json_error:
-                    logger.error(f"방송서버 응답 JSON 파싱 실패: {json_error}")
-                    # JSON이 아닌 경우 텍스트 내용을 그대로 사용
+                except Exception:
                     if broadcast_response.text:
                         error_message = broadcast_response.text.strip()
                 
-                logger.error(f"최종 에러 메시지: {error_message}")
-                
                 return Response({
                     'success': False,
-                    'message': error_message,
-                    'error': f'방송서버 오류: {broadcast_response.status_code}'
+                    'message': error_message
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             broadcast_data = broadcast_response.json()
@@ -351,61 +376,43 @@ class AudioBroadcastView(APIView):
             if not broadcast_data.get('success'):
                 return Response({
                     'success': False,
-                    'message': '방송서버에서 프리뷰 생성에 실패했습니다.',
-                    'error': broadcast_data.get('message', '알 수 없는 오류')
+                    'message': broadcast_data.get('message', '오디오 파일 재사용에 실패했습니다.')
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-            # 방송서버에서 받은 프리뷰 정보로 Django 프리뷰 생성
-            preview_info = broadcast_data.get('preview_info', {})
+            # 프리뷰가 생성된 경우
+            if broadcast_data.get('status') == 'preview_ready' and broadcast_data.get('preview_info'):
+                preview_info = broadcast_data['preview_info']
+                
+                # 프리뷰 정보를 데이터베이스에 저장
+                preview = BroadcastPreview.objects.create(
+                    preview_id=preview_info['preview_id'],
+                    broadcast_type='audio',
+                    content=f"오디오 프리뷰: {preview_info.get('preview_id', 'Unknown')}",
+                    target_rooms=target_rooms,
+                    language=request.data.get('language', 'ko'),
+                    auto_off=request.data.get('auto_off', False),
+                    status='ready',
+                    created_by=request.user
+                )
+                
+                return Response({
+                    'success': True,
+                    'status': 'preview_ready',
+                    'preview_info': {
+                        'preview_id': preview.preview_id,
+                        'broadcast_type': preview.broadcast_type,
+                        'content': preview.content,
+                        'created_at': preview.created_at.isoformat()
+                    },
+                    'message': '오디오 방송 프리뷰가 생성되었습니다. 확인 후 승인해주세요.',
+                    'timestamp': timezone.now().isoformat()
+                })
+            else:
+                return Response({
+                    'success': False,
+                    'message': '프리뷰 생성에 실패했습니다.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
-            preview = BroadcastPreview.objects.create(
-                preview_id=preview_info.get('preview_id'),
-                broadcast_type='audio',
-                content=f"오디오 프리뷰: {preview_info.get('preview_id', 'Unknown')}",
-                target_rooms=request.data.get('target_rooms', []),
-                language=request.data.get('language', 'ko'),
-                auto_off=request.data.get('auto_off', False),
-                status='ready',
-                created_by=request.user
-            )
-            
-            # 방송서버에서 오디오 파일을 가져와서 base64로 인코딩
-            audio_base64 = None
-            try:
-                audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_info.get('preview_id')}.mp3"
-                audio_response = requests.get(audio_url, timeout=30)
-                if audio_response.status_code == 200:
-                    audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
-                    logger.info(f"오디오 파일 base64 인코딩 완료: {len(audio_base64)} characters")
-                else:
-                    logger.warning(f"방송서버에서 오디오 파일을 가져올 수 없음: {audio_response.status_code}")
-            except Exception as e:
-                logger.error(f"오디오 파일 base64 인코딩 실패: {e}")
-            
-            # 방송서버에서 받은 프리뷰 정보를 정리하여 프론트로 전달
-            return Response({
-                'success': True,
-                'status': 'preview_ready',
-                'preview_info': {
-                    'preview_id': preview_info.get('preview_id'),
-                    'job_type': 'audio',
-                    'preview_url': f"/api/broadcast/preview/{preview_info.get('preview_id')}.mp3",
-                    'estimated_duration': preview_info.get('estimated_duration', 0),
-                    'created_at': preview.created_at.isoformat(),
-                    'status': preview.status,
-                    'audio_base64': audio_base64  # base64로 인코딩된 오디오 파일
-                },
-                'message': '오디오 방송 프리뷰가 생성되었습니다. 확인 후 승인해주세요.',
-                'timestamp': timezone.now().isoformat()
-            })
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"방송서버 연결 실패: {e}")
-            return Response({
-                'success': False,
-                'message': '방송서버에 연결할 수 없습니다.',
-                'error': str(e)
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
             logger.error(f"오디오 방송 프리뷰 생성 실패: {e}")
             return Response({
@@ -444,6 +451,46 @@ class BroadcastHistoryView(APIView):
                 'message': '방송 이력을 조회할 수 없습니다.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def delete(self, request, history_id):
+        """방송 이력 삭제"""
+        try:
+            # 방송 이력 조회
+            history_item = get_object_or_404(BroadcastHistory, id=history_id)
+            
+            # 권한 확인 - 자신의 이력만 삭제 가능
+            if history_item.broadcasted_by != request.user and not request.user.is_superuser:
+                return Response({
+                    'success': False,
+                    'message': '자신의 방송 이력만 삭제할 수 있습니다.'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # 관련 프리뷰가 있으면 함께 삭제
+            if history_item.preview:
+                history_item.preview.delete()
+                logger.info(f"방송 이력 {history_id}와 관련 프리뷰 삭제 완료")
+            
+            # 방송 이력 삭제
+            history_item.delete()
+            
+            return Response({
+                'success': True,
+                'message': '방송 이력이 성공적으로 삭제되었습니다.',
+                'timestamp': timezone.now().isoformat()
+            })
+            
+        except BroadcastHistory.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': '해당 방송 이력을 찾을 수 없습니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"방송 이력 삭제 실패: {e}")
+            return Response({
+                'success': False,
+                'message': '방송 이력 삭제에 실패했습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class BroadcastHistoryDetailView(APIView):
     """방송 이력 상세 조회 뷰 (오디오 base64 포함)"""
@@ -462,12 +509,49 @@ class BroadcastHistoryDetailView(APIView):
                     'message': '자신의 방송 이력만 조회할 수 있습니다.'
                 }, status=status.HTTP_403_FORBIDDEN)
             
-            # 시리얼라이저로 상세 정보 반환 (오디오 base64 포함)
+            # 시리얼라이저로 기본 정보 반환 (오디오 base64 제외)
             serializer = BroadcastHistorySerializer(history_item)
+            response_data = serializer.data
+            
+            # 항상 방송서버에서 오디오 가져오기
+            logger.info(f"방송 이력 {history_id}에서 방송서버로 오디오 가져오기 시도")
+            
+            try:
+                # 방송 이력에 프리뷰가 있는지 확인
+                if history_item.preview and history_item.preview.preview_id:
+                    # 프리뷰 ID로 방송서버에서 오디오 가져오기
+                    # 방송서버 URL: http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_id}
+                    external_api_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{history_item.preview.preview_id}"
+                    logger.info(f"프리뷰 ID {history_item.preview.preview_id}로 방송서버 요청: {external_api_url}")
+                else:
+                    logger.warning(f"방송 이력 {history_id}에 프리뷰가 없음")
+                    response_data['audio_base64'] = None
+                    return Response({
+                        'success': True,
+                        'history': response_data,
+                        'timestamp': timezone.now().isoformat()
+                    })
+                
+                import requests
+                audio_response = requests.get(external_api_url, timeout=30)
+                logger.info(f"방송서버 오디오 응답 상태: {audio_response.status_code}")
+                
+                if audio_response.status_code == 200:
+                    # 오디오 파일을 base64로 인코딩
+                    import base64
+                    audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
+                    response_data['audio_base64'] = audio_base64
+                    logger.info(f"방송서버에서 오디오 base64 인코딩 완료: {len(audio_base64)} characters")
+                else:
+                    logger.warning(f"방송서버에서 오디오 파일을 가져올 수 없음: {audio_response.status_code}")
+                    response_data['audio_base64'] = None
+            except Exception as e:
+                logger.error(f"방송서버에서 오디오 가져오기 실패: {e}")
+                response_data['audio_base64'] = None
             
             return Response({
                 'success': True,
-                'history': serializer.data,
+                'history': response_data,
                 'timestamp': timezone.now().isoformat()
             })
             
@@ -481,6 +565,137 @@ class BroadcastHistoryDetailView(APIView):
             return Response({
                 'success': False,
                 'message': '방송 이력을 조회할 수 없습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReuseHistoryAudioView(APIView):
+    """방송 이력에서 오디오 파일 재사용 뷰"""
+    permission_classes = [IsAuthenticated, IsTeacher]
+    
+    def post(self, request, history_id):
+        """방송 이력의 오디오 파일을 재사용하여 새로운 프리뷰 생성"""
+        try:
+            # 방송 이력 조회
+            history_item = get_object_or_404(BroadcastHistory, id=history_id)
+            
+            # 권한 확인 - 자신의 이력만 재사용 가능
+            if history_item.broadcasted_by != request.user and not request.user.is_superuser:
+                return Response({
+                    'success': False,
+                    'message': '자신의 방송 이력만 재사용할 수 있습니다.'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # 프리뷰가 있는지 확인
+            if not history_item.preview or not history_item.preview.preview_id:
+                return Response({
+                    'success': False,
+                    'message': '해당 방송 이력에 재사용 가능한 프리뷰가 없습니다.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 방송서버에서 프리뷰 오디오 가져오기
+            external_api_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{history_item.preview.preview_id}"
+            
+            try:
+                audio_response = requests.get(external_api_url, timeout=30)
+                
+                if audio_response.status_code != 200:
+                    return Response({
+                        'success': False,
+                        'message': '방송서버에서 오디오 파일을 가져올 수 없습니다.'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                # 방송서버 URL
+                broadcast_server_url = "http://10.129.55.251:10200/api/broadcast/audio"
+                
+                # 오디오 파일을 방송서버로 전송하여 새로운 프리뷰 생성
+                files = {'audio_file': (f"reused_{history_item.preview.preview_id}.mp3", audio_response.content, 'audio/mpeg')}
+                
+                # 일반 오디오 방송과 동일하게 파라미터 구성
+                broadcast_data = {
+                    'auto_off': str(history_item.auto_off).lower()
+                }
+
+                # target_rooms를 안전하게 배열로 변환
+                target_rooms = parse_target_rooms_from_formdata(history_item.target_rooms)
+                if target_rooms:
+                    broadcast_data['target_rooms'] = ','.join(map(str, target_rooms))
+
+                # 방송서버에 요청
+                broadcast_response = requests.post(broadcast_server_url, data=broadcast_data, files=files, timeout=30)
+                
+                if broadcast_response.status_code != 200:
+                    return Response({
+                        'success': False,
+                        'message': '방송서버에서 프리뷰 생성에 실패했습니다.'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                # 방송서버 응답 파싱
+                broadcast_data = broadcast_response.json()
+                
+                if not broadcast_data.get('success'):
+                    return Response({
+                        'success': False,
+                        'message': broadcast_data.get('message', '방송서버에서 프리뷰 생성에 실패했습니다.')
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                # 새로운 프리뷰 정보 추출
+                preview_info = broadcast_data.get('preview_info', {})
+                preview_id = preview_info.get('preview_id')
+                
+                if not preview_id:
+                    return Response({
+                        'success': False,
+                        'message': '방송서버에서 프리뷰 ID를 받지 못했습니다.'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                # 새로운 프리뷰 생성
+                new_preview = BroadcastPreview.objects.create(
+                    preview_id=preview_id,
+                    broadcast_type=history_item.broadcast_type,
+                    content=f"[재사용] {history_item.content}",
+                    target_rooms=target_rooms,
+                    language=history_item.language,
+                    auto_off=history_item.auto_off,
+                    status='pending',
+                    created_by=request.user,
+                    approved_by=None,
+                    created_at=timezone.now(),
+                    approved_at=None,
+                    expires_at=timezone.now() + timedelta(hours=1)
+                )
+                
+                logger.info(f"방송 이력 재사용 성공: {history_id} -> 새로운 프리뷰 {preview_id}")
+                
+                return Response({
+                    'success': True,
+                    'status': 'preview_ready',  # 새로운 오디오 방송과 동일한 status
+                    'message': '방송 이력에서 오디오 파일을 재사용하여 새로운 프리뷰가 생성되었습니다.',
+                    'preview_info': {
+                        'preview_id': new_preview.preview_id,
+                        'broadcast_type': new_preview.broadcast_type,
+                        'content': new_preview.content,
+                        'created_at': new_preview.created_at.isoformat()
+                    },
+                    'timestamp': timezone.now().isoformat()
+                })
+                
+            except requests.exceptions.RequestException as e:
+                logger.error(f"방송서버 요청 실패: {e}")
+                return Response({
+                    'success': False,
+                    'message': '방송서버 연결에 실패했습니다.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except BroadcastHistory.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': '해당 방송 이력을 찾을 수 없습니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"오디오 파일 재사용 실패: {e}")
+            return Response({
+                'success': False,
+                'message': '오디오 파일 재사용에 실패했습니다.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -593,8 +808,12 @@ def broadcast_status(request):
     try:
         service = BroadcastService()
         
-        # 장치 수 조회
-        total_devices = DeviceMatrix.objects.filter(is_active=True).count()
+        # 장치 수 조회 - "장치"로 시작하는 기기들 제외
+        total_devices = DeviceMatrix.objects.filter(
+            is_active=True
+        ).exclude(
+            device_name__startswith='장치'
+        ).count()
         
         # 최근 방송 이력 수 조회
         recent_broadcasts = BroadcastHistory.objects.count()
@@ -622,12 +841,12 @@ def broadcast_status(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class AudioPreviewView(APIView):
-    """오디오 프리뷰 뷰 - 외부 API에서 받은 프리뷰 정보 처리 및 오디오 파일 업로드"""
+    """오디오 프리뷰 뷰 - 외부 API에서 받은 프리뷰 정보를 처리하고 오디오 파일 업로드"""
     permission_classes = [IsAuthenticated, IsTeacher]
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request):
-        """외부 API에서 받은 프리뷰 정보 처리 또는 오디오 파일 업로드하여 프리뷰 생성"""
+        """외부 API에서 받은 프리뷰 정보를 처리하거나 오디오 파일을 업로드하여 프리뷰 생성"""
         try:
             # 외부 API에서 전달받은 프리뷰 정보가 있는지 확인
             preview_data = request.data.get('preview_info', {})
@@ -640,12 +859,15 @@ class AudioPreviewView(APIView):
                         'message': '프리뷰 ID가 필요합니다.'
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
+                # target_rooms를 안전하게 배열로 변환
+                target_rooms = parse_target_rooms_from_formdata(request.data.get('target_rooms', []))
+                
                 # 프리뷰 생성
                 preview = BroadcastPreview.objects.create(
                     preview_id=preview_data['preview_id'],
                     broadcast_type='audio',
                     content=f"오디오 프리뷰: {preview_data.get('preview_id', 'Unknown')}",
-                    target_rooms=request.data.get('target_rooms', []),
+                    target_rooms=target_rooms,
                     language=request.data.get('language', 'ko'),
                     auto_off=request.data.get('auto_off', False),
                     status='ready',
@@ -656,7 +878,7 @@ class AudioPreviewView(APIView):
                 preview_info = {
                     'preview_id': preview_data['preview_id'],
                     'job_type': 'audio',
-                    'preview_url': f"/api/broadcast/preview/{preview_data['preview_id']}.mp3",
+                    'preview_url': f"/api/broadcast/preview/{preview_data['preview_id']}",
                     'estimated_duration': preview_data['estimated_duration'],
                     'created_at': preview.created_at.isoformat(),
                     'status': preview_data.get('status', 'pending')
@@ -710,7 +932,7 @@ class AudioPreviewView(APIView):
                 preview_info = {
                     'preview_id': preview.preview_id,
                     'job_type': 'audio',
-                    'preview_url': f"/api/broadcast/preview/{preview.preview_id}.mp3",
+                    'preview_url': f"/api/broadcast/preview/{preview.preview_id}",
                     'estimated_duration': 0,  # 실제 오디오 길이 계산 필요
                     'created_at': preview.created_at.isoformat(),
                     'status': preview.status
@@ -804,7 +1026,7 @@ class PreviewApprovalView(APIView):
                             status='completed',
                             broadcasted_by=preview.created_by,  # 프리뷰 생성자가 방송자
                             completed_at=timezone.now(),
-                            audio_file=preview.audio_file  # 프리뷰의 오디오 파일을 방송 이력에 연결
+                            preview=preview  # 프리뷰 연결
                         )
                         logger.info(f"방송 이력 생성됨: {broadcast_history.id} - {broadcast_history.content[:30]}...")
                         
@@ -863,7 +1085,8 @@ class PreviewApprovalView(APIView):
                     status='failed',
                     error_message=f"프리뷰 거부됨: {preview.rejection_reason}",
                     broadcasted_by=preview.created_by,  # 프리뷰 생성자가 방송자
-                    completed_at=timezone.now()
+                    completed_at=timezone.now(),
+                    preview=preview  # 프리뷰 연결
                 )
                 logger.info(f"거부된 방송 이력 생성됨: {broadcast_history.id} - {broadcast_history.content[:30]}...")
                 
@@ -890,7 +1113,7 @@ def preview_audio_file(request, preview_id):
         preview = get_object_or_404(BroadcastPreview, preview_id=preview_id)
         
         # 사용자가 자신이 생성한 프리뷰의 오디오 파일만 다운로드할 수 있도록 권한 확인
-        if preview.created_by != request.user:
+        if preview.created_by != request.user and not request.user.is_superuser:
             return Response({
                 'success': False,
                 'message': '자신이 생성한 프리뷰의 오디오 파일만 다운로드할 수 있습니다.'
@@ -923,21 +1146,21 @@ def preview_audio_file(request, preview_id):
             response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
             return response
         else:
-            # 외부 API에서 프리뷰 오디오 파일을 가져와서 그대로 응답
-            external_api_url = f"{settings.BROADCAST_API_CONFIG['BASE_URL']}/api/broadcast/preview/audio/{preview_id}.mp3"
+            # 방송서버에서 프리뷰 오디오 파일을 가져와서 그대로 응답
+            # 방송서버 URL: http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_id}.mp3
+            external_api_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_id}"
             
             try:
-                # 외부 API에 요청해서 파일을 가져오기
+                # 방송서버에 요청해서 파일을 가져오기
                 import requests
                 response = requests.get(external_api_url, stream=True, timeout=30)
-                logger.info(f"외부 API 응답 상태: {response.status_code}")
-                logger.info(f"외부 API 응답 헤더: {dict(response.headers)}")
+                logger.info(f"방송서버 응답 상태: {response.status_code}")
+                logger.info(f"방송서버 응답 헤더: {dict(response.headers)}")
                 
                 if response.status_code == 200:
                     # 응답 내용 확인
                     content = response.content
-                    logger.info(f"외부 API 응답 크기: {len(content)} bytes")
-                    logger.info(f"응답 내용 처음 100바이트: {content[:100]}")
+                    logger.info(f"방송서버 응답 크기: {len(content)} bytes")
                     
                     # Content-Type이 application/json인 경우에만 JSON 응답으로 처리
                     content_type = response.headers.get('content-type', '')
@@ -945,45 +1168,43 @@ def preview_audio_file(request, preview_id):
                         try:
                             import json
                             json_content = json.loads(content)
-                            logger.error(f"외부 API가 JSON 응답을 반환함: {json_content}")
+                            logger.error(f"방송서버가 JSON 응답을 반환함: {json_content}")
                             return Response({
                                 'success': False,
-                                'message': '외부 API에서 오디오 파일 대신 JSON 응답을 반환했습니다.',
+                                'message': '방송서버에서 오디오 파일 대신 JSON 응답을 반환했습니다.',
                                 'external_response': json_content
                             }, status=status.HTTP_400_BAD_REQUEST)
                         except json.JSONDecodeError:
                             pass
                     
-                    # 외부 API에서 파일을 성공적으로 가져온 경우 - 그대로 응답
+                    # 방송서버에서 파일을 성공적으로 가져온 경우 - 그대로 응답
                     from django.http import HttpResponse
                     http_response = HttpResponse(content, content_type='audio/mpeg')
-                    http_response['Content-Disposition'] = f'inline; filename="{preview_id}.mp3"'
+                    http_response['Content-Disposition'] = f'inline; filename="{preview_id}"'
                     # CORS 헤더 추가
                     http_response['Access-Control-Allow-Origin'] = '*'
                     http_response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
                     http_response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
-                    logger.info(f"외부 오디오 파일 응답 완료: {len(content)} bytes")
+                    logger.info(f"방송서버 오디오 파일 응답 완료: {len(content)} bytes")
                     return http_response
                 else:
-                    # 외부 API에서 파일을 찾을 수 없는 경우
-                    logger.error(f"외부 API에서 파일을 찾을 수 없음: {response.status_code}")
-                    logger.error(f"외부 API 응답 내용: {response.text}")
+                    # 방송서버에서 파일을 찾을 수 없는 경우
+                    logger.error(f"방송서버에서 파일을 찾을 수 없음: {response.status_code}")
+                    logger.error(f"방송서버 응답 내용: {response.text}")
                     return Response({
                         'success': False,
-                        'message': f'외부 API에서 프리뷰 오디오 파일을 찾을 수 없습니다. (상태 코드: {response.status_code})',
+                        'message': f'방송서버에서 프리뷰 오디오 파일을 찾을 수 없습니다. (상태 코드: {response.status_code})',
                         'external_url': external_api_url,
                         'response_text': response.text
                     }, status=status.HTTP_404_NOT_FOUND)
                     
             except requests.exceptions.RequestException as e:
-                # 외부 API 연결 실패
-                logger.error(f"외부 API 연결 실패: {e}")
+                # 방송서버 연결 실패
+                logger.error(f"방송서버 연결 실패: {e}")
                 return Response({
                     'success': False,
-                    'message': '외부 API에 연결할 수 없습니다.',
-                    'error': str(e),
-                    'external_url': external_api_url
-                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                    'message': '방송서버에 연결할 수 없습니다.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Http404:
         return Response({
@@ -1137,7 +1358,7 @@ class TextPreviewView(APIView):
                 'preview_url': preview_data['preview_url'],
                 'approval_endpoint': preview_data['approval_endpoint'],
                 'estimated_duration': preview_data['estimated_duration'],
-                'created_at': preview_data.get('created_at', preview.created_at.isoformat()),
+                'created_at': preview.created_at.isoformat(),
                 'status': preview_data.get('status', 'pending')
             }
             
@@ -1217,7 +1438,8 @@ class PreviewRejectView(APIView):
                 status='failed',
                 error_message=f"프리뷰 거부됨: {preview.rejection_reason}",
                 broadcasted_by=preview.created_by,  # 프리뷰 생성자가 방송자
-                completed_at=timezone.now()
+                completed_at=timezone.now(),
+                preview=preview  # 프리뷰 연결
             )
             logger.info(f"거부된 방송 이력 생성됨: {broadcast_history.id} - {broadcast_history.content[:30]}...")
             
@@ -1252,16 +1474,19 @@ class PreviewDetailView(APIView):
                     'message': '자신이 생성한 프리뷰만 조회할 수 있습니다.'
                 }, status=status.HTTP_403_FORBIDDEN)
             
+            # target_rooms를 안전하게 배열로 변환
+            target_rooms = parse_target_rooms_from_formdata(preview.target_rooms)
+            
             # 프리뷰 정보 구성 (필요한 정보만)
             preview_info = {
                 'preview_id': preview.preview_id,
                 'job_type': preview.broadcast_type,
                 'params': {
-                    'target_rooms': preview.target_rooms,
+                    'target_rooms': target_rooms,
                     'language': preview.language,
                     'auto_off': preview.auto_off
                 },
-                'preview_url': f"/api/broadcast/preview/{preview.preview_id}.mp3",
+                'preview_url': f"/api/broadcast/preview/{preview.preview_id}",
                 'estimated_duration': 0,  # 외부 API에서 제공하는 값 사용
                 'created_at': preview.created_at.isoformat(),
                 'status': preview.status
@@ -1270,7 +1495,7 @@ class PreviewDetailView(APIView):
             # 방송서버에서 오디오 파일을 가져와서 base64로 인코딩
             audio_base64 = None
             try:
-                audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview.preview_id}.mp3"
+                audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview.preview_id}"
                 audio_response = requests.get(audio_url, timeout=30)
                 if audio_response.status_code == 200:
                     audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
@@ -1317,7 +1542,7 @@ class TestExternalPreviewView(APIView):
                 "preview_info": {
                     "preview_id": preview_id,
                     "job_type": request.data.get('broadcast_type', 'text'),
-                    "preview_url": f"/api/broadcast/preview/{preview_id}.mp3",
+                    "preview_url": f"/api/broadcast/preview/{preview_id}",
                     "estimated_duration": 8.5,
                     "created_at": timezone.now().isoformat(),
                     "status": "pending"
@@ -1401,30 +1626,71 @@ def download_history_audio(request, history_id):
                 'message': '자신의 방송 이력만 다운로드할 수 있습니다.'
             }, status=status.HTTP_403_FORBIDDEN)
         
-        # 오디오 파일이 있는지 확인
-        if not history_item.audio_file or not history_item.audio_file.file:
+        # 프리뷰가 있는지 확인
+        if not history_item.preview or not history_item.preview.preview_id:
             return Response({
                 'success': False,
                 'message': '이 방송 이력에는 오디오 파일이 없습니다.'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # 파일 응답 생성
-        from django.http import HttpResponse
-        import mimetypes
+        # 방송서버에서 오디오 파일 가져오기
+        external_api_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{history_item.preview.preview_id}"
         
-        # 파일 타입 확인
-        content_type, _ = mimetypes.guess_type(history_item.audio_file.original_filename)
-        if not content_type:
-            content_type = 'audio/mpeg'
-        
-        # 파일 응답 생성
-        response = HttpResponse(history_item.audio_file.file, content_type=content_type)
-        response['Content-Disposition'] = f'inline; filename="{history_item.audio_file.original_filename}"'
-        # CORS 헤더 추가
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
-        response['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
+        try:
+            # 방송서버에 요청해서 파일을 가져오기
+            import requests
+            response = requests.get(external_api_url, timeout=30)
+            logger.info(f"방송서버 응답 상태: {response.status_code}")
+            logger.info(f"방송서버 응답 헤더: {dict(response.headers)}")
+            
+            if response.status_code == 200:
+                # 응답 내용 확인
+                content = response.content
+                logger.info(f"방송서버 응답 크기: {len(content)} bytes")
+                
+                # Content-Type이 application/json인 경우에만 JSON 응답으로 처리
+                content_type = response.headers.get('content-type', '')
+                if 'application/json' in content_type:
+                    try:
+                        import json
+                        json_content = json.loads(content)
+                        logger.error(f"방송서버가 JSON 응답을 반환함: {json_content}")
+                        return Response({
+                            'success': False,
+                            'message': '방송서버에서 오디오 파일 대신 JSON 응답을 반환했습니다.',
+                            'external_response': json_content
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    except json.JSONDecodeError:
+                        pass
+                
+                # 방송서버에서 파일을 성공적으로 가져온 경우 - 그대로 응답
+                from django.http import HttpResponse
+                http_response = HttpResponse(content, content_type='audio/mpeg')
+                http_response['Content-Disposition'] = f'inline; filename="{history_item.preview.preview_id}"'
+                # CORS 헤더 추가
+                http_response['Access-Control-Allow-Origin'] = '*'
+                http_response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+                http_response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+                logger.info(f"방송서버 오디오 파일 응답 완료: {len(content)} bytes")
+                return http_response
+            else:
+                # 방송서버에서 파일을 찾을 수 없는 경우
+                logger.error(f"방송서버에서 파일을 찾을 수 없음: {response.status_code}")
+                logger.error(f"방송서버 응답 내용: {response.text}")
+                return Response({
+                    'success': False,
+                    'message': f'방송서버에서 프리뷰 오디오 파일을 찾을 수 없습니다. (상태 코드: {response.status_code})',
+                    'external_url': external_api_url,
+                    'response_text': response.text
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+        except requests.exceptions.RequestException as e:
+            # 방송서버 연결 실패
+            logger.error(f"방송서버 연결 실패: {e}")
+            return Response({
+                'success': False,
+                'message': '방송서버에 연결할 수 없습니다.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     except Exception as e:
         logger.error(f"방송 이력 오디오 파일 다운로드 실패: {e}")

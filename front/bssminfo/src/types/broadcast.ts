@@ -14,6 +14,7 @@ export interface TextBroadcastRequest {
 export interface AudioBroadcastRequest {
   audio_file: File;
   target_rooms?: string[];
+  use_original?: boolean; // 원본 오디오 사용 (정규화 과정 건너뛰기)
 }
 
 export interface BroadcastResponse {
@@ -130,7 +131,7 @@ export interface PreviewDetailResponse {
     preview_id: string;
     job_type: 'audio' | 'text';
     params: {
-      target_rooms: string[];
+      target_rooms: string[] | null;  // null일 수 있도록 수정
       language: string;
     };
     preview_url: string;

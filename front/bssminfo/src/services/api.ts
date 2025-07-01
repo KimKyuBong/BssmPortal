@@ -5,13 +5,23 @@
 
 import axios, { AxiosResponse, AxiosRequestConfig, AxiosError } from 'axios';
 
-// API 기본 URL - '/api' 접두어 추가
-// 개발/배포 모드 전환 설정
-// 개발 모드: 환경 변수에서 URL 가져오기 (localhost 사용 시)
-// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+// API 기본 URL을 클라이언트 사이드에서 동적으로 결정하는 함수
+const getApiBaseUrl = (): string => {
+  // 환경 변수가 설정되어 있으면 우선 사용
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+  
+  // 브라우저 환경에서만 현재 도메인 사용
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  // 서버 사이드 렌더링 시 빈 문자열 (클라이언트에서 다시 설정됨)
+  return '';
+};
 
-// 배포 모드: 항상 '/api' 경로 사용 (Nginx 프록시 설정과 함께 사용)
-const API_BASE_URL = '/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // 디버깅용 로깅 함수
 const logApiCall = (method: string, url: string, data?: any) => {
@@ -34,15 +44,23 @@ const getCSRFToken = (): string | null => {
   return null;
 };
 
-// axios 인스턴스 생성
-const axiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+// axios 인스턴스 생성 - 초기에는 빈 baseURL로 설정
+let axiosInstance = axios.create({
+  baseURL: '/api', // 기본값으로 상대 경로 사용
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true,
-  // 리다이렉션 제한 제거 - Nginx가 올바르게 프록시하므로 필요 없음
 });
+
+// 클라이언트 사이드에서 baseURL 업데이트
+if (typeof window !== 'undefined') {
+  const baseURL = getApiBaseUrl() + '/api';
+  console.log('API Base URL:', baseURL);
+  
+  // axios 인스턴스의 baseURL을 동적으로 업데이트
+  axiosInstance.defaults.baseURL = baseURL;
+}
 
 // URL이 슬래시로 시작하는지 확인하는 함수
 const ensureLeadingSlash = (url: string): string => {
