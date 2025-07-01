@@ -44,15 +44,18 @@ class SslCertificate(models.Model):
         ('활성', '활성'),
         ('만료', '만료'),
         ('오류', '오류'),
+        ('폐기', '폐기'),  # OCSP를 위한 폐기 상태 추가
     )
     
     dns_record = models.OneToOneField(CustomDnsRecord, on_delete=models.CASCADE, related_name='ssl_certificate')
     domain = models.CharField(max_length=255)
     certificate = models.TextField(verbose_name='인증서 (PEM 형식)')
     certificate_chain = models.TextField(blank=True, null=True, verbose_name='인증서 체인')
+    serial_number = models.CharField(max_length=64, blank=True, null=True, verbose_name='인증서 시리얼 번호')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='발급중')
     issued_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(blank=True, null=True, verbose_name='폐기일')
     
     class Meta:
         verbose_name = 'SSL 인증서'
@@ -67,6 +70,10 @@ class SslCertificate(models.Model):
         from django.utils import timezone
         delta = self.expires_at - timezone.now()
         return delta.days if delta.days > 0 else 0
+    
+    def is_revoked(self):
+        """인증서가 폐기되었는지 확인"""
+        return self.status == '폐기'
 
 class CertificateAuthority(models.Model):
     """내부 CA 정보"""

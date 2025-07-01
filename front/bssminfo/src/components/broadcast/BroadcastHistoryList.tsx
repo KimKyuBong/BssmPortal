@@ -326,26 +326,7 @@ export default function BroadcastHistoryList({
                   {item.status_display}
                 </span>
                 {item.broadcast_type === 'audio' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleReuseAudio(item.id);
-                    }}
-                    disabled={reusingHistory === item.id}
-                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {reusingHistory === item.id ? (
-                      <>
-                        <RotateCcw className="h-3 w-3 mr-1 animate-spin" />
-                        처리중...
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="h-3 w-3 mr-1" />
-                        재사용
-                      </>
-                    )}
-                  </button>
+                  null
                 )}
                 <button
                   onClick={(e) => {

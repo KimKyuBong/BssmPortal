@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui/StyledComponents';
 
 interface DeviceRegistrationModalProps {
   isOpen: boolean;
@@ -70,10 +71,11 @@ export default function DeviceRegistrationModal({
                 </label>
                 
                 <div className="mb-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     onClick={onFetchCurrentMac}
-                    className="btn-secondary text-sm py-1 px-3"
                     disabled={macLoading}
                   >
                     {macLoading ? (
@@ -84,7 +86,7 @@ export default function DeviceRegistrationModal({
                     ) : (
                       <span className="font-medium">현재 MAC 주소 가져오기</span>
                     )}
-                  </button>
+                  </Button>
                 </div>
                 
                 <div className="flex space-x-2">
@@ -136,17 +138,17 @@ export default function DeviceRegistrationModal({
               </div>
               
               <div className="mt-6 flex justify-end space-x-3">
-                <button
+                <Button
                   type="button"
-                  className="btn-secondary"
+                  variant="secondary"
                   onClick={onClose}
                   disabled={registering}
                 >
                   취소
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  className="btn-primary"
+                  variant="primary"
                   disabled={registering}
                 >
                   {registering ? (
@@ -157,7 +159,7 @@ export default function DeviceRegistrationModal({
                   ) : (
                     '등록하기'
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

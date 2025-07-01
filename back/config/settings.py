@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'rentals',
     'dns',
     'broadcast',
+    'api_security',
 ]
 
 # CORS 설정 추가
@@ -286,6 +287,9 @@ SSL_DEFAULT_VALIDITY_DAYS = int(os.environ.get('SSL_DEFAULT_VALIDITY_DAYS', '365
 
 # CA 인증서 기본 유효기간 (일) - 100년
 SSL_CA_VALIDITY_DAYS = int(os.environ.get('SSL_CA_VALIDITY_DAYS', '36500'))
+
+# OCSP 서버 URL 설정
+OCSP_URL = os.environ.get('OCSP_URL', 'http://localhost:8000/dns/ocsp/')
 
 # FastAPI 방송 서비스 설정
 BROADCAST_API_CONFIG = {

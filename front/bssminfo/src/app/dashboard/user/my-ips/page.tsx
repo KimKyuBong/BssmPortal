@@ -13,6 +13,7 @@ import DeviceTable from '@/components/ui/DeviceTable';
 import BulkActionBar from '@/components/ui/BulkActionBar';
 import DeviceRegistrationModal from '@/components/ui/DeviceRegistrationModal';
 import { useToastContext } from '@/contexts/ToastContext';
+import { Button } from '@/components/ui/StyledComponents';
 
 export default function MyIpsPage() {
   const router = useRouter();
@@ -626,13 +627,9 @@ export default function MyIpsPage() {
                 />
               </div>
               
-              <button
-                onClick={openRegisterModal}
-                className="btn-primary"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                IP 등록
-              </button>
+              <Button variant="primary" size="md" onClick={openRegisterModal}>
+                <Plus className="w-4 h-4 mr-2" /> IP 추가
+              </Button>
             </div>
           </div>
           

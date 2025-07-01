@@ -33,6 +33,9 @@ export default function BroadcastDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('text');
   const [isAdmin, setIsAdmin] = useState(user?.is_superuser === true);
   
+  // 재사용된 오디오 파일 상태 추가
+  const [reusedAudioFile, setReusedAudioFile] = useState<File | null>(null);
+  
   // 프리뷰 모달 상태
   const [previewModal, setPreviewModal] = useState<{
     isOpen: boolean;
@@ -245,6 +248,8 @@ export default function BroadcastDashboard() {
           onPreviewCreated={handlePreviewCreated}
           onPreviewStart={handlePreviewStart}
           onPreviewError={handlePreviewError}
+          reusedAudioFile={reusedAudioFile}
+          onReusedFileProcessed={() => setReusedAudioFile(null)}
         />
       )}
       {activeTab === 'history' && (
@@ -257,6 +262,12 @@ export default function BroadcastDashboard() {
             onRefresh={fetchInitialData} 
             isAdmin={isAdmin}
             currentUser={user?.username}
+            onReuseSwitchToAudioTab={(audioFile) => {
+              // 오디오 탭으로 전환하고 파일 설정
+              setActiveTab('audio');
+              setReusedAudioFile(audioFile);
+              console.log('재사용 오디오 파일:', audioFile);
+            }}
           />
         </Card>
       )}

@@ -15,6 +15,15 @@ import os
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
 
+# OCSP 관련 import 추가
+from cryptography import x509
+from cryptography.x509.ocsp import (
+    load_der_ocsp_request, OCSPResponseBuilder, OCSPCertStatus
+)
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+import base64
+
 logger = logging.getLogger(__name__)
 
 # Create your views here.
@@ -329,7 +338,6 @@ class DownloadCaCertificateView(views.APIView):
             
             # 실제 존재하는 파일명들 확인
             possible_ca_files = [
-                'bssm_root_ca.crt',
                 'bssm_internal_ca.crt',
                 'ca.crt'
             ]
@@ -362,7 +370,7 @@ class DownloadCaCertificateView(views.APIView):
                     open(ca_cert_path, 'rb'),
                     content_type='application/x-pem-certificate'
                 )
-                response['Content-Disposition'] = 'attachment; filename="bssm_root_ca.crt"'
+                response['Content-Disposition'] = 'attachment; filename="bssm_internal_ca.crt"'
                 response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
                 response['Pragma'] = 'no-cache'
                 response['Expires'] = '0'
@@ -574,3 +582,95 @@ class DownloadSslPackageView(views.APIView):
         except Exception as e:
             logger.error(f"SSL 패키지 다운로드 실패 ({domain}): {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class OCSPView(views.APIView):
+    """OCSP 서버 - 인증서 상태 확인"""
+    permission_classes = [permissions.AllowAny]  # OCSP는 인증 불필요
+    
+    def post(self, request):
+        """OCSP 요청 처리"""
+        try:
+            # 1. OCSP 요청 파싱
+            ocsp_req = load_der_ocsp_request(request.body)
+            serial_number = ocsp_req.serial_number
+            
+            logger.info(f"OCSP 요청 수신: 시리얼 번호 {serial_number}")
+            
+            # 2. 인증서 상태 확인
+            try:
+                cert = SslCertificate.objects.get(serial_number=str(serial_number))
+                
+                if cert.is_revoked():
+                    cert_status = OCSPCertStatus.REVOKED
+                    revocation_time = cert.revoked_at
+                    revocation_reason = x509.ReasonFlags.unspecified
+                    logger.info(f"인증서 폐기됨: {cert.domain}")
+                elif cert.is_expired():
+                    cert_status = OCSPCertStatus.REVOKED
+                    revocation_time = cert.expires_at
+                    revocation_reason = x509.ReasonFlags.unspecified
+                    logger.info(f"인증서 만료됨: {cert.domain}")
+                else:
+                    cert_status = OCSPCertStatus.GOOD
+                    revocation_time = None
+                    revocation_reason = None
+                    logger.info(f"인증서 정상: {cert.domain}")
+                    
+            except SslCertificate.DoesNotExist:
+                cert_status = OCSPCertStatus.UNKNOWN
+                revocation_time = None
+                revocation_reason = None
+                logger.warning(f"알 수 없는 인증서: 시리얼 번호 {serial_number}")
+            
+            # 3. CA 인증서/개인키 로드
+            ca = CertificateAuthority.objects.filter(is_active=True).first()
+            if not ca:
+                logger.error("활성 CA를 찾을 수 없습니다")
+                return Response({'error': 'CA not found'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            ca_cert = x509.load_pem_x509_certificate(ca.certificate.encode('utf-8'))
+            ca_key = serialization.load_pem_private_key(
+                ca.private_key.encode('utf-8'),
+                password=None
+            )
+            
+            # 4. OCSP 응답 생성
+            builder = OCSPResponseBuilder()
+            builder = builder.add_response(
+                cert=ca_cert,
+                issuer=ca_cert,
+                algorithm=hashes.SHA1(),
+                cert_status=cert_status,
+                this_update=timezone.now(),
+                next_update=timezone.now() + timezone.timedelta(days=1),
+                revocation_time=revocation_time,
+                revocation_reason=revocation_reason,
+            )
+            
+            ocsp_response = builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
+            
+            # 5. 바이너리 응답 반환
+            response = HttpResponse(
+                ocsp_response.public_bytes(serialization.Encoding.DER),
+                content_type='application/ocsp-response'
+            )
+            
+            # OCSP 응답 헤더 설정
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            logger.info(f"OCSP 응답 전송: 상태 {cert_status}")
+            return response
+            
+        except Exception as e:
+            logger.error(f"OCSP 요청 처리 실패: {e}")
+            return Response({'error': 'OCSP request failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request):
+        """OCSP 상태 확인 (헬스체크용)"""
+        return Response({
+            'status': 'OCSP server is running',
+            'ca_count': CertificateAuthority.objects.filter(is_active=True).count(),
+            'cert_count': SslCertificate.objects.count()
+        })

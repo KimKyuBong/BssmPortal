@@ -4,7 +4,7 @@ FROM debian:bullseye-slim
 # 환경 변수 설정
 ENV DEBIAN_FRONTEND=noninteractive
 
-# ISC Kea 2.6.1 저장소 추가 및 필수 패키지 설치
+# ISC Kea 2.6.3 저장소 추가 및 필수 패키지 설치 (버전 고정)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
@@ -13,9 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gettext-base \
     && curl -1sLf "https://dl.cloudsmith.io/public/isc/kea-2-6/setup.deb.sh" | bash \
     && apt-get update && apt-get install -y --no-install-recommends \
-    isc-kea-dhcp4-server \
-    isc-kea-admin \
-    isc-kea-hooks \
+    isc-kea-dhcp4-server=2.6.3* \
+    isc-kea-admin=2.6.3* \
+    isc-kea-hooks=2.6.3* \
+    && apt-mark hold isc-kea-dhcp4-server isc-kea-admin isc-kea-hooks \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

@@ -61,6 +61,7 @@ export default function DeviceTable({
           <BaseTableHeaderCell>IP 주소</BaseTableHeaderCell>
           <BaseTableHeaderCell>상태</BaseTableHeaderCell>
           <BaseTableHeaderCell>DNS 상태</BaseTableHeaderCell>
+          <BaseTableHeaderCell>작업</BaseTableHeaderCell>
         </BaseTableRow>
       </BaseTableHead>
       <BaseTableBody>
@@ -179,19 +180,30 @@ export default function DeviceTable({
                       </button>
                     </Tooltip>
                   )}
-                  {dnsInfo.status === 'rejected' && (
-                    <Tooltip content="거절 사유 보기">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onViewRejectReason?.(device);
-                        }}
-                        className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded"
-                      >
-                        <X className="w-5 h-5 text-red-500" />
-                      </button>
-                    </Tooltip>
-                  )}
+                </div>
+              </BaseTableCell>
+              <BaseTableCell>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    variant={device.is_active ? 'secondary' : 'success'}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onToggleActive?.(device.id, device.is_active);
+                    }}
+                  >
+                    {device.is_active ? '비활성화' : '활성화'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDelete?.(device.id);
+                    }}
+                  >
+                    삭제
+                  </Button>
                 </div>
               </BaseTableCell>
             </BaseTableRow>

@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.utils import timezone
 import pyotp
 import secrets
@@ -20,7 +20,7 @@ class TOTPAPIKey(models.Model):
     
     # 기본 정보
     name = models.CharField(max_length=100, verbose_name="API 키 이름")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='totp_api_keys', verbose_name="사용자")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='totp_api_keys', verbose_name="사용자")
     
     # 보안 정보 (암호화된 형태로 저장)
     totp_secret = models.CharField(max_length=255, verbose_name="TOTP 시크릿 키")

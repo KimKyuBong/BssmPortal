@@ -89,6 +89,16 @@ class CertificateManager:
                     ExtendedKeyUsageOID.SERVER_AUTH,
                 ]),
                 critical=False,
+            ).add_extension(
+                x509.AuthorityInformationAccess([
+                    x509.AccessDescription(
+                        access_method=x509.oid.AuthorityInformationAccessOID.OCSP,
+                        access_location=x509.UniformResourceIdentifier(
+                            getattr(settings, 'OCSP_URL', 'http://localhost:8000/dns/ocsp/')
+                        )
+                    )
+                ]),
+                critical=False,
             ).sign(ca_private_key, hashes.SHA256())
             
             # PEM 형식으로 변환
@@ -193,6 +203,12 @@ class CertificateManager:
             except ValueError:
                 pass
             
+            # 시리얼 번호 생성
+            serial_number = x509.random_serial_number()
+            
+            # OCSP URL 설정 (내부 서버 주소)
+            ocsp_url = getattr(settings, 'OCSP_URL', 'http://localhost:8000/dns/ocsp/')
+            
             server_cert = x509.CertificateBuilder().subject_name(
                 subject
             ).issuer_name(
@@ -200,7 +216,7 @@ class CertificateManager:
             ).public_key(
                 server_private_key.public_key()
             ).serial_number(
-                x509.random_serial_number()
+                serial_number
             ).not_valid_before(
                 datetime.datetime.utcnow()
             ).not_valid_after(
@@ -235,6 +251,14 @@ class CertificateManager:
             ).add_extension(
                 x509.SubjectAlternativeName(san_list),
                 critical=False,
+            ).add_extension(
+                x509.AuthorityInformationAccess([
+                    x509.AccessDescription(
+                        access_method=x509.oid.AuthorityInformationAccessOID.OCSP,
+                        access_location=x509.UniformResourceIdentifier(ocsp_url)
+                    )
+                ]),
+                critical=False,
             ).sign(ca_private_key, hashes.SHA256())
             
             # PEM 형식으로 변환
@@ -250,6 +274,7 @@ class CertificateManager:
                     'domain': domain,
                     'certificate': server_cert_pem,
                     'certificate_chain': ca.certificate,
+                    'serial_number': str(serial_number),
                     'status': '활성',
                     'expires_at': expires_at
                 }
@@ -288,8 +313,10 @@ class CertificateManager:
                 if os.path.exists(path):
                     os.remove(path)
             
-            # 데이터베이스에서 삭제
-            ssl_cert.delete()
+            # 데이터베이스에서 상태를 '폐기'로 변경하고 폐기일 기록
+            ssl_cert.status = '폐기'
+            ssl_cert.revoked_at = timezone.now()
+            ssl_cert.save()
             
             logger.info(f"SSL 인증서 취소 완료: {domain}")
             
@@ -452,7 +479,7 @@ def create_ssl_package(domain: str, dns_record: CustomDnsRecord) -> bytes:
             zip_file.writestr(f'{domain}_server.key', private_key_pem)
             
             # CA 인증서
-            zip_file.writestr('bssm_root_ca.crt', ca.certificate)
+            zip_file.writestr('bssm_internal_ca.crt', ca.certificate)
             
             # nginx 설정 예시
             nginx_config = f"""# {domain} SSL 설정 예시
@@ -492,7 +519,7 @@ server {{
 이전에 다운로드한 개인키와는 다른 키이므로, 기존 설정을 업데이트해야 합니다.
 
 ## 1. CA 인증서 설치 (브라우저 신뢰용)
-- bssm_root_ca.crt 파일을 더블클릭하여 브라우저에 설치
+- bssm_internal_ca.crt 파일을 더블클릭하여 브라우저에 설치
 - "신뢰할 수 있는 루트 인증 기관"으로 설치
 
 ## 2. nginx 설정

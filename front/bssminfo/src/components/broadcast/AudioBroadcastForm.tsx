@@ -18,6 +18,8 @@ interface AudioBroadcastFormProps {
   audioFiles?: AudioFile[];
   selectedAudioFile?: File | null;
   onAudioFileSelected?: () => void;
+  reusedAudioFile?: File | null;
+  onReusedFileProcessed?: () => void;
 }
 
 export default function AudioBroadcastForm({ 
@@ -28,7 +30,9 @@ export default function AudioBroadcastForm({
   onPreviewError,
   audioFiles = [],
   selectedAudioFile,
-  onAudioFileSelected
+  onAudioFileSelected,
+  reusedAudioFile,
+  onReusedFileProcessed
 }: AudioBroadcastFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(selectedAudioFile || null);
   const [loading, setLoading] = useState(false);
@@ -40,6 +44,20 @@ export default function AudioBroadcastForm({
   useEffect(() => {
     setSelectedFile(selectedAudioFile || null);
   }, [selectedAudioFile]);
+
+  // reusedAudioFile이 전달되면 자동으로 선택하고 useOriginal 활성화
+  useEffect(() => {
+    if (reusedAudioFile) {
+      setSelectedFile(reusedAudioFile);
+      setUseOriginal(true); // 재사용 시 원본 오디오 사용
+      console.log('재사용 오디오 파일이 AudioBroadcastForm에 설정됨:', reusedAudioFile);
+      
+      // 파일이 처리되었음을 알림
+      if (onReusedFileProcessed) {
+        onReusedFileProcessed();
+      }
+    }
+  }, [reusedAudioFile, onReusedFileProcessed]);
 
   // 재사용 시 use_original 체크박스 자동 활성화
   useEffect(() => {

@@ -5,7 +5,7 @@ from .views import (
     CustomDnsRecordDeleteView, MyDnsRecordDeleteView, ApplyDnsRecordsView,
     SslCertificateListView, SslCertificateDetailView, SslCertificateRenewView, SslCertificateRevokeView,
     ExpiringCertificatesView, CertificateAuthorityView, DownloadCaCertificateView,
-    GenerateCertificateView, MyDnsRecordsView, DownloadSslPackageView
+    GenerateCertificateView, MyDnsRecordsView, DownloadSslPackageView, OCSPView
 )
 
 urlpatterns = [
@@ -30,4 +30,5 @@ urlpatterns = [
     path('ssl/ca/', CertificateAuthorityView.as_view()),
     path('ssl/ca/download/', DownloadCaCertificateView.as_view()),
     path('ssl/packages/<str:domain>/download/', DownloadSslPackageView.as_view()),
+    path('ocsp/', OCSPView.as_view(), name='ocsp'),
 ] 

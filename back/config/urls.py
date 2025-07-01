@@ -48,6 +48,7 @@ urlpatterns = [
     path('api/rentals/', include('rentals.urls')),  # 일반 사용자용 대여 관련 URL
     path('api/dns/', include('dns.urls')),
     path('api/broadcast/', include('broadcast.urls')),  # 방송 시스템 URL
+    path('api/security/', include('api_security.urls')),  # TOTP API 키 관리 URL
 ]
 
 if settings.DEBUG:

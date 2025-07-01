@@ -205,7 +205,7 @@ class KeaClient:
                     # 옵션 6: DNS 서버
                     cursor.execute("""
                         INSERT INTO dhcp4_options (code, value, formatted_value, space, persistent, host_id, scope_id)
-                        VALUES (6, UNHEX('D3B6E902A87E3F01'), '10.129.55.253', 'dhcp4', 1, %s, 3)
+                        VALUES (6, UNHEX('D3B6E902A87E3F01'), '10.129.55.252', 'dhcp4', 1, %s, 3)
                     """, (host_id,))
                     
                     # IP 주소에 따라 다른 DHCP 서버 주소 설정
