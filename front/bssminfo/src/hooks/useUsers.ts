@@ -233,10 +233,12 @@ export const useUsers = () => {
   }, []);
 
   const resetPassword = async (id: number, newPassword?: string): Promise<{ success: boolean; password: string | null }> => {
+    console.log('[DEBUG] useUsers.resetPassword 호출:', { id, newPassword: newPassword ? '제공됨' : '제공되지 않음' });
     setLoading(true);
     setError(null);
     try {
       const response = await adminService.resetUserPassword(id, newPassword);
+      console.log('[DEBUG] resetPassword API 응답:', response);
       if (response.success) {
         const resetData = response.data as PasswordResetResponse;
         return { 
@@ -248,6 +250,7 @@ export const useUsers = () => {
         return { success: false, password: null };
       }
     } catch (error: any) {
+      console.error('[DEBUG] resetPassword 오류:', error);
       setError(error.message || '비밀번호 초기화 중 오류가 발생했습니다.');
       return { success: false, password: null };
     } finally {

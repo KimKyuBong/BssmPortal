@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'channels',
     
     # 로컬 앱
+    'core',  # 공통 기능 (권한 관리 등)
     'users',
     'devices',
     'system',

@@ -10,14 +10,14 @@ from rest_framework.pagination import PageNumberPagination
 
 from ..models import DeviceHistory
 from ..serializers import DeviceHistorySerializer
-from ..permissions import IsSuperUser, IsStaffUser
+from core.permissions import DevicePermissions
 
 logger = logging.getLogger(__name__)
 
 class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     """장치 이력 조회 뷰셋"""
     serializer_class = DeviceHistorySerializer
-    permission_classes = [IsAuthenticated]  # 로그인한 사용자만 접근 가능하도록 변경
+    permission_classes = [DevicePermissions]  # 중앙화된 권한 관리 사용
     # DjangoFilterBackend 제거
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     # filterset_fields 제거 (DjangoFilterBackend에 의존)
@@ -86,14 +86,14 @@ class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"detail": "MAC 주소를 제공해야 합니다."}, status=status.HTTP_400_BAD_REQUEST)
             
         # 권한 확인
-        if not (request.user.is_superuser or request.user.is_staff):
+        if not request.user.is_superuser:
             # 일반 사용자는 자신의 디바이스 이력만 조회 가능
             histories = DeviceHistory.objects.filter(
                 mac_address=mac_address,
                 user=request.user
             ).order_by('-created_at')
         else:
-            # 관리자 또는 교사는 모든 디바이스 이력 조회 가능
+            # 관리자는 모든 디바이스 이력 조회 가능
             histories = DeviceHistory.objects.filter(
                 mac_address=mac_address
             ).order_by('-created_at')
@@ -101,7 +101,7 @@ class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = self.get_serializer(histories, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def my_history(self, request):
         """현재 로그인한 사용자의 장치 이력 조회"""
         user = request.user

@@ -5,16 +5,26 @@ import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, RefreshCw, Filter, Calendar, FileText, 
   Laptop, Monitor, Printer, Smartphone, 
-  Package, Settings, AlertCircle, CheckCircle
+  Package, Settings, AlertCircle, CheckCircle, FileEdit
 } from 'lucide-react';
 import { Equipment as ApiEquipment } from '@/services/api';
 import rentalService from '@/services/rental';
 import equipmentService from '@/services/equipment';
 import 'dayjs/locale/ko';
 import dayjs from 'dayjs';
-import { DateInput } from '@/components/ui/StyledComponents';
 import { formatDateToKorean } from '@/utils/dateUtils';
 import { useToastContext } from '@/contexts/ToastContext';
+import { 
+  Card, 
+  Heading, 
+  Text, 
+  Button, 
+  Input, 
+  Textarea, 
+  Modal,
+  Spinner,
+  DateInput
+} from '@/components/ui/StyledComponents';
 
 interface Equipment extends ApiEquipment {
   mac_addresses: Array<{
@@ -296,21 +306,25 @@ export default function RentalsPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => handleOpenDetailDialog(equipment)}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="w-full"
                   >
-                    <Settings className="w-4 h-4 mr-2 inline" />
+                    <Settings className="w-4 h-4 mr-2" />
                     상세정보
-                  </button>
+                  </Button>
                   
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={() => handleOpenRentDialog(equipment)}
-                    className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                    className="w-full"
                   >
-                    <FileText className="w-4 h-4 mr-2 inline" />
+                    <FileText className="w-4 h-4 mr-2" />
                     대여 신청
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -318,187 +332,167 @@ export default function RentalsPage() {
         )}
 
         {/* 상세정보 모달 */}
-        {openDetailDialog && selectedEquipment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-bold text-primary">장비 상세정보</h2>
-                  <button
-                    onClick={() => setOpenDetailDialog(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                      <h3 className="text-lg font-semibold text-primary mb-3">
-                        {selectedEquipment.manufacturer} {selectedEquipment.model_name}
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-secondary">장비 유형:</span>
-                          <span className="text-sm font-medium text-primary">{selectedEquipment.equipment_type_display}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-secondary">관리번호:</span>
-                          <span className="text-sm font-medium text-primary">{selectedEquipment.management_number || '미지정'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-secondary">시리얼번호:</span>
-                          <span className="text-sm font-medium text-primary">{selectedEquipment.serial_number}</span>
-                        </div>
-                        {selectedEquipment.manufacture_year && (
-                          <div className="flex justify-between">
-                            <span className="text-sm text-secondary">제작년도:</span>
-                            <span className="text-sm font-medium text-primary">{selectedEquipment.manufacture_year}년</span>
-                          </div>
-                        )}
-                        {selectedEquipment.purchase_date && (
-                          <div className="flex justify-between">
-                            <span className="text-sm text-secondary">구매일:</span>
-                            <span className="text-sm font-medium text-primary">{dayjs(selectedEquipment.purchase_date).format('YYYY년 MM월 DD일')}</span>
-                          </div>
-                        )}
+        <Modal
+          isOpen={openDetailDialog}
+          onClose={() => setOpenDetailDialog(false)}
+          size="lg"
+        >
+          {selectedEquipment && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-start">
+                <Heading level={2} className="text-xl font-bold">
+                  장비 상세정보
+                </Heading>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <Heading level={3} className="text-lg font-semibold mb-3">
+                      {selectedEquipment.manufacturer} {selectedEquipment.model_name}
+                    </Heading>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Text className="text-sm text-secondary">장비 유형:</Text>
+                        <Text className="text-sm font-medium">{selectedEquipment.equipment_type_display}</Text>
                       </div>
-                    </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                      <h4 className="text-md font-semibold text-primary mb-3">MAC 주소</h4>
-                      <div className="space-y-2">
-                        {selectedEquipment.mac_addresses && selectedEquipment.mac_addresses.length > 0 ? (
-                          selectedEquipment.mac_addresses.map((mac, index) => (
-                            <div key={index} className="flex justify-between items-center">
-                              <span className="text-sm text-secondary">
-                                {mac.is_primary ? '주 MAC:' : `MAC ${index + 1}:`}
-                              </span>
-                              <span className="text-sm font-mono text-primary">{mac.mac_address}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <span className="text-sm text-secondary">등록된 MAC 주소가 없습니다.</span>
-                        )}
+                      <div className="flex justify-between">
+                        <Text className="text-sm text-secondary">관리번호:</Text>
+                        <Text className="text-sm font-medium">{selectedEquipment.management_number || '미지정'}</Text>
                       </div>
+                      <div className="flex justify-between">
+                        <Text className="text-sm text-secondary">시리얼번호:</Text>
+                        <Text className="text-sm font-medium">{selectedEquipment.serial_number}</Text>
+                      </div>
+                      {selectedEquipment.manufacture_year && (
+                        <div className="flex justify-between">
+                          <Text className="text-sm text-secondary">제작년도:</Text>
+                          <Text className="text-sm font-medium">{selectedEquipment.manufacture_year}년</Text>
+                        </div>
+                      )}
+                      {selectedEquipment.purchase_date && (
+                        <div className="flex justify-between">
+                          <Text className="text-sm text-secondary">구매일:</Text>
+                          <Text className="text-sm font-medium">{dayjs(selectedEquipment.purchase_date).format('YYYY년 MM월 DD일')}</Text>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {selectedEquipment.description && (
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                      <h4 className="text-md font-semibold text-primary mb-2">설명</h4>
-                      <p className="text-sm text-secondary">{selectedEquipment.description}</p>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <Heading level={4} className="text-md font-semibold mb-3">MAC 주소</Heading>
+                    <div className="space-y-2">
+                      {selectedEquipment.mac_addresses && selectedEquipment.mac_addresses.length > 0 ? (
+                        selectedEquipment.mac_addresses.map((mac, index) => (
+                          <div key={index} className="flex justify-between items-center">
+                            <Text className="text-sm text-secondary">
+                              {mac.is_primary ? '주 MAC:' : `MAC ${index + 1}:`}
+                            </Text>
+                            <Text className="text-sm font-mono">{mac.mac_address}</Text>
+                          </div>
+                        ))
+                      ) : (
+                        <Text className="text-sm text-secondary">등록된 MAC 주소가 없습니다.</Text>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
                 
-                <div className="flex justify-end mt-6">
-                  <button
-                    onClick={() => setOpenDetailDialog(false)}
-                    className="btn-secondary"
-                  >
-                    닫기
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 대여 신청 모달 */}
-        {openRentDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-bold text-primary">장비 대여 신청</h2>
-                  <button
-                    onClick={() => setOpenRentDialog(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                
-                {selectedEquipment && (
-                  <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm text-secondary">
-                      {selectedEquipment.manufacturer} {selectedEquipment.model_name} ({selectedEquipment.equipment_type_display})
-                    </p>
+                {selectedEquipment.description && (
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <Heading level={4} className="text-md font-semibold mb-2">설명</Heading>
+                    <Text className="text-sm text-secondary">{selectedEquipment.description}</Text>
                   </div>
                 )}
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-secondary mb-2">
-                      선택된 장비
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedEquipment ? `${selectedEquipment.manufacturer} ${selectedEquipment.model_name}` : ''}
-                      readOnly
-                      className="input-field bg-gray-50 dark:bg-gray-700"
-                    />
-                  </div>
-                  
-                  <div>
-                    <DateInput
-                      label="반납 예정일"
-                      value={returnDate}
-                      onChange={setReturnDate}
-                      min={dayjs().format('YYYY-MM-DD')}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-secondary mb-2">
-                      신청 사유
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="장비 대여 목적을 입력하세요"
-                      rows={4}
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    onClick={() => setOpenRentDialog(false)}
-                    className="btn-secondary flex-1"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={handleSubmitRentRequest}
-                    disabled={loading}
-                    className="btn-primary flex-1"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
-                        처리중...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        신청하기
-                      </>
-                    )}
-                  </button>
-                </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
+                  onClick={() => setOpenDetailDialog(false)}
+                >
+                  닫기
+                </Button>
               </div>
             </div>
+          )}
+        </Modal>
+
+        {/* 대여 신청 모달 */}
+        <Modal
+          isOpen={openRentDialog}
+          onClose={() => setOpenRentDialog(false)}
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="flex justify-between items-start">
+              <Heading level={2} className="text-xl font-bold">
+                장비 대여 신청
+              </Heading>
+            </div>
+            
+            {selectedEquipment && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <Text className="text-sm text-secondary">
+                  {selectedEquipment.manufacturer} {selectedEquipment.model_name} ({selectedEquipment.equipment_type_display})
+                </Text>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <Input
+                label="선택된 장비"
+                value={selectedEquipment ? `${selectedEquipment.manufacturer} ${selectedEquipment.model_name}` : ''}
+                readOnly
+                className="bg-gray-50 dark:bg-gray-700"
+              />
+              
+              <DateInput
+                label="반납 예정일"
+                value={returnDate}
+                onChange={setReturnDate}
+                min={dayjs().format('YYYY-MM-DD')}
+                className="w-full"
+              />
+              
+              <Textarea
+                label="신청 사유"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="장비 대여 목적을 입력하세요"
+                rows={4}
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button
+                variant="secondary"
+                onClick={() => setOpenRentDialog(false)}
+                className="flex-1"
+              >
+                취소
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSubmitRentRequest}
+                disabled={loading}
+                className="flex-1"
+              >
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="mr-2" />
+                    처리중...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    신청하기
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        )}
+        </Modal>
       </div>
     </div>
   );

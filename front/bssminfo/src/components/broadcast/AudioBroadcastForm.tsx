@@ -262,20 +262,23 @@ export default function AudioBroadcastForm({
 
           {/* 녹음 영역 */}
           <div>
-            <Text className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+            <Text className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+              <Mic className="h-4 w-4 mr-2" />
               마이크로 녹음하기
             </Text>
             
-            <div className="border-2 border-dashed border-green-300 dark:border-green-600 rounded-xl p-8 text-center hover:border-green-400 dark:hover:border-green-500 transition-colors cursor-pointer bg-white dark:bg-gray-800 h-48 flex flex-col items-center justify-center"
+            <div className="border-2 border-dashed border-green-300 dark:border-green-600 rounded-xl p-8 text-center hover:border-green-400 dark:hover:border-green-500 transition-all duration-200 cursor-pointer bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 h-48 flex flex-col items-center justify-center hover:shadow-lg transform hover:scale-[1.02]"
               onClick={() => setShowRecordingModal(true)}
             >
-              <Mic className="mx-auto h-16 w-16 text-green-400 dark:text-green-500" />
-              <div className="mt-4">
-                <Text className="text-lg font-medium text-gray-900 dark:text-white">
+              <div className="bg-green-100 dark:bg-green-800/50 rounded-full p-4 mb-4 shadow-md">
+                <Mic className="h-12 w-12 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="space-y-2">
+                <Text className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   마이크로 녹음하기
                 </Text>
-                <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  클릭하여 녹음을 시작하세요
+                <Text className="text-sm text-gray-600 dark:text-gray-400">
+                  클릭하여 고품질 음성 녹음을 시작하세요
                 </Text>
               </div>
             </div>

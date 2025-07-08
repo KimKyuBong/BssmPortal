@@ -21,13 +21,13 @@ from ..serializers import (
     DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
 )
 from ..utils.kea_client import KeaClient
-from ..permissions import IsSuperUser, IsStaffUser, IsOwnerOrStaff
+from core.permissions import DevicePermissions, IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
 
 logger = logging.getLogger(__name__)
 
 class DeviceViewSet(viewsets.ModelViewSet):
     serializer_class = DeviceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [DevicePermissions]  # 중앙화된 권한 관리 사용
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -35,36 +35,36 @@ class DeviceViewSet(viewsets.ModelViewSet):
         return DeviceSerializer
 
     def get_queryset(self):
+        # all 액션은 관리자만 접근 가능하도록 추가 검증
+        if self.action == 'all':
+            if not self.request.user.is_superuser:
+                return Device.objects.none()  # 권한이 없으면 빈 쿼리셋 반환
+        
         # 관리자는 모든 장치 조회 가능
         if self.request.user.is_superuser:
-            return Device.objects.all()
-        # 교사는 모든 장치 조회 가능
-        elif self.request.user.is_staff:
             return Device.objects.all()
         # 일반 사용자는 자신의 장치만 조회 가능
         return Device.objects.filter(user=self.request.user)
     
-    def get_permissions(self):
-        # 데코레이터에서 특별히 권한이 설정되지 않은 액션들에 대한 기본 권한
-        # (create, list, retrieve, update, partial_update, destroy)
-        if self.action in ['update', 'partial_update']:
-            return [IsSuperUser()]
-        elif self.action in ['history']:
-            return [IsStaffUser()]
-        elif self.action == 'destroy':
-            return [IsOwnerOrStaff()]  # 소유자 또는 관리자만 삭제 가능
-        return [IsAuthenticated()]
+    # get_permissions 메서드 제거 - 중앙화된 권한 관리 사용
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def my(self, request):
         """내 기기만 조회"""
         devices = Device.objects.filter(user=request.user)
         serializer = self.get_serializer(devices, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsSuperUser])
+    @action(detail=False, methods=['get'])
     def all(self, request):
         """모든 기기 조회 (관리자용)"""
+        # 추가 권한 검증
+        if not request.user.is_superuser:
+            return Response(
+                {"detail": "관리자 권한이 필요합니다."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         # 페이지네이션 설정
         page = request.query_params.get('page', 1)
         search = request.query_params.get('search', '')
@@ -190,7 +190,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             # 구체적인 에러 메시지 포함하여 예외 발생
             raise ValidationError({"detail": f"장치 삭제 중 오류가 발생했습니다: {str(e)}"})
 
-    @action(detail=True, methods=['post'], permission_classes=[IsSuperUser])
+    @action(detail=True, methods=['post'])
     def reassign_ip(self, request, pk=None):
         device = self.get_object()
         old_ip = device.assigned_ip
@@ -240,7 +240,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], permission_classes=[IsSuperUser])
+    @action(detail=True, methods=['post'])
     def toggle_active(self, request, pk=None):
         device = self.get_object()
         old_status = device.is_active
@@ -333,7 +333,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             'assigned_ip': device.assigned_ip
         })
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['post'])
     def register_manual(self, request):
         """MAC 주소 수동 등록"""
         mac_address = request.data.get('mac_address')
@@ -453,7 +453,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             'user_devices': user_devices
         }) 
     
-    @action(detail=False, methods=['get'], url_path='current-mac', permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='current-mac')
     def get_current_mac(self, request):
         """현재 IP 주소의 MAC 주소를 가져옵니다."""
         try:
@@ -502,7 +502,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                 'mac_address': '00:00:00:00:00:00'
             }, status=500) 
         
-    @action(detail=False, methods=['post'], permission_classes=[IsSuperUser])
+    @action(detail=False, methods=['post'])
     def blacklist_ip(self, request):
         """IP 주소를 블랙리스트에 추가합니다. (관리자 전용)"""
         ip_address = request.data.get('ip_address')
@@ -559,7 +559,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         else:
             return Response({"error": "IP 주소를 블랙리스트에 추가하는데 실패했습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    @action(detail=False, methods=['post'], permission_classes=[IsSuperUser])
+    @action(detail=False, methods=['post'])
     def unblacklist_ip(self, request):
         """IP 주소를 블랙리스트에서 제거합니다. (관리자 전용)"""
         ip_address = request.data.get('ip_address')
@@ -576,7 +576,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         else:
             return Response({"error": "IP 주소가 블랙리스트에 없거나 제거하는데 실패했습니다."}, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=False, methods=['get'], permission_classes=[IsSuperUser])
+    @action(detail=False, methods=['get'])
     def blacklisted_ips(self, request):
         """블랙리스트된 IP 주소 목록을 가져옵니다. (관리자 전용)"""
         blacklisted_ips = KeaClient.get_blacklisted_ips()
@@ -586,7 +586,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
             "blacklisted_ips": blacklisted_ips
         }) 
 
-    @action(detail=False, methods=['get'], permission_classes=[IsSuperUser])
+    @action(detail=False, methods=['get'])
     def history(self, request):
         """IP 할당 이력 조회 (관리자용)"""
         # 페이지네이션 설정
@@ -623,7 +623,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
         
         return Response(response_data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def user_rentals(self, request):
         """사용자의 IP 대여 내역 조회"""
         try:
@@ -648,7 +648,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
                 'message': '대여 내역 조회 중 오류가 발생했습니다.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def user_equipment_rentals(self, request):
         """사용자의 기기 대여 내역 조회"""
         try:

@@ -14,6 +14,7 @@ import logging
 import os
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
+from core.permissions import DnsPermissions, IsAdminUser, IsAuthenticatedUser
 
 # OCSP 관련 import 추가
 from cryptography import x509
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 class CustomDnsRequestCreateView(generics.CreateAPIView):
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
 
     def perform_create(self, serializer):
         # 도메인 유효성 검증
@@ -46,18 +47,18 @@ class CustomDnsRequestCreateView(generics.CreateAPIView):
 class CustomDnsRequestListView(generics.ListAPIView):
     queryset = CustomDnsRequest.objects.all().order_by('-created_at')
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
 
 class MyDnsRequestListView(generics.ListAPIView):
     """사용자가 자신의 DNS 요청을 조회하는 뷰"""
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
 
     def get_queryset(self):
         return CustomDnsRequest.objects.filter(user=self.request.user).order_by('-created_at')
 
 class CustomDnsRequestApproveView(views.APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
 
     def post(self, request, pk):
         req = CustomDnsRequest.objects.get(pk=pk)

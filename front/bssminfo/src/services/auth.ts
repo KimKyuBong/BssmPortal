@@ -268,6 +268,53 @@ const authService = {
       return { is_initial_password: false };
     }
   },
+
+  /**
+   * 현재 사용자의 권한을 확인합니다.
+   * 어드민 페이지 접근 시 권한을 확인하는 용도입니다.
+   */
+  checkPermissions: async () => {
+    try {
+      const response = await api.get('/users/me/');
+      if (response.success && response.data) {
+        const user = response.data;
+        return {
+          success: true,
+          permissions: {
+            is_authenticated: true,
+            is_staff: user.is_staff,
+            is_superuser: user.is_superuser,
+            can_access_admin: user.is_superuser,
+            can_access_teacher: user.is_staff,
+            user_info: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              is_initial_password: user.is_initial_password,
+              device_limit: user.device_limit,
+              created_at: user.created_at
+            }
+          }
+        };
+      }
+      return {
+        success: false,
+        error: {
+          message: '사용자 정보를 가져올 수 없습니다.'
+        }
+      };
+    } catch (error) {
+      console.error('권한 확인 중 오류:', error);
+      return {
+        success: false,
+        error: {
+          message: '권한 확인 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
 };
 
 export default authService; 

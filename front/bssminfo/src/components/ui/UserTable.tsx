@@ -17,6 +17,8 @@ interface UserData {
   current_class?: number;
   grade?: number;
   class_number?: number;
+  is_initial_password?: boolean;
+  class_name?: string; // Added for class_name
 }
 
 interface UserTableProps {
@@ -49,9 +51,24 @@ export default function UserTable({
   onSelectAll
 }: UserTableProps) {
   const getClassInfo = (user: UserData) => {
-    if (userType === 'student' && user.current_class) {
-      const classInfo = classes.find(c => c.id === user.current_class);
-      return classInfo ? `${classInfo.grade}학년 ${classInfo.class_number}반` : '-';
+    if (userType === 'student') {
+      // current_class ID로 학반 정보 찾기
+      if (user.current_class && classes && classes.length > 0) {
+        const classInfo = classes.find(c => c.id === user.current_class);
+        if (classInfo) {
+          return `${classInfo.grade}학년 ${classInfo.class_number}반`;
+        }
+      }
+      
+      // class_name이 있는 경우 직접 사용
+      if (user.class_name) {
+        return user.class_name;
+      }
+      
+      // grade와 class_number가 있는 경우 직접 사용
+      if (user.grade && user.class_number) {
+        return `${user.grade}학년 ${user.class_number}반`;
+      }
     }
     return '-';
   };
@@ -114,7 +131,11 @@ export default function UserTable({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-primary truncate">
+                    <div className={`text-sm font-medium truncate ${
+                      userType === 'teacher' && user.is_initial_password 
+                        ? 'text-yellow-600 dark:text-yellow-400' 
+                        : 'text-primary'
+                    }`}>
                       {user.user_name || user.username}
                     </div>
                     <div className="text-xs text-secondary truncate">

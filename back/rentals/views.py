@@ -18,6 +18,10 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Prefetch
 from django.db import transaction
 from datetime import datetime
+from core.permissions import (
+    EquipmentPermissions, RentalPermissions, RentalRequestPermissions,
+    IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
+)
 
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress, EquipmentHistory
 from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer, EquipmentHistorySerializer
@@ -28,7 +32,7 @@ User = get_user_model()
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
-    관리자는 모든 권한, 일반 사용자는 읽기만 가능
+    관리자만 쓰기 권한을 가지며, 읽기는 인증된 사용자에게 허용
     """
     def has_permission(self, request, view):
         # register, by_mac 액션은 인증 없이 허용
@@ -37,7 +41,7 @@ class IsAdminOrReadOnly(permissions.BasePermission):
             
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
-        return request.user.is_authenticated and request.user.is_staff
+        return request.user.is_authenticated and request.user.is_superuser
 
 
 class IsOwnerOrAdmin(permissions.BasePermission):
@@ -45,7 +49,7 @@ class IsOwnerOrAdmin(permissions.BasePermission):
     본인의 자원이거나 관리자인 경우 접근 가능
     """
     def has_object_permission(self, request, view, obj):
-        if request.user.is_staff:
+        if request.user.is_superuser:
             return True
             
         if hasattr(obj, 'user'):
@@ -61,11 +65,11 @@ class EquipmentPagination(PageNumberPagination):
 
 class EquipmentViewSet(viewsets.ModelViewSet):
     """
-    장비 관리 API
+    장비 관리 API (관리자 전용)
     """
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [EquipmentPermissions]  # 중앙화된 권한 관리 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'asset_number', 
@@ -81,6 +85,51 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['asset_number', 'equipment_type', 'status', 'acquisition_date']
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     pagination_class = EquipmentPagination
+
+
+class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    장비 조회 API (사용자용 - 읽기 전용)
+    """
+    queryset = Equipment.objects.all()
+    serializer_class = EquipmentLiteSerializer
+    permission_classes = [EquipmentPermissions]  # 중앙화된 권한 관리 사용
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'asset_number', 
+        'serial_number', 
+        'description', 
+        'manufacturer', 
+        'model_name', 
+        'management_number'
+    ]
+    ordering_fields = ['asset_number', 'equipment_type', 'status', 'acquisition_date']
+    pagination_class = EquipmentPagination
+    
+    def get_queryset(self):
+        queryset = Equipment.objects.all()
+        
+        # 상태 필터링
+        status = self.request.query_params.get('status', None)
+        if status:
+            queryset = queryset.filter(status=status)
+        
+        # 장비 타입 필터링
+        equipment_type = self.request.query_params.get('equipment_type', None)
+        if equipment_type:
+            queryset = queryset.filter(equipment_type=equipment_type)
+        
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def available(self, request):
+        """대여 가능한 장비 목록 조회 (사용자용)"""
+        # 대여 가능한 장비만 필터링 (상태가 'AVAILABLE'인 장비)
+        available_equipment = Equipment.objects.filter(status='AVAILABLE').order_by('management_number')
+        
+        # 페이지네이션 없이 배열로 반환
+        serializer = self.get_serializer(available_equipment, many=True)
+        return Response(serializer.data)
     
     def get_queryset(self):
         queryset = Equipment.objects.prefetch_related(
@@ -103,18 +152,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         
         return queryset
     
-    def get_permissions(self):
-        """
-        액션별로 권한 설정:
-        - register, by_mac: 누구나 접근 가능
-        - list, retrieve: 인증된 사용자만 접근 가능
-        - 기타 액션: 관리자만 접근 가능
-        """
-        if self.action in ['register', 'by_mac']:
-            return [AllowAny()]
-        if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.IsAuthenticated()]
-        return [IsAdminOrReadOnly()]
+    # get_permissions 메서드 제거 - 중앙화된 권한 관리 사용
     
     def update(self, request, *args, **kwargs):
         import logging
@@ -153,9 +191,9 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
     
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def available(self, request):
-        """대여 가능한 장비 목록 조회"""
+        """대여 가능한 장비 목록 조회 (인증된 사용자 접근 가능)"""
         # 대여 가능한 장비만 필터링 (상태가 'AVAILABLE'인 장비)
         available_equipment = Equipment.objects.filter(status='AVAILABLE').order_by('management_number')
         
@@ -232,9 +270,9 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='import')
     def import_excel(self, request):
-        """엑셀 파일로부터 장비를 일괄 추가하는 API"""
-        if not request.user.is_staff:
-            return Response({"detail": "권한이 없습니다."}, status=status.HTTP_403_FORBIDDEN)
+        """엑셀 파일로부터 장비를 일괄 추가하는 API (관리자 전용)"""
+        if not request.user.is_superuser:
+            return Response({"detail": "관리자 권한이 필요합니다."}, status=status.HTTP_403_FORBIDDEN)
         
         if 'file' not in request.FILES:
             return Response({'error': '파일이 제공되지 않았습니다.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -422,7 +460,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['get', 'post'], permission_classes=[AllowAny])
+    @action(detail=False, methods=['get', 'post'])
     def by_mac(self, request):
         """MAC 주소로 장비를 조회하는 API"""
         # GET 요청 처리 (쿼리 파라미터에서 MAC 주소 추출)
@@ -744,7 +782,7 @@ class RentalViewSet(viewsets.ModelViewSet):
     """
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [RentalPermissions]  # 중앙화된 권한 관리 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['equipment__asset_number', 'equipment__serial_number', 'user__username']
     ordering_fields = ['rental_date', 'due_date', 'return_date', 'status']
@@ -967,7 +1005,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
     """
     queryset = RentalRequest.objects.all()
     serializer_class = RentalRequestSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [RentalRequestPermissions]  # 중앙화된 권한 관리 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['equipment__asset_number', 'user__username', 'reason']
     ordering_fields = ['requested_date', 'status', 'request_type']
@@ -1529,7 +1567,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
 class EquipmentMacAddressViewSet(viewsets.ModelViewSet):
     queryset = EquipmentMacAddress.objects.all()
     serializer_class = EquipmentMacAddressSerializer
-    permission_classes = [AllowAny]  # 기본 권한을 AllowAny로 설정
+    permission_classes = [AllowAny]  # MAC 주소 관련은 누구나 접근 가능
     parser_classes = [JSONParser, FormParser, MultiPartParser]  # 파서 클래스 추가
     
     

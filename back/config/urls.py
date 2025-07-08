@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
-from users.views import UserViewSet, IsSuperUser, PasswordViewSet
+from users.views import UserViewSet, PasswordViewSet
 from devices.views import DeviceViewSet, DeviceHistoryViewSet, get_ip_rentals, get_device_rentals
 from rentals.views import EquipmentViewSet, RentalViewSet, RentalRequestViewSet
 from users import auth, views as user_views
@@ -20,6 +20,7 @@ admin_router.register(r'ip', DeviceViewSet, basename='admin-ip')  # 관리자용
 admin_router.register(r'ip/history', DeviceHistoryViewSet, basename='admin-ip-history')  # 관리자용 전체 이력
 admin_router.register(r'rentals', RentalViewSet, basename='admin-rentals')  # 관리자용 전체 대여 목록
 admin_router.register(r'rental-requests', RentalRequestViewSet, basename='admin-rental-requests')
+admin_router.register(r'equipment', EquipmentViewSet, basename='admin-equipment')  # 관리자용 장비 관리
 
 # 관리자 전용 URL 패턴 (라우터로 처리할 수 없는 특수 기능)
 admin_custom_patterns = [
@@ -27,6 +28,7 @@ admin_custom_patterns = [
     path('users/<int:pk>/reset-password/', UserViewSet.as_view({'post': 'reset_password'}), name='reset_password'),
     
     # IP 관리 특수 기능
+    path('ip/all/', DeviceViewSet.as_view({'get': 'all'}), name='all-devices'),  # 관리자 전용 전체 장치 조회
     path('ip/statistics/', DeviceViewSet.as_view({'get': 'statistics'}), name='ip-statistics'),
     path('ip/<int:pk>/reassign/', DeviceViewSet.as_view({'post': 'reassign_ip'}), name='reassign-ip'),
     path('ip/<int:pk>/toggle-active/', DeviceViewSet.as_view({'post': 'toggle_active'}), name='toggle-active'),

@@ -340,6 +340,8 @@ const adminService = {
    * @returns 초기화 결과
    */
   resetUserPassword: async (id: number, newPassword?: string) => {
+    console.log('[DEBUG] resetUserPassword 호출:', { id, newPassword: newPassword ? '제공됨' : '제공되지 않음' });
+    console.log('[DEBUG] API 엔드포인트:', `/admin/users/${id}/reset-password/`);
     return api.post(`/admin/users/${id}/reset-password/`, newPassword ? { new_password: newPassword } : {});
   },
 

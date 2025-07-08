@@ -36,7 +36,7 @@ from .serializers import (
     PreviewApprovalSerializer,
     AudioPreviewSerializer
 )
-from .permissions import IsTeacher
+from core.permissions import BroadcastPermissions, IsTeacherUser
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ class DeviceMatrixView(APIView):
 
 class TextBroadcastView(APIView):
     """텍스트 방송 뷰 - 방송서버로 요청하여 프리뷰 생성"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [BroadcastPermissions]  # 중앙화된 권한 관리 사용
     
     def post(self, request):
         """방송서버로 텍스트 방송 요청하여 프리뷰 생성"""
@@ -289,7 +289,7 @@ class TextBroadcastView(APIView):
 
 class AudioBroadcastView(APIView):
     """오디오 방송 뷰 - 방송서버로 요청하여 프리뷰 생성"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [BroadcastPermissions]  # 중앙화된 권한 관리 사용
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request):
@@ -423,7 +423,7 @@ class AudioBroadcastView(APIView):
 
 class BroadcastHistoryView(APIView):
     """방송 이력 뷰"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [BroadcastPermissions]  # 중앙화된 권한 관리 사용
     
     def get(self, request):
         """방송 이력 조회"""
@@ -494,7 +494,7 @@ class BroadcastHistoryView(APIView):
 
 class BroadcastHistoryDetailView(APIView):
     """방송 이력 상세 조회 뷰 (오디오 base64 포함)"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [BroadcastPermissions]  # 중앙화된 권한 관리 사용
     
     def get(self, request, history_id):
         """특정 방송 이력 상세 조회 (오디오 base64 포함)"""
@@ -570,7 +570,7 @@ class BroadcastHistoryDetailView(APIView):
 
 class ReuseHistoryAudioView(APIView):
     """방송 이력에서 오디오 파일 재사용 뷰"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [BroadcastPermissions]  # 중앙화된 권한 관리 사용
     
     def post(self, request, history_id):
         """방송 이력의 오디오 파일을 재사용하여 새로운 프리뷰 생성"""
@@ -701,7 +701,7 @@ class ReuseHistoryAudioView(APIView):
 
 class AdminBroadcastHistoryView(APIView):
     """어드민 전용 방송 이력 전체 조회 뷰"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     
     def get(self, request):
         """어드민용 전체 방송 이력 조회"""
@@ -842,7 +842,7 @@ def broadcast_status(request):
 
 class AudioPreviewView(APIView):
     """오디오 프리뷰 뷰 - 외부 API에서 받은 프리뷰 정보를 처리하고 오디오 파일 업로드"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     parser_classes = [MultiPartParser, FormParser]
     
     def post(self, request):
@@ -956,7 +956,7 @@ class AudioPreviewView(APIView):
 
 class PreviewApprovalView(APIView):
     """프리뷰 승인/거부 뷰"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     
     def post(self, request, preview_id):
         """프리뷰 승인 또는 거부"""
@@ -1316,7 +1316,7 @@ class AdminPreviewListView(APIView):
 
 class TextPreviewView(APIView):
     """텍스트 프리뷰 뷰 - 외부 API에서 생성된 프리뷰 정보를 받아서 처리"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     
     def post(self, request):
         """외부 API에서 생성된 텍스트 프리뷰 정보를 받아서 저장"""
@@ -1390,7 +1390,7 @@ class TextPreviewView(APIView):
 
 class PreviewRejectView(APIView):
     """프리뷰 거부 전용 뷰"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     
     def post(self, request, preview_id):
         """프리뷰 거부"""
@@ -1523,7 +1523,7 @@ class PreviewDetailView(APIView):
 
 class TestExternalPreviewView(APIView):
     """외부 API 프리뷰 응답을 시뮬레이션하는 테스트 뷰"""
-    permission_classes = [IsAuthenticated, IsTeacher]
+    permission_classes = [IsAuthenticated, IsTeacherUser]
     
     
     def post(self, request):

@@ -6,7 +6,6 @@ from .views import UserViewSet, ClassViewSet, StudentViewSet, TeacherViewSet
 # 라우터 설정
 router = DefaultRouter()
 router.register(r'password', views.PasswordViewSet, basename='password')
-router.register(r'users', UserViewSet)
 router.register(r'classes', ClassViewSet)
 router.register(r'students', StudentViewSet)
 router.register(r'teachers', TeacherViewSet, basename='teacher')

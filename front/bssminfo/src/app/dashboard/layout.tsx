@@ -40,7 +40,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* 모바일 사이드바 토글 버튼 */}
-      <div className="lg:hidden fixed top-0 left-0 w-full bg-white dark:bg-gray-800 z-10 p-4 flex items-center justify-between shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 w-full bg-white dark:bg-gray-800 z-30 p-4 flex items-center justify-between shadow-sm border-b border-gray-200 dark:border-gray-700">
         <button
           onClick={toggleSidebar}
           className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -63,14 +63,14 @@ export default function DashboardLayout({
       {/* 모바일 오버레이 - 사이드바가 열려있을 때만 표시 */}
       {sidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-10"
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={() => setSidebarOpen(false)}
           aria-label="사이드바 닫기"
         />
       )}
 
       {/* 사이드바 */}
-      <div className={`fixed inset-y-0 left-0 z-20 w-64 bg-white dark:bg-gray-800 shadow-lg transform ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 shadow-lg transform ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       } transition-transform duration-300 ease-in-out`}>
         <div className="h-full flex flex-col">
@@ -198,13 +198,13 @@ export default function DashboardLayout({
         sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
       }`}>
         {/* 헤더 */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 lg:relative">
           <div className="flex items-center justify-between px-4 py-4 lg:px-6">
             <div className="flex items-center">
               {/* 데스크톱 사이드바 토글 버튼 */}
               <button
                 onClick={toggleSidebar}
-                className="flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mr-4 transition-colors duration-200"
+                className="hidden lg:flex p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mr-4 transition-colors duration-200"
                 aria-label="사이드바 토글"
               >
                 {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
@@ -230,7 +230,7 @@ export default function DashboardLayout({
         </header>
 
         {/* 페이지 컨텐츠 */}
-        <main className="p-4 lg:p-6">
+        <main className="p-4 lg:p-6 lg:pt-6 pt-20">
           {children}
         </main>
       </div>

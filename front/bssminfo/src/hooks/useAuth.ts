@@ -86,6 +86,68 @@ export const useAuth = () => {
     return user?.is_staff !== true && user?.is_superuser !== true;
   }, [user]);
 
+  // 백엔드에서 권한 재확인 (어드민 페이지 접근 시)
+  const checkAdminPermission = useCallback(async () => {
+    try {
+      const response = await authService.checkPermissions();
+      if (response.success && response.permissions) {
+        const permissions = response.permissions;
+        if (!permissions.can_access_admin) {
+          return { 
+            success: false, 
+            message: '관리자 권한이 필요합니다.',
+            redirect: true 
+          };
+        }
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          message: '권한 확인에 실패했습니다.',
+          redirect: true 
+        };
+      }
+    } catch (error) {
+      console.error('권한 확인 중 오류:', error);
+      return { 
+        success: false, 
+        message: '권한 확인 중 오류가 발생했습니다.',
+        redirect: true 
+      };
+    }
+  }, []);
+
+  // 백엔드에서 권한 재확인 (교사 페이지 접근 시)
+  const checkTeacherPermission = useCallback(async () => {
+    try {
+      const response = await authService.checkPermissions();
+      if (response.success && response.permissions) {
+        const permissions = response.permissions;
+        if (!permissions.can_access_teacher) {
+          return { 
+            success: false, 
+            message: '교사 권한이 필요합니다.',
+            redirect: true 
+          };
+        }
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          message: '권한 확인에 실패했습니다.',
+          redirect: true 
+        };
+      }
+    } catch (error) {
+      console.error('권한 확인 중 오류:', error);
+      return { 
+        success: false, 
+        message: '권한 확인 중 오류가 발생했습니다.',
+        redirect: true 
+      };
+    }
+  }, []);
+
   // 컴포넌트 마운트 시 사용자 정보 가져오기
   useEffect(() => {
     fetchCurrentUser();
@@ -102,6 +164,8 @@ export const useAuth = () => {
     login,
     logout,
     fetchCurrentUser,
+    checkAdminPermission,
+    checkTeacherPermission,
   };
 };
 

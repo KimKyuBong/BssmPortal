@@ -1,10 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import EquipmentViewSet, RentalViewSet, RentalRequestViewSet, EquipmentMacAddressViewSet
+from .views import RentalViewSet, RentalRequestViewSet, EquipmentMacAddressViewSet, EquipmentReadOnlyViewSet
 
-# 일반 라우터 구성 - 모든 ViewSet 등록
+# 일반 라우터 구성 - 사용자용 기능만 등록
 router = DefaultRouter()
-router.register(r'equipment', EquipmentViewSet, basename='equipment')
+router.register(r'equipment', EquipmentReadOnlyViewSet, basename='equipment')  # 사용자용 장비 조회
 router.register(r'items', RentalViewSet)
 router.register(r'requests', RentalRequestViewSet)
 router.register(r'equipment-mac', EquipmentMacAddressViewSet)

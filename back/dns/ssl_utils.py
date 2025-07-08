@@ -28,7 +28,11 @@ class CertificateManager:
         os.makedirs(self.key_dir, mode=0o700, exist_ok=True)
     
     def create_ca(self, ca_name="BSSM Internal CA", validity_days=None):
-        """내부 CA 생성"""
+        """내부 CA 생성 (이미 있으면 예외 발생)"""
+        # 이미 CA가 존재하면 재생성 금지
+        existing_ca = CertificateAuthority.objects.filter(is_active=True).first()
+        if existing_ca:
+            raise Exception("이미 활성화된 CA가 존재합니다. CA 재생성은 금지되어 있습니다.")
         if validity_days is None:
             validity_days = getattr(settings, 'SSL_CA_VALIDITY_DAYS', 36500)  # 기본 100년
             

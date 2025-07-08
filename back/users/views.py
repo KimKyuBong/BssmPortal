@@ -20,31 +20,16 @@ import logging
 from rest_framework import filters
 from django.contrib.auth import get_user_model
 from rest_framework.pagination import PageNumberPagination
+from core.permissions import UserPermissions, IsAdminUser, IsAuthenticatedUser
 
 logger = logging.getLogger(__name__)
-
-# 관리자(superuser) 권한 클래스 정의
-class IsSuperUser(BasePermission):
-    """
-    슈퍼유저(관리자) 권한만 허용하는 권한 클래스
-    """
-    def has_permission(self, request, view):
-        return request.user and request.user.is_superuser
-
-# 교사(staff) 권한 클래스 정의
-class IsStaffUser(BasePermission):
-    """
-    교사(staff) 권한 이상만 허용하는 권한 클래스
-    """
-    def has_permission(self, request, view):
-        return request.user and (request.user.is_staff or request.user.is_superuser)
 
 # Create your views here.
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsStaffUser]  # 교사 이상의 권한 필요
+    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'last_name']
 
@@ -53,14 +38,14 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserCreateSerializer
         return UserSerializer
 
-    def get_permissions(self):
-        # 관리자 권한이 필요한 액션 목록
-        if self.action in ['create', 'destroy', 'update', 'partial_update', 'export', 'import_users', 'reset_password']:
-            return [IsSuperUser()]
-        # 나머지 모든 액션은 인증된 사용자에게 허용
-        return [IsAuthenticated()]
+    # get_permissions 메서드 제거 - 중앙화된 권한 관리 사용
     
     def get_queryset(self):
+        # all 액션은 관리자만 접근 가능하도록 추가 검증
+        if self.action == 'all':
+            if not self.request.user.is_superuser:
+                return User.objects.none()  # 권한이 없으면 빈 쿼리셋 반환
+        
         queryset = User.objects.all()
         
         # 교사 목록 조회 시 필터링
@@ -104,12 +89,20 @@ class UserViewSet(viewsets.ModelViewSet):
     def all(self, request):
         """
         페이지네이션 없이 전체 사용자 목록을 반환합니다.
+        관리자만 접근 가능합니다.
         """
+        # 추가 권한 검증
+        if not request.user.is_superuser:
+            return Response(
+                {"detail": "관리자 권한이 필요합니다."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'])
     def me(self, request):
         """
         현재 로그인한 사용자의 정보를 반환합니다.
@@ -473,12 +466,14 @@ class UserViewSet(viewsets.ModelViewSet):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
 
+
+
 class PasswordViewSet(viewsets.ViewSet):
     """
     비밀번호 관리를 위한 ViewSet
     비밀번호 변경, 초기 비밀번호 변경, 비밀번호 초기화 등의 기능을 제공합니다.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
     
     def validate_password(self, password):
         """비밀번호 유효성 검사"""
@@ -689,7 +684,7 @@ class PasswordViewSet(viewsets.ViewSet):
 class ClassViewSet(viewsets.ModelViewSet):
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
-    permission_classes = [IsStaffUser]
+    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
 
     def get_queryset(self):
         return Class.objects.all().order_by('grade', 'class_number')
@@ -702,7 +697,7 @@ class StudentPagination(PageNumberPagination):
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [IsStaffUser]
+    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
     pagination_class = StudentPagination
 
     def get_queryset(self):
@@ -744,7 +739,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 class TeacherViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_staff=True)
     serializer_class = TeacherSerializer
-    permission_classes = [IsStaffUser]
+    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
 
     def get_queryset(self):
         return User.objects.filter(is_staff=True)

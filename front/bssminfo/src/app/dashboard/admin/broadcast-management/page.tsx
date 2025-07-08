@@ -239,7 +239,21 @@ export default function BroadcastManagementPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <p className="text-sm text-gray-900 dark:text-white max-w-xs truncate">{item.content}</p>
+                          <div className="max-w-md">
+                            <div 
+                              className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 p-2 rounded border-l-2 border-blue-500"
+                              title={item.content}
+                            >
+                              {item.content.length > 100 ? (
+                                <>
+                                  <span className="break-words">{item.content.substring(0, 100)}</span>
+                                  <span className="text-blue-600 dark:text-blue-400 font-medium ml-1">...더보기</span>
+                                </>
+                              ) : (
+                                <span className="break-words">{item.content}</span>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center">

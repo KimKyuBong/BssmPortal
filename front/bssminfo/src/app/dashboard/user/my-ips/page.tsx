@@ -12,6 +12,7 @@ import StatsCard from '@/components/ui/StatsCard';
 import DeviceTable from '@/components/ui/DeviceTable';
 import BulkActionBar from '@/components/ui/BulkActionBar';
 import DeviceRegistrationModal from '@/components/ui/DeviceRegistrationModal';
+import DeviceEditModal from '@/components/ui/DeviceEditModal';
 import { useToastContext } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/StyledComponents';
 
@@ -51,6 +52,11 @@ export default function MyIpsPage() {
   const [showModal, setShowModal] = useState(false);
   const [registering, setRegistering] = useState(false);
   
+  // 장치 수정 모달 상태
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [editing, setEditing] = useState(false);
+  
   // DNS 등록 신청 다이얼로그 상태
   const [dnsDialog, setDnsDialog] = useState<{ open: boolean; ip: string; mac: string; deviceName: string; isResubmit?: boolean; requestId?: number } | null>(null);
   const [dnsForm, setDnsForm] = useState({ domain: '', reason: '' });
@@ -77,15 +83,18 @@ export default function MyIpsPage() {
     setMacAddress(fullMac);
     
     // 유효성 검사
-    if (fullMac.length === 17) {
+    const totalLength = fullMac.replace(/:/g, '').length;
+    const allPartsFilled = newMacParts.every(part => part.length === 2);
+    
+    if (totalLength === 12 && allPartsFilled) {
       if (!validateMacAddress(fullMac)) {
-        setMacError('올바른 MAC 주소 형식이 아닙니다.');
+        setMacError('올바른 MAC 주소 형식이 아닙니다. 16진수 문자만 입력해주세요.');
       } else {
         setMacError(null);
       }
-    } else if (fullMac.replace(/:/g, '').length > 0) {
-      setMacError('MAC 주소를 완성해주세요.');
-    } else {
+    } else if (totalLength > 0 && totalLength < 12) {
+      setMacError('MAC 주소를 완성해주세요. (12자리 16진수)');
+    } else if (totalLength === 0) {
       setMacError(null);
     }
     
@@ -111,7 +120,8 @@ export default function MyIpsPage() {
   
   // MAC 주소 유효성 검사 함수
   const validateMacAddress = (mac: string): boolean => {
-    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+    // 콜론(:)으로 구분된 MAC 주소 형식만 허용
+    const macRegex = /^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$/;
     return macRegex.test(mac);
   };
 
@@ -180,6 +190,44 @@ export default function MyIpsPage() {
     }
   };
 
+  // 기기 정보 수정 핸들러
+  const handleEditDevice = (deviceId: number) => {
+    const device = devices.find(d => d.id === deviceId);
+    if (device) {
+      setEditingDevice(device);
+      setShowEditModal(true);
+    }
+  };
+
+  // 기기 정보 수정 제출 핸들러
+  const handleEditDeviceSubmit = async (deviceId: number, deviceName: string) => {
+    setEditing(true);
+    try {
+      const response = await ipService.updateIp(deviceId, deviceName);
+      if (response.success) {
+        showSuccess('기기 정보 수정 완료', '기기 정보가 성공적으로 수정되었습니다.');
+        
+        // 기기 목록 새로고침
+        const devicesResponse = await ipService.getMyIps();
+        if (devicesResponse.success) {
+          setDevices(devicesResponse.data || []);
+        }
+      } else {
+        showError('기기 정보 수정 실패', '기기 정보 수정에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('기기 정보 수정 오류:', error);
+      let errorMessage = '기기 정보 수정 중 오류가 발생했습니다.';
+      if (error?.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      showError('기기 정보 수정 오류', errorMessage);
+      throw error; // 모달에서 에러를 표시하기 위해 다시 던짐
+    } finally {
+      setEditing(false);
+    }
+  };
+
   // SSL 인증서 다운로드 함수
   const handleSslDownload = async (device: Device) => {
     const dnsInfo = getDnsInfo(device);
@@ -222,6 +270,7 @@ export default function MyIpsPage() {
     setMacError(null);
     setIsManualInput(false);
     setRegistering(false);
+    setMacLoading(false);
     
     // 현재 MAC 주소 가져오기
     fetchCurrentMac();
@@ -230,8 +279,13 @@ export default function MyIpsPage() {
   // 기기 등록 처리
   const handleRegisterDevice = async (macAddress: string, deviceName: string) => {
     // 입력 검증
-    if (!macAddress || !validateMacAddress(macAddress)) {
-      setMacError('유효한 MAC 주소를 입력해주세요.');
+    if (!macAddress || macAddress.replace(/:/g, '').length !== 12) {
+      setMacError('MAC 주소를 완성해주세요. (12자리 16진수)');
+      return;
+    }
+    
+    if (!validateMacAddress(macAddress)) {
+      setMacError('올바른 MAC 주소 형식이 아닙니다.');
       return;
     }
     
@@ -521,16 +575,19 @@ export default function MyIpsPage() {
           const parts = mac_address.split(':').map(part => part.toUpperCase());
           console.log('🔍 MAC 주소 파트:', parts);
           
-          // 수동 입력 모드로 전환
-          setIsManualInput(true);
-          
           // 각 입력 필드에 MAC 주소 파트 설정
           setMacParts(parts);
+          
+          // 전체 MAC 주소 업데이트
+          setMacAddress(mac_address);
           
           // 기기 이름 자동 설정 (IP 주소가 있는 경우)
           if (ip_address && deviceName === '') {
             setDeviceName(`내 기기 (${ip_address})`);
           }
+          
+          // 에러 메시지 제거
+          setMacError(null);
         } else {
           console.log('🔍 유효한 MAC 주소를 찾을 수 없음');
           setMacError('현재 기기의 MAC 주소를 찾을 수 없습니다.');
@@ -672,7 +729,7 @@ export default function MyIpsPage() {
             selectedDevices={selectedDevices}
             onDeviceSelect={handleDeviceSelection}
             onToggleActive={handleToggleDeviceActive}
-            onEdit={(deviceId) => router.push(`/dashboard/teacher/my-devices/${deviceId}/edit`)}
+            onEdit={handleEditDevice}
             onDelete={handleDeleteDevice}
             onDnsRequest={(device) => setDnsDialog({ open: true, ip: device.assigned_ip || '', mac: device.mac_address, deviceName: device.device_name })}
             onDnsResubmit={(device) => {
@@ -721,6 +778,18 @@ export default function MyIpsPage() {
         onFetchCurrentMac={fetchCurrentMac}
       />
 
+      {/* 장치 수정 모달 */}
+      <DeviceEditModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingDevice(null);
+        }}
+        device={editingDevice}
+        onSubmit={handleEditDeviceSubmit}
+        loading={editing}
+      />
+
       {/* DNS 등록 신청 다이얼로그 */}
       {dnsDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -740,8 +809,10 @@ export default function MyIpsPage() {
                   <li><code>도메인.한국</code> - 한글 도메인</li>
                   <li><code>my-site.info</code> - 하이픈 포함 (시작/끝 제외)</li>
                 </ul>
-                <p className="mt-2"><strong>지원 확장자:</strong></p>
-                <p className="text-xs">.com, .net, .org, .kr, .한국, .info, .app, .dev, .io, .tech 등</p>
+                <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">
+                  ※ 도메인에는 반드시 <b>점(.)이 포함</b>되어야 하며, 단일 단어(예: <code>mydns</code>)는 등록할 수 없습니다.<br/>
+                  내부/개인 DNS도 <b>mydns.local</b> 등 점이 포함된 형식으로 등록해 주세요.
+                </p>
               </div>
             </div>
 

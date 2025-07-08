@@ -70,56 +70,103 @@ export default function DeviceRegistrationModal({
                   MAC 주소
                 </label>
                 
-                <div className="mb-2">
+                <div className="mb-3">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
                     onClick={onFetchCurrentMac}
-                    disabled={macLoading}
+                    disabled={macLoading || isManualInput}
+                    className={`w-full transition-colors ${
+                      isManualInput 
+                        ? 'bg-gray-100 border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900 dark:hover:bg-blue-800 dark:border-blue-700 dark:text-blue-300'
+                    }`}
                   >
                     {macLoading ? (
                       <span className="inline-flex items-center">
-                        <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-500 mr-2"></span>
-                        로딩 중...
+                        <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500 mr-2"></span>
+                        MAC 주소 조회 중...
                       </span>
                     ) : (
-                      <span className="font-medium">현재 MAC 주소 가져오기</span>
+                      <span className="inline-flex items-center">
+                        {isManualInput ? (
+                          <>
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                            </svg>
+                            수동 입력 모드 (자동 불러오기 비활성화)
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            내 MAC 주소 자동 불러오기
+                          </>
+                        )}
+                      </span>
                     )}
                   </Button>
                 </div>
                 
-                <div className="flex space-x-2">
-                  {macParts.map((part, idx) => (
-                    <div key={idx} className="w-12">
-                      <input
-                        id={`macPart-${idx}`}
-                        type="text"
-                        className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-center font-mono uppercase font-semibold bg-white dark:bg-gray-700 text-primary"
-                        value={part}
-                        onChange={(e) => onMacPartChange(idx, e.target.value)}
-                        onKeyDown={(e) => onMacPartKeyDown(idx, e)}
-                        maxLength={2}
-                        disabled={registering}
-                      />
-                    </div>
-                  ))}
+                <div className="mb-2">
+                  <div className="flex items-center space-x-1">
+                    {macParts.map((part, idx) => (
+                      <div key={idx} className="flex-1">
+                        <input
+                          id={`macPart-${idx}`}
+                          type="text"
+                                                  className={`w-full px-2 py-3 border rounded-md text-center font-mono uppercase font-semibold text-lg transition-colors ${
+                          part.length === 2 
+                            ? 'border-green-500 bg-green-50 dark:bg-green-900 dark:border-green-400' 
+                            : part.length === 1 
+                              ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900 dark:border-yellow-400'
+                              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700'
+                          } ${registering ? 'opacity-50 cursor-not-allowed' : ''} ${
+                            isManualInput ? 'ring-2 ring-blue-200 dark:ring-blue-700' : ''
+                          }`}
+                          value={part}
+                          onChange={(e) => onMacPartChange(idx, e.target.value)}
+                          onKeyDown={(e) => onMacPartKeyDown(idx, e)}
+                          maxLength={2}
+                          disabled={registering}
+                          placeholder="00"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+                    MAC 주소 형식: XX:XX:XX:XX:XX:XX (16진수)
+                  </div>
                 </div>
                 
                 {macError && (
-                  <p className="text-red-500 dark:text-red-400 text-xs mt-1">{macError}</p>
+                  <div className="mt-2 p-2 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 text-red-500 dark:text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-red-600 dark:text-red-300 text-sm font-medium">{macError}</p>
+                    </div>
+                  </div>
                 )}
                 
-                <div className="mt-2">
-                  <label className="inline-flex items-center">
+                <div className="mt-3 p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+                  <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      className="form-checkbox h-4 w-4 text-blue-600"
+                      className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                       checked={isManualInput}
                       onChange={(e) => onManualInputChange(e.target.checked)}
                     />
-                    <span className="ml-2 text-sm font-medium text-primary">수동으로 MAC 주소 입력</span>
+                    <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      수동으로 MAC 주소 입력 모드
+                    </span>
                   </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                    체크하면 자동 불러오기 기능이 비활성화됩니다
+                  </p>
                 </div>
               </div>
               

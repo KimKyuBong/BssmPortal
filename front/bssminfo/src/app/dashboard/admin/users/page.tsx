@@ -16,6 +16,7 @@ import TemplateModal from '@/components/admin/TemplateModal';
 import UserManagementTabs from '@/components/admin/users/UserManagementTabs';
 import ExcelManagement from '@/components/admin/ExcelManagement';
 import CreateUserModal from '@/components/admin/CreateUserModal';
+import AdminPermissionGuard from '@/components/admin/AdminPermissionGuard';
 
 // User 타입 확장
 interface ExtendedUser extends User {
@@ -32,29 +33,30 @@ interface ExtendedUser extends User {
   is_active: boolean;
 }
 
-// Student 타입 확장
-interface ExtendedStudent {
-  id: number;
-  user: number;
-  device_limit: number;
+interface ExtendedStudent extends Student {
+  is_superuser: boolean;
+  is_initial_password: boolean;
+  email: string;
+  user_name: string;
+  is_staff: boolean;
   ip_count: number;
   rental_count: number;
-  class_name?: string;
-  created_at?: string;
-  email?: string;
+  id: number;
   username: string;
-  user_name?: string;
+  created_at: string;
+  is_active: boolean;
+  class_name?: string;
 }
 
 interface RentalDetail {
   id: number;
-  device_name: string;
-  mac_address: string;
-  assigned_ip: string;
+  user: number;
   username: string;
+  device_name?: string;
+  ip_address?: string;
   created_at: string;
-  last_access: string;
-  is_active: boolean;
+  returned_at?: string;
+  status: string;
 }
 
 type TabType = 'all' | 'teachers' | 'students';
@@ -90,6 +92,7 @@ export default function UserManagementPage() {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importSuccess, setImportSuccess] = useState<string | null>(null);
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // 사용자 추가 모달 상태
@@ -170,18 +173,41 @@ export default function UserManagementPage() {
     const fetchAllStudents = async () => {
       try {
         const response = await userService.getStudentsByClass(0, 1, 1000); // 큰 숫자로 설정하여 모든 학생을 한 번에 가져옴
-        setStudents(response.results.map((student: Student) => ({
-          ...student,
-          device_limit: student.device_limit || 0
-        })));
+        console.log('[DEBUG] 학생 데이터 원본:', response.results);
+        
+        // classes 데이터가 있을 때 class_name 생성
+        const processedStudents = response.results.map((student: Student) => {
+          let class_name = '-';
+          
+          // current_class가 있고 classes 데이터가 있을 때 학반명 생성
+          if (student.current_class && classes.length > 0) {
+            const classInfo = classes.find(c => c.id === student.current_class);
+            if (classInfo) {
+              class_name = `${classInfo.grade}학년 ${classInfo.class_number}반`;
+            }
+          }
+          
+          return {
+            ...student,
+            device_limit: student.device_limit || 0,
+            class_name: class_name
+          };
+        });
+        
+        console.log('[DEBUG] 처리된 학생 데이터:', processedStudents);
+        setStudents(processedStudents);
       } catch (error) {
         console.error('학생 목록 조회 실패:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchAllStudents();
-  }, []);
+    
+    // classes 데이터가 로드된 후에만 학생 데이터 가져오기
+    if (classes.length > 0) {
+      fetchAllStudents();
+    }
+  }, [classes]); // classes 의존성 추가
 
   // 검색 필터링된 데이터
   const filteredTeachers = React.useMemo(() => {
@@ -274,6 +300,7 @@ export default function UserManagementPage() {
   };
 
   const handleResetPasswordClick = (id: number, username: string) => {
+    console.log('[DEBUG] handleResetPasswordClick 호출:', { id, username });
     setSelectedUser({ id, username });
     setIsResetModalOpen(true);
   };
@@ -321,7 +348,7 @@ export default function UserManagementPage() {
     setSelectedUser({ id: userId, username });
     setModalType(type);
     setLoadingRentals(true);
-
+    
     try {
       let response;
       if (type === 'ip') {
@@ -436,186 +463,185 @@ export default function UserManagementPage() {
   }
 
   return (
-    <div className="page-container">
-      <div className="page-content">
-        <div className="page-header">
-          <div className="page-header-flex">
-            <div>
-              <Heading level={1}>사용자 관리</Heading>
-              <Text className="page-subtitle">
-                교사와 학생 계정을 관리하고, 비밀번호 초기화, 기기 제한 설정 등을 수행할 수 있습니다.
-              </Text>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                onClick={() => setIsCreateUserModalOpen(true)}
-                variant="primary"
-                className="flex items-center"
-              >
-                <UserIcon className="h-4 w-4 mr-2" />
-                사용자 추가
-              </Button>
+    <AdminPermissionGuard>
+      <div className="page-container">
+        <div className="page-content">
+          <div className="page-header">
+            <div className="page-header-flex">
+              <div>
+                <Heading level={1} className="text-xl sm:text-2xl lg:text-3xl">사용자 관리</Heading>
+                <Text className="page-subtitle text-xs sm:text-sm">
+                  교사와 학생 계정을 관리하고, 비밀번호 초기화, 기기 제한 설정 등을 수행할 수 있습니다.
+                </Text>
+              </div>
+              <div className="flex gap-2 sm:gap-3">
+                <Button
+                  onClick={() => setIsCreateUserModalOpen(true)}
+                  variant="primary"
+                  className="flex items-center text-xs sm:text-sm px-3 sm:px-4 py-2"
+                >
+                  <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">사용자 </span>추가
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* 알림 표시 */}
-        {notification && (
-          <div className="mb-6">
-            <Alert
-              type={notification.type}
-              message={notification.message}
-              onClose={() => setNotification(null)}
+          {/* 알림 표시 */}
+          {notification && (
+            <div className="mb-6">
+              <Alert
+                type={notification.type}
+                message={notification.message}
+                onClose={() => setNotification(null)}
+              />
+            </div>
+          )}
+
+          {/* 통계 카드 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <Card>
+              <div className="flex items-center">
+                <div className="bg-blue-500 p-2 sm:p-3 rounded-xl mr-3 sm:mr-4">
+                  <Users className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+                </div>
+                <div>
+                  <Text className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">총 사용자</Text>
+                  <Heading level={3} className="text-lg sm:text-xl">{teachers.length + students.length}명</Heading>
+                </div>
+              </div>
+            </Card>
+            
+            <Card>
+              <div className="flex items-center">
+                <div className="bg-green-500 p-2 sm:p-3 rounded-xl mr-3 sm:mr-4">
+                  <GraduationCap className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+                </div>
+                <div>
+                  <Text className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">교사/학생</Text>
+                  <Heading level={3} className="text-lg sm:text-xl">{teachers.length}/{students.length}</Heading>
+                </div>
+              </div>
+            </Card>
+            
+            <Card>
+              <div className="flex items-center">
+                <div className="bg-purple-500 p-2 sm:p-3 rounded-xl mr-3 sm:mr-4">
+                  <UserIcon className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+                </div>
+                <div>
+                  <Text className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">총 반</Text>
+                  <Heading level={3} className="text-lg sm:text-xl">{classes.length}개</Heading>
+                </div>
+              </div>
+            </Card>
+            
+            <Card>
+              <div className="flex items-center">
+                <div className="bg-orange-500 p-2 sm:p-3 rounded-xl mr-3 sm:mr-4">
+                  <Eye className="h-5 w-5 sm:h-8 sm:w-8 text-white" />
+                </div>
+                <div>
+                  <Text className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">활성 대여</Text>
+                  <Heading level={3} className="text-lg sm:text-xl">{activeRentalsCount}개</Heading>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* 엑셀 관련 컴포넌트 */}
+          <ExcelManagement
+            onDownloadTemplate={handleDownloadTemplate}
+            onExportToExcel={handleExportToExcel}
+            onImportUsers={handleImportUsers}
+            className="mb-8"
+          />
+
+          {/* 사용자 관리 탭 */}
+          <UserManagementTabs
+            teachers={filteredTeachers}
+            students={filteredStudents as any}
+            classes={classes}
+            selectedTeachers={selectedTeachers}
+            selectedStudents={selectedStudents}
+            onTeacherSelectionChange={setSelectedTeachers}
+            onStudentSelectionChange={setSelectedStudents}
+            onBulkTeacherAction={handleBulkTeacherAction}
+            onBulkStudentAction={handleBulkStudentAction}
+            onDeviceLimitClick={handleDeviceLimitClick}
+            onResetPasswordClick={handleResetPasswordClick}
+            onRentalClick={handleRentalClick}
+            onDeleteUser={handleDeleteUser}
+            onResetPassword={handleResetPassword}
+            searchTerm={searchTerm}
+            searchField={searchField}
+            onSearchChange={setSearchTerm}
+            onSearchFieldChange={setSearchField}
+            onSearch={() => {}}
+          />
+
+          {/* 사용자 정보 수정 모달 */}
+          {isEditUserModalOpen && selectedUserForEdit && (
+            <EditUserModal
+              isOpen={isEditUserModalOpen}
+              onClose={() => {
+                setIsEditUserModalOpen(false);
+                setSelectedUserForEdit(null);
+              }}
+              onEditUser={handleEditUser}
+              user={{
+                id: selectedUserForEdit.id,
+                username: selectedUserForEdit.username,
+                email: 'email' in selectedUserForEdit ? selectedUserForEdit.email || null : null,
+                user_name: 'user_name' in selectedUserForEdit ? selectedUserForEdit.user_name || null : null,
+                is_staff: 'is_staff' in selectedUserForEdit ? selectedUserForEdit.is_staff || false : false,
+                is_superuser: 'is_superuser' in selectedUserForEdit ? selectedUserForEdit.is_superuser || false : false,
+                device_limit: selectedUserForEdit.device_limit,
+                is_initial_password: 'is_initial_password' in selectedUserForEdit ? selectedUserForEdit.is_initial_password || false : false,
+                is_active: true,
+                created_at: new Date().toISOString()
+              }}
             />
-          </div>
-        )}
+          )}
 
-        {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <div className="flex items-center">
-              <div className="bg-blue-500 p-3 rounded-xl mr-4">
-                <Users className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <Text className="text-sm text-gray-600 dark:text-gray-400">총 사용자</Text>
-                <Heading level={3}>{teachers.length + students.length}명</Heading>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="flex items-center">
-              <div className="bg-green-500 p-3 rounded-xl mr-4">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <Text className="text-sm text-gray-600 dark:text-gray-400">교사/학생</Text>
-                <Heading level={3}>{teachers.length}/{students.length}</Heading>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="flex items-center">
-              <div className="bg-purple-500 p-3 rounded-xl mr-4">
-                <UserIcon className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <Text className="text-sm text-gray-600 dark:text-gray-400">총 반</Text>
-                <Heading level={3}>{classes.length}개</Heading>
-              </div>
-            </div>
-          </Card>
-          
-          <Card>
-            <div className="flex items-center">
-              <div className="bg-orange-500 p-3 rounded-xl mr-4">
-                <Eye className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <Text className="text-sm text-gray-600 dark:text-gray-400">활성 대여</Text>
-                <Heading level={3}>{activeRentalsCount}개</Heading>
-              </div>
-            </div>
-          </Card>
+          {/* 비밀번호 초기화 모달 */}
+          {isResetModalOpen && selectedUser && (
+            <ResetPasswordModal
+              isOpen={isResetModalOpen}
+              onClose={() => {
+                setIsResetModalOpen(false);
+                setSelectedUser(null);
+              }}
+              onSubmit={handleResetPasswordConfirm}
+              username={selectedUser.username}
+            />
+          )}
+
+          {/* 대여 내역 모달 */}
+          <UserRentalModal
+            isOpen={modalType !== null}
+            onClose={handleCloseModal}
+            selectedUser={selectedUser}
+            modalType={modalType}
+            rentals={modalType === 'ip' ? ipRentals : deviceRentals}
+            loading={loadingRentals}
+          />
+
+          {/* 템플릿 다운로드 모달 */}
+          <TemplateModal
+            isOpen={showTemplateModal}
+            onClose={() => setShowTemplateModal(false)}
+            onDownload={handleDownloadTemplate}
+          />
+
+          {/* 사용자 추가 모달 */}
+          <CreateUserModal
+            isOpen={isCreateUserModalOpen}
+            onClose={() => setIsCreateUserModalOpen(false)}
+            onCreateUser={handleCreateUserForModal}
+          />
         </div>
-
-        {/* 엑셀 관련 컴포넌트 */}
-        <ExcelManagement
-          onDownloadTemplate={handleDownloadTemplate}
-          onExportToExcel={handleExportToExcel}
-          onImportUsers={handleImportUsers}
-          className="mb-8"
-        />
-        
-        {/* 사용자 관리 탭 */}
-        <UserManagementTabs
-          teachers={filteredTeachers}
-          students={filteredStudents as any}
-          selectedTeachers={selectedTeachers}
-          selectedStudents={selectedStudents}
-          onTeacherSelectionChange={setSelectedTeachers}
-          onStudentSelectionChange={setSelectedStudents}
-          onBulkTeacherAction={handleBulkTeacherAction}
-          onBulkStudentAction={handleBulkStudentAction}
-          onDeviceLimitClick={handleDeviceLimitClick}
-          onResetPasswordClick={handleResetPasswordClick}
-          onRentalClick={handleRentalClick}
-          onDeleteUser={handleDeleteUser}
-          onResetPassword={handleResetPassword}
-          searchTerm={searchTerm}
-          searchField={searchField}
-          onSearchChange={setSearchTerm}
-          onSearchFieldChange={setSearchField}
-          onSearch={() => {}}
-        />
-
-        {/* 사용자 정보 수정 모달 */}
-        {isEditUserModalOpen && selectedUserForEdit && (
-          <EditUserModal
-            isOpen={isEditUserModalOpen}
-            onClose={() => {
-              setIsEditUserModalOpen(false);
-              setSelectedUserForEdit(null);
-            }}
-            onEditUser={handleEditUser}
-            user={{
-              id: selectedUserForEdit.id,
-              username: selectedUserForEdit.username,
-              email: 'email' in selectedUserForEdit ? selectedUserForEdit.email || null : null,
-              user_name: 'user_name' in selectedUserForEdit ? selectedUserForEdit.user_name || null : null,
-              is_staff: 'is_staff' in selectedUserForEdit ? selectedUserForEdit.is_staff || false : false,
-              is_superuser: 'is_superuser' in selectedUserForEdit ? selectedUserForEdit.is_superuser || false : false,
-              device_limit: selectedUserForEdit.device_limit,
-              is_initial_password: 'is_initial_password' in selectedUserForEdit ? selectedUserForEdit.is_initial_password || false : false,
-              is_active: true,
-              created_at: new Date().toISOString()
-            }}
-          />
-        )}
-
-        {/* 비밀번호 초기화 모달 */}
-        {isResetModalOpen && selectedUser && (
-          <ResetPasswordModal
-            isOpen={isResetModalOpen}
-            onClose={() => {
-              setIsResetModalOpen(false);
-              setSelectedUser(null);
-            }}
-            onSubmit={handleResetPasswordConfirm}
-            username={selectedUser.username}
-          />
-        )}
-
-        {/* 대여 내역 모달 */}
-        <UserRentalModal
-          isOpen={modalType !== null}
-          onClose={() => {
-            setModalType(null);
-            setIpRentals([]);
-            setDeviceRentals([]);
-          }}
-          selectedUser={selectedUser}
-          modalType={modalType}
-          rentals={modalType === 'ip' ? ipRentals : deviceRentals}
-          loading={loadingRentals}
-        />
-
-        {/* 템플릿 다운로드 모달 */}
-        <TemplateModal
-          isOpen={showTemplateModal}
-          onClose={() => setShowTemplateModal(false)}
-          onDownload={handleDownloadTemplate}
-        />
-
-        {/* 사용자 추가 모달 */}
-        <CreateUserModal
-          isOpen={isCreateUserModalOpen}
-          onClose={() => setIsCreateUserModalOpen(false)}
-          onCreateUser={handleCreateUserForModal}
-        />
       </div>
-    </div>
+    </AdminPermissionGuard>
   );
 } 

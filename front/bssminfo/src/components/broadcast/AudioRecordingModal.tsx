@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { X, Mic, Square, Play, Pause, RotateCcw, Check } from 'lucide-react';
+import { X, Mic, Square, Play, Pause, RotateCcw, Check, Volume2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 
 interface AudioRecordingModalProps {
@@ -19,6 +19,7 @@ export default function AudioRecordingModal({
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [audioSettings, setAudioSettings] = useState({
     echoCancellation: false,
@@ -153,6 +154,7 @@ export default function AudioRecordingModal({
   // 오디오 재생 완료 시
   const handleAudioEnded = () => {
     setIsPlaying(false);
+    setCurrentTime(0);
   };
 
   // 오디오 메타데이터 로드 시
@@ -165,6 +167,13 @@ export default function AudioRecordingModal({
       } else {
         setAudioDuration(duration);
       }
+    }
+  };
+
+  // 오디오 시간 업데이트
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
     }
   };
 
@@ -190,6 +199,7 @@ export default function AudioRecordingModal({
     setRecordedUrl(null);
     setRecordingTime(0);
     setAudioDuration(0);
+    setCurrentTime(0);
     setIsPlaying(false);
     setError(null);
   };
@@ -225,6 +235,7 @@ export default function AudioRecordingModal({
     setRecordedUrl(null);
     setRecordingTime(0);
     setAudioDuration(0);
+    setCurrentTime(0);
     setIsPlaying(false);
     setError(null);
     
@@ -239,8 +250,8 @@ export default function AudioRecordingModal({
       size="md"
     >
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+          <p className="text-red-800 dark:text-red-200 text-sm font-medium">{error}</p>
         </div>
       )}
 
@@ -248,24 +259,32 @@ export default function AudioRecordingModal({
         {/* 녹음 상태 표시 */}
         <div className="text-center">
           {isRecording && (
-            <div className="flex items-center justify-center text-red-600 mb-2">
-              <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse mr-2"></div>
+            <div className="flex items-center justify-center text-red-600 dark:text-red-400 mb-2">
+              <div className="w-3 h-3 bg-red-600 dark:bg-red-400 rounded-full animate-pulse mr-2"></div>
               <span className="font-medium">녹음 중...</span>
             </div>
           )}
-          <div className="text-2xl font-mono text-gray-900">
+          <div className="text-3xl font-mono text-gray-900 dark:text-gray-100 font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             {formatTime(isRecording ? recordingTime : (audioDuration || 0))}
           </div>
+          {recordedBlob && (
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              재생 시간: {formatTime(currentTime)} / {formatTime(audioDuration)}
+            </div>
+          )}
         </div>
 
         {/* 녹음 컨트롤 */}
         {!recordedBlob && (
           <div className="space-y-4">
             {/* 오디오 설정 */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">음질 설정</h3>
-              <div className="space-y-2">
-                <label className="flex items-center">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                <Volume2 className="h-4 w-4 mr-2" />
+                음질 설정
+              </h3>
+              <div className="space-y-3">
+                <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={audioSettings.echoCancellation}
@@ -273,11 +292,11 @@ export default function AudioRecordingModal({
                       ...prev,
                       echoCancellation: e.target.checked
                     }))}
-                    className="mr-2 rounded"
+                    className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
-                  <span className="text-sm text-gray-700">에코 제거</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">에코 제거</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={audioSettings.noiseSuppression}
@@ -285,11 +304,11 @@ export default function AudioRecordingModal({
                       ...prev,
                       noiseSuppression: e.target.checked
                     }))}
-                    className="mr-2 rounded"
+                    className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
-                  <span className="text-sm text-gray-700">노이즈 제거</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">노이즈 제거</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={audioSettings.autoGainControl}
@@ -297,13 +316,13 @@ export default function AudioRecordingModal({
                       ...prev,
                       autoGainControl: e.target.checked
                     }))}
-                    className="mr-2 rounded"
+                    className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   />
-                  <span className="text-sm text-gray-700">자동 볼륨 조절</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">자동 볼륨 조절</span>
                 </label>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                모든 옵션을 끄면 원음에 가까운 녹음이 됩니다.
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">
+                💡 모든 옵션을 끄면 원음에 가까운 녹음이 됩니다.
               </p>
             </div>
 
@@ -312,17 +331,17 @@ export default function AudioRecordingModal({
               {!isRecording ? (
                 <button
                   onClick={startRecording}
-                  className="flex items-center px-6 py-3 bg-red-600 text-white rounded-full hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors"
+                  className="flex items-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-full hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-4 focus:ring-red-500/50 transition-all duration-200 transform hover:scale-105 shadow-lg font-semibold text-lg"
                 >
-                  <Mic className="h-5 w-5 mr-2" />
+                  <Mic className="h-6 w-6 mr-3" />
                   녹음 시작
                 </button>
               ) : (
                 <button
                   onClick={stopRecording}
-                  className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+                  className="flex items-center px-8 py-4 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-full hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-500/50 transition-all duration-200 transform hover:scale-105 shadow-lg font-semibold text-lg"
                 >
-                  <Square className="h-5 w-5 mr-2" />
+                  <Square className="h-6 w-6 mr-3" />
                   녹음 중지
                 </button>
               )}
@@ -332,55 +351,83 @@ export default function AudioRecordingModal({
 
         {/* 녹음된 오디오 재생 */}
         {recordedBlob && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-3">
-              <button
-                onClick={togglePlayback}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="h-4 w-4 mr-2" />
-                    정지
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-4 w-4 mr-2" />
-                    재생
-                  </>
-                )}
-              </button>
-              <button
-                onClick={reRecord}
-                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                재녹음
-              </button>
+          <div className="space-y-6">
+            {/* 커스텀 플레이어 컨트롤 */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center justify-center space-x-4 mb-4">
+                <button
+                  onClick={togglePlayback}
+                  className="flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all duration-200 transform hover:scale-105 shadow-lg font-semibold"
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className="h-5 w-5 mr-2" />
+                      일시정지
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-5 w-5 mr-2" />
+                      재생
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={reRecord}
+                  className="flex items-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-full hover:from-gray-700 hover:to-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-500/50 transition-all duration-200 transform hover:scale-105 shadow-lg font-semibold"
+                >
+                  <RotateCcw className="h-5 w-5 mr-2" />
+                  재녹음
+                </button>
+              </div>
+
+              {/* 프로그레스 바 */}
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-100"
+                  style={{ 
+                    width: audioDuration > 0 ? `${(currentTime / audioDuration) * 100}%` : '0%' 
+                  }}
+                ></div>
+              </div>
             </div>
 
-            <audio
-              ref={audioRef}
-              src={recordedUrl!}
-              onEnded={handleAudioEnded}
-              onLoadedMetadata={handleAudioLoadedMetadata}
-              className="w-full"
-            />
+            {/* 브라우저 기본 오디오 컨트롤 (PC에서 더 세밀한 제어) */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center">
+                <Volume2 className="h-4 w-4 mr-2" />
+                고급 제어 (PC 권장)
+              </h4>
+              <audio
+                ref={audioRef}
+                src={recordedUrl!}
+                onEnded={handleAudioEnded}
+                onLoadedMetadata={handleAudioLoadedMetadata}
+                onTimeUpdate={handleTimeUpdate}
+                controls
+                className="w-full h-12 rounded-lg bg-gray-50 dark:bg-gray-700"
+                style={{
+                  accentColor: '#3b82f6'
+                }}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                브라우저 기본 컨트롤을 사용하여 더 정밀한 재생 제어가 가능합니다.
+              </p>
+            </div>
           </div>
         )}
 
         {/* 액션 버튼 */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-6 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors font-medium"
           >
             취소
           </button>
           {recordedBlob && (
             <button
               onClick={handleComplete}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              className="flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-md hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all duration-200 transform hover:scale-105 shadow-lg font-semibold"
             >
               <Check className="h-4 w-4 mr-2" />
               사용하기

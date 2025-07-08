@@ -60,7 +60,7 @@ export default function DeviceTable({
           <BaseTableHeaderCell>MAC 주소</BaseTableHeaderCell>
           <BaseTableHeaderCell>IP 주소</BaseTableHeaderCell>
           <BaseTableHeaderCell>상태</BaseTableHeaderCell>
-          <BaseTableHeaderCell>DNS 상태</BaseTableHeaderCell>
+          <BaseTableHeaderCell className="min-w-[200px]">DNS 상태</BaseTableHeaderCell>
           <BaseTableHeaderCell>작업</BaseTableHeaderCell>
         </BaseTableRow>
       </BaseTableHead>
@@ -112,78 +112,110 @@ export default function DeviceTable({
                   {device.is_active ? '활성' : '비활성'}
                 </span>
               </BaseTableCell>
-              <BaseTableCell className="relative">
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  dnsInfo.status === 'approved'
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : dnsInfo.status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                    : dnsInfo.status === 'rejected'
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                }`}>
-                  {getStatusDisplay(dnsInfo.status)}
-                </span>
-                {dnsInfo.domain && (
-                  <div className="text-xs text-secondary mt-1">{dnsInfo.domain}</div>
-                )}
-                <div className="inline-flex items-center space-x-1 ml-2 absolute top-1/2 -translate-y-1/2 right-2">
-                  {(dnsInfo.status === 'none' || dnsInfo.status === 'deleted') && (
-                    <Tooltip content="DNS 등록 신청">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDnsRequest?.(device);
-                        }}
-                        className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded"
-                      >
-                        <PlusCircle className="w-5 h-5 text-blue-500" />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {dnsInfo.status === 'rejected' && (
-                    <Tooltip content="DNS 재신청">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDnsResubmit?.(device);
-                        }}
-                        className="p-1 hover:bg-yellow-100 dark:hover:bg-yellow-900 rounded"
-                      >
-                        <RefreshCw className="w-5 h-5 text-yellow-500" />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {dnsInfo.status === 'approved' && (
-                    <Tooltip content="SSL 패키지 다운로드 (매번 새로운 개인키가 생성되며, 이전에 받은 인증서는 사용할 수 없습니다)">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSslDownload?.(device);
-                        }}
-                        className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded"
-                      >
-                        <Download className="w-5 h-5 text-green-500" />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {dnsInfo.status === 'approved' && (
-                    <Tooltip content="DNS 삭제">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDnsDelete?.(device);
-                        }}
-                        className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded"
-                      >
-                        <X className="w-5 h-5 text-red-500" />
-                      </button>
-                    </Tooltip>
-                  )}
+              <BaseTableCell className="min-w-[200px]">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      dnsInfo.status === 'approved'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : dnsInfo.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : dnsInfo.status === 'rejected'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                    }`}>
+                      {getStatusDisplay(dnsInfo.status)}
+                    </span>
+                    {dnsInfo.domain && (
+                      <span className="text-xs text-secondary">{dnsInfo.domain}</span>
+                    )}
+                  </div>
+                  
+                  {/* DNS 관련 버튼들 */}
+                  <div className="flex flex-wrap gap-1">
+                    {(dnsInfo.status === 'none' || dnsInfo.status === 'deleted') && (
+                      <Tooltip content="DNS 등록 신청">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDnsRequest?.(device);
+                          }}
+                          className="inline-flex items-center text-xs"
+                        >
+                          <PlusCircle className="w-3 h-3 mr-1" />
+                          DNS 신청
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {dnsInfo.status === 'rejected' && (
+                      <Tooltip content="DNS 재신청">
+                        <Button
+                          size="sm"
+                          variant="warning"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDnsResubmit?.(device);
+                          }}
+                          className="inline-flex items-center text-xs"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          재신청
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {dnsInfo.status === 'approved' && (
+                      <Tooltip content="SSL 패키지 다운로드 (매번 새로운 개인키가 생성되며, 이전에 받은 인증서는 사용할 수 없습니다)">
+                        <Button
+                          size="sm"
+                          variant="success"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSslDownload?.(device);
+                          }}
+                          className="inline-flex items-center text-xs"
+                        >
+                          <Download className="w-3 h-3 mr-1" />
+                          SSL 다운로드
+                        </Button>
+                      </Tooltip>
+                    )}
+                    {dnsInfo.status === 'approved' && (
+                      <Tooltip content="DNS 삭제">
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDnsDelete?.(device);
+                          }}
+                          className="inline-flex items-center text-xs"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          삭제
+                        </Button>
+                      </Tooltip>
+                    )}
+                  </div>
                 </div>
               </BaseTableCell>
               <BaseTableCell>
                 <div className="flex items-center space-x-2">
+                  {onEdit && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onEdit(device.id);
+                      }}
+                      className="inline-flex items-center"
+                    >
+                      <Edit className="w-3 h-3 mr-1" />
+                      수정
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant={device.is_active ? 'secondary' : 'success'}
