@@ -4,11 +4,31 @@
 menu WinPE Boot Menu
 item --key x exit  Exit to Nomal Boot
 item --key w winpe Boot WinPE
+item --key a auto_install  Auto Install Windows
 item --key u ubuntu Boot Ubuntu
 item --key r reboot Reboot
 choose --timeout 10000 --default exit selected || goto cancel
 
 goto ${selected}
+
+:auto_install
+echo Starting automatic installation process...
+echo This will automatically install Windows on this computer
+echo.
+echo Computer will be registered to backend and set to maintenance mode
+echo Hard disk will be initialized and Windows will be installed
+echo.
+echo Press Ctrl+C to cancel (5 second timeout)
+sleep 5
+kernel http://10.250.1.1:8080/wimboot gui
+initrd -n bootx64.efi http://10.250.1.1:8080/winpe/efi/boot/bootx64.efi bootx64.efi
+initrd -n bcd http://10.250.1.1:8080/winpe/boot/bcd bcd
+initrd -n boot.sdi http://10.250.1.1:8080/winpe/boot/boot.sdi boot.sdi
+initrd -n boot.wim http://10.250.1.1:8080/winpe/sources/boot.wim boot.wim
+initrd -n auto-install.ps1 http://10.250.1.1:8080/scripts/auto-install.ps1 auto-install.ps1
+initrd -n diskpart.txt http://10.250.1.1:8080/scripts/diskpart.txt diskpart.txt
+imgargs wimboot gui
+boot || goto failed
 
 :winpe
 kernel http://10.250.1.1:8080/wimboot gui

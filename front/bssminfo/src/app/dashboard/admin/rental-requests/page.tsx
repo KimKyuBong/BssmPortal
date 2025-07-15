@@ -368,7 +368,10 @@ export default function RentalRequestsPage() {
                       <BaseTableCell>
                         <div className="flex items-center">
                           <User className="w-4 h-4 mr-2 text-gray-400" />
-                          <span className="font-medium">{request.user.username}</span>
+                          <div>
+                            <div className="font-medium">{request.user.name}</div>
+                            <div className="text-sm text-gray-500">{request.user.username}</div>
+                          </div>
                         </div>
                       </BaseTableCell>
                       <BaseTableCell>
@@ -378,7 +381,17 @@ export default function RentalRequestsPage() {
                         </div>
                       </BaseTableCell>
                       <BaseTableCell>
-                        {request.equipment_detail ? request.equipment_detail.asset_number : '정보 없음'}
+                        {request.equipment_detail ? (
+                          <div>
+                            <div className="font-medium">
+                              {request.equipment_detail.asset_number || 
+                               `${request.equipment_detail.manufacturer} ${request.equipment_detail.model_name}`}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {request.equipment_detail.equipment_type_display} - {request.equipment_detail.serial_number}
+                            </div>
+                          </div>
+                        ) : '정보 없음'}
                       </BaseTableCell>
                       <BaseTableCell>
                         <div className="flex items-center">
@@ -533,7 +546,9 @@ export default function RentalRequestsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">사용자</label>
-                <p className="text-sm text-gray-900 dark:text-white">{selectedRequest.user.username}</p>
+                <p className="text-sm text-gray-900 dark:text-white">
+                  {selectedRequest.user.name} ({selectedRequest.user.username})
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">요청 유형</label>
@@ -542,13 +557,22 @@ export default function RentalRequestsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">장비명</label>
                 <p className="text-sm text-gray-900 dark:text-white">
-                  {selectedRequest.equipment_detail ? selectedRequest.equipment_detail.asset_number : '정보 없음'}
+                  {selectedRequest.equipment_detail ? 
+                    (selectedRequest.equipment_detail.asset_number || 
+                     `${selectedRequest.equipment_detail.manufacturer} ${selectedRequest.equipment_detail.model_name}`) 
+                    : '정보 없음'}
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">장비 종류</label>
                 <p className="text-sm text-gray-900 dark:text-white">
                   {selectedRequest.equipment_detail ? selectedRequest.equipment_detail.equipment_type_display : '정보 없음'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">시리얼번호</label>
+                <p className="text-sm text-gray-900 dark:text-white">
+                  {selectedRequest.equipment_detail ? selectedRequest.equipment_detail.serial_number : '정보 없음'}
                 </p>
               </div>
               <div>

@@ -227,7 +227,7 @@ export const equipmentService = {
 
   // 장비 정보 생성 (관리자용)
   async createEquipment(equipmentData: Partial<Equipment>) {
-    return await api.post<Equipment>('/rentals/equipment/', equipmentData);
+    return await api.post<Equipment>('/admin/equipment/', equipmentData);
   },
 
   // 장비 정보 수정 (관리자용)

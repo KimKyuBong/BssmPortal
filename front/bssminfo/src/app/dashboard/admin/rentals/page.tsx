@@ -125,12 +125,21 @@ export default function AdminRentalsPage() {
       dataIndex: ['equipment_detail', 'asset_number'],
       key: 'equipment_name',
       render: (_: any, record: RentalRequest) => 
-        record.equipment_detail ? record.equipment_detail.asset_number : '정보 없음',
+        record.equipment_detail ? 
+          (record.equipment_detail.asset_number || 
+           `${record.equipment_detail.manufacturer} ${record.equipment_detail.model_name}`) 
+          : '정보 없음',
     },
     {
       title: '요청자',
       dataIndex: ['user', 'username'],
       key: 'user_name',
+      render: (username: string, record: RentalRequest) => (
+        <div>
+          <div className="font-medium">{record.user.name}</div>
+          <div className="text-sm text-gray-500">{record.user.username}</div>
+        </div>
+      ),
     },
     {
       title: '요청일',
@@ -225,11 +234,22 @@ export default function AdminRentalsPage() {
       title: '대여자',
       dataIndex: ['user', 'username'],
       key: 'user_name',
+      render: (username: string, record: any) => (
+        <div>
+          <div className="font-medium">{record.user.name}</div>
+          <div className="text-sm text-gray-500">{record.user.username}</div>
+        </div>
+      ),
     },
     {
       title: '장비명',
       dataIndex: ['equipment', 'asset_number'],
       key: 'equipment_name',
+      render: (asset_number: string, record: any) => 
+        record.equipment ? 
+          (record.equipment.asset_number || 
+           `${record.equipment.manufacturer} ${record.equipment.model_name}`) 
+          : '정보 없음',
     },
     {
       title: '대여일',

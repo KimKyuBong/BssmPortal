@@ -385,7 +385,7 @@ export default function RentalHistoryPage() {
                           {request.equipment_detail?.manufacturer} {request.equipment_detail?.model_name}
                         </Text>
                         <Text className="text-sm text-secondary">
-                          {request.equipment_detail?.equipment_type_display} - {request.equipment_detail?.asset_number}
+                          {request.equipment_detail?.equipment_type_display} - {request.equipment_detail?.asset_number || request.equipment_detail?.serial_number}
                         </Text>
                       </div>
                     </BaseTableCell>
@@ -448,7 +448,7 @@ export default function RentalHistoryPage() {
                           {rental.equipment.manufacturer} {rental.equipment.model_name}
                         </Text>
                         <Text className="text-sm text-secondary">
-                          {rental.equipment.equipment_type_display} - {rental.equipment.asset_number}
+                          {rental.equipment.equipment_type_display} - {rental.equipment.asset_number || rental.equipment.serial_number}
                         </Text>
                       </div>
                     </BaseTableCell>

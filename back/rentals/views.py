@@ -104,20 +104,7 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['asset_number', 'equipment_type', 'status', 'acquisition_date']
     pagination_class = EquipmentPagination
     
-    def get_queryset(self):
-        queryset = Equipment.objects.all()
-        
-        # 상태 필터링
-        status = self.request.query_params.get('status', None)
-        if status:
-            queryset = queryset.filter(status=status)
-        
-        # 장비 타입 필터링
-        equipment_type = self.request.query_params.get('equipment_type', None)
-        if equipment_type:
-            queryset = queryset.filter(equipment_type=equipment_type)
-        
-        return queryset
+
     
     @action(detail=False, methods=['get'])
     def available(self, request):
@@ -462,6 +449,55 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
                 "success": True,
                 "data": result,
                 "message": "대여가 성공적으로 생성되었습니다."
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], parser_classes=[JSONParser, MultiPartParser, FormParser])
+    def register_maintenance(self, request):
+        """자동 설치를 위한 장비 등록 (유지보수 상태)"""
+        logger = logging.getLogger(__name__)
+        
+        # 시리얼 번호 체크
+        serial_number = request.data.get('serial_number')
+        if serial_number:
+            try:
+                existing_equipment = Equipment.objects.get(serial_number=serial_number)
+                return Response({
+                    'error': '이미 등록된 시리얼 번호입니다.',
+                    'existing_equipment': {
+                        'id': existing_equipment.id,
+                        'asset_number': existing_equipment.asset_number,
+                        'equipment_type': existing_equipment.get_equipment_type_display(),
+                        'status': existing_equipment.get_status_display()
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+            except Equipment.DoesNotExist:
+                pass
+
+        # MAC 주소 목록이 전달되었는지 확인
+        mac_addresses = request.data.get('mac_addresses', [])
+        if not mac_addresses:
+            return Response(
+                {'error': 'mac_addresses 배열이 필요합니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 장비 정보 준비
+        equipment_data = request.data.copy()
+        
+        # 자동 설치용 장비는 유지보수 상태로 설정
+        equipment_data['status'] = 'MAINTENANCE'
+        
+        # 장비 등록
+        serializer = self.get_serializer(data=equipment_data)
+        if serializer.is_valid():
+            equipment = serializer.save()
+            
+            logger.info(f"자동 설치용 장비 등록 성공: {equipment.id} (상태: MAINTENANCE)")
+            return Response({
+                "success": True,
+                "data": serializer.data,
+                "message": "자동 설치용 장비가 유지보수 상태로 등록되었습니다."
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1295,7 +1331,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
             rental_request.processed_by = request.user
             rental_request.processed_at = timezone.now()
             
-            if rental_request.request_type == 'RENT':
+            if rental_request.request_type == 'RENTAL':
                 # 장비 상태 체크
                 equipment = rental_request.equipment
                 if equipment.status != 'AVAILABLE':

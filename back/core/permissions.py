@@ -76,7 +76,7 @@ class PermissionMatrix:
                 'my_history': ['authenticated'],
                 'return_equipment': ['authenticated'],
             },
-            'rental_request': {
+            'rentalrequest': {
                 'list': ['admin'],
                 'create': ['authenticated'],
                 'retrieve': ['authenticated'],
@@ -273,6 +273,9 @@ class DefaultAppPermissions(RoleBasedPermission):
         # 앱 이름이 지정되지 않은 경우 뷰에서 자동 감지
         if not self.app_name:
             self.app_name = self._detect_app_name(view)
+        # 모델 이름이 지정되지 않은 경우 뷰에서 자동 감지
+        if not self.model_name:
+            self.model_name = self._detect_model_name(view)
         return super().has_permission(request, view)
     
     def _detect_app_name(self, view):
@@ -304,6 +307,44 @@ class DefaultAppPermissions(RoleBasedPermission):
             return 'system'
         # 기본값
         return 'users'
+    
+    def _detect_model_name(self, view):
+        """뷰에서 모델 이름을 자동으로 감지"""
+        # ViewSet의 경우
+        if hasattr(view, 'get_queryset'):
+            try:
+                queryset = view.get_queryset()
+                if queryset is not None:
+                    model = queryset.model
+                    return model._meta.model_name
+            except Exception:
+                pass  # get_queryset에서 예외 발생 시 무시하고 아래로 진행
+        
+        # 클래스 이름에서 추정
+        class_name = view.__class__.__name__.lower()
+        if 'equipment' in class_name:
+            return 'equipment'
+        elif 'rentalrequest' in class_name:
+            return 'rentalrequest'
+        elif 'rental' in class_name:
+            return 'rental'
+        elif 'equipmentmac' in class_name:
+            return 'equipment_mac'
+        elif 'user' in class_name:
+            return 'user'
+        elif 'device' in class_name:
+            return 'device'
+        elif 'broadcast' in class_name:
+            return 'broadcast'
+        elif 'dns' in class_name:
+            return 'dns'
+        elif 'apisecurity' in class_name:
+            return 'api_security'
+        elif 'system' in class_name:
+            return 'system'
+        
+        # 기본값
+        return None
 
 
 # 범용 권한 클래스 - 명시적으로 앱 이름 지정

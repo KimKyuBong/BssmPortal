@@ -13,9 +13,18 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'name']
     
     def get_name(self, obj):
-        if obj.last_name:
+        # 성과 이름이 모두 있는 경우
+        if obj.last_name and obj.first_name:
+            return f"{obj.last_name} {obj.first_name}"
+        # 성만 있는 경우
+        elif obj.last_name:
             return obj.last_name
-        return obj.username
+        # 이름만 있는 경우
+        elif obj.first_name:
+            return obj.first_name
+        # 둘 다 없는 경우 사용자명 사용
+        else:
+            return obj.username
 
 
 class EquipmentMacAddressSerializer(serializers.ModelSerializer):
@@ -203,13 +212,42 @@ class EquipmentLiteSerializer(serializers.ModelSerializer):
     """장비 정보의 간소화된 버전 (성능 최적화용)"""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     mac_addresses = EquipmentMacAddressSerializer(many=True, read_only=True)
+    rental = serializers.SerializerMethodField()
     
     class Meta:
         model = Equipment
         fields = [
             'id', 'asset_number', 'manufacturer', 'model_name', 'serial_number', 
-            'mac_addresses', 'status', 'status_display', 'manufacture_year', 'purchase_date'
+            'mac_addresses', 'status', 'status_display', 'manufacture_year', 'purchase_date', 'rental'
         ]
+    
+    def get_rental(self, obj):
+        if hasattr(obj, 'current_rentals') and obj.current_rentals:
+            rental = obj.current_rentals[0]  # 가장 최근 대여 정보
+            user = rental.user
+            
+            # 사용자 이름 처리
+            last_name = str(user.last_name or '').strip()
+            first_name = str(user.first_name or '').strip()
+            
+            # 이름이 모두 비어있는 경우 사용자 아이디 사용
+            if not last_name and not first_name:
+                full_name = user.username
+            else:
+                # 성과 이름이 있는 경우에만 공백 추가
+                full_name = f"{last_name} {first_name}".strip()
+            
+            return {
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'name': full_name
+                },
+                'due_date': rental.due_date,
+                'rental_date': rental.rental_date,
+                'id': rental.id  # 대여 ID 추가
+            }
+        return None
 
 
 class RentalSerializer(serializers.ModelSerializer):
