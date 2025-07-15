@@ -189,7 +189,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'core.permissions.DefaultAppPermissions',  # 중앙화된 권한 관리 사용 (자동 감지)
     ),
     # 퍼포먼스 향상을 위한 설정
     'DEFAULT_RENDERER_CLASSES': (

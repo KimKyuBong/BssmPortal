@@ -10,14 +10,13 @@ from rest_framework.pagination import PageNumberPagination
 
 from ..models import DeviceHistory
 from ..serializers import DeviceHistorySerializer
-from core.permissions import DevicePermissions
 
 logger = logging.getLogger(__name__)
 
 class DeviceHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     """장치 이력 조회 뷰셋"""
     serializer_class = DeviceHistorySerializer
-    permission_classes = [DevicePermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     # DjangoFilterBackend 제거
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     # filterset_fields 제거 (DjangoFilterBackend에 의존)

@@ -20,7 +20,7 @@ import logging
 from rest_framework import filters
 from django.contrib.auth import get_user_model
 from rest_framework.pagination import PageNumberPagination
-from core.permissions import UserPermissions, IsAdminUser, IsAuthenticatedUser
+from core.permissions import IsAdminUser, IsAuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     filter_backends = [filters.SearchFilter]
     search_fields = ['username', 'email', 'last_name']
 
@@ -473,7 +473,7 @@ class PasswordViewSet(viewsets.ViewSet):
     비밀번호 관리를 위한 ViewSet
     비밀번호 변경, 초기 비밀번호 변경, 비밀번호 초기화 등의 기능을 제공합니다.
     """
-    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def validate_password(self, password):
         """비밀번호 유효성 검사"""
@@ -684,7 +684,7 @@ class PasswordViewSet(viewsets.ViewSet):
 class ClassViewSet(viewsets.ModelViewSet):
     queryset = Class.objects.all()
     serializer_class = ClassSerializer
-    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_queryset(self):
         return Class.objects.all().order_by('grade', 'class_number')
@@ -697,7 +697,7 @@ class StudentPagination(PageNumberPagination):
 class StudentViewSet(viewsets.ModelViewSet):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     pagination_class = StudentPagination
 
     def get_queryset(self):
@@ -739,7 +739,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 class TeacherViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_staff=True)
     serializer_class = TeacherSerializer
-    permission_classes = [UserPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_queryset(self):
         return User.objects.filter(is_staff=True)

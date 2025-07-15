@@ -10,7 +10,6 @@ from rest_framework.decorators import action
 from core.permissions import (
     EquipmentPermissions, RentalPermissions, RentalRequestPermissions,
     DevicePermissions, UserPermissions, SystemPermissions,
-    BroadcastPermissions, DnsPermissions, ApiSecurityPermissions
 )
 
 

@@ -14,7 +14,7 @@ import logging
 import os
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
-from core.permissions import DnsPermissions, IsAdminUser, IsAuthenticatedUser
+from core.permissions import IsAdminUser, IsAuthenticatedUser
 
 # OCSP 관련 import 추가
 from cryptography import x509
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 class CustomDnsRequestCreateView(generics.CreateAPIView):
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def perform_create(self, serializer):
         # 도메인 유효성 검증
@@ -47,18 +47,18 @@ class CustomDnsRequestCreateView(generics.CreateAPIView):
 class CustomDnsRequestListView(generics.ListAPIView):
     queryset = CustomDnsRequest.objects.all().order_by('-created_at')
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
 class MyDnsRequestListView(generics.ListAPIView):
     """사용자가 자신의 DNS 요청을 조회하는 뷰"""
     serializer_class = CustomDnsRequestSerializer
-    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_queryset(self):
         return CustomDnsRequest.objects.filter(user=self.request.user).order_by('-created_at')
 
 class CustomDnsRequestApproveView(views.APIView):
-    permission_classes = [DnsPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def post(self, request, pk):
         req = CustomDnsRequest.objects.get(pk=pk)
@@ -97,11 +97,11 @@ class CustomDnsRequestApproveView(views.APIView):
 class CustomDnsRecordListView(generics.ListAPIView):
     queryset = CustomDnsRecord.objects.all().order_by('-created_at')
     serializer_class = CustomDnsRecordSerializer
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
 class CustomDnsRecordCreateView(generics.CreateAPIView):
     serializer_class = CustomDnsRecordSerializer
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def perform_create(self, serializer):
         # 도메인 유효성 검증
@@ -125,7 +125,7 @@ class CustomDnsRecordCreateView(generics.CreateAPIView):
 class CustomDnsRecordUpdateView(generics.UpdateAPIView):
     queryset = CustomDnsRecord.objects.all()
     serializer_class = CustomDnsRecordSerializer
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -166,7 +166,7 @@ class CustomDnsRecordUpdateView(generics.UpdateAPIView):
 
 class CustomDnsRecordDeleteView(generics.DestroyAPIView):
     queryset = CustomDnsRecord.objects.all()
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -194,7 +194,7 @@ class CustomDnsRecordDeleteView(generics.DestroyAPIView):
 
 class CustomDnsRequestDeleteView(generics.DestroyAPIView):
     queryset = CustomDnsRequest.objects.all()
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -204,7 +204,7 @@ class CustomDnsRequestDeleteView(generics.DestroyAPIView):
 class MyDnsRecordDeleteView(generics.DestroyAPIView):
     """사용자가 자신의 DNS 레코드를 삭제하는 뷰"""
     queryset = CustomDnsRecord.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_queryset(self):
         # 사용자가 소유한 DNS 레코드 또는 사용자가 소유한 IP의 DNS 레코드를 반환
@@ -249,7 +249,7 @@ class MyDnsRecordDeleteView(generics.DestroyAPIView):
         return Response({'message': '도메인이 삭제되고 DNS에 반영되었습니다.'}, status=status.HTTP_200_OK)
 
 class ApplyDnsRecordsView(views.APIView):
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def post(self, request):
         result = apply_dns_records()
@@ -261,17 +261,17 @@ class SslCertificateListView(generics.ListAPIView):
     """SSL 인증서 목록 조회"""
     queryset = SslCertificate.objects.all().order_by('-issued_at')
     serializer_class = SslCertificateSerializer
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
 class SslCertificateDetailView(generics.RetrieveAPIView):
     """SSL 인증서 상세 조회"""
     queryset = SslCertificate.objects.all()
     serializer_class = SslCertificateSerializer
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
 class SslCertificateRenewView(views.APIView):
     """SSL 인증서 갱신"""
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def post(self, request, pk):
         try:
@@ -290,7 +290,7 @@ class SslCertificateRenewView(views.APIView):
 
 class SslCertificateRevokeView(views.APIView):
     """SSL 인증서 취소"""
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def post(self, request, pk):
         try:
@@ -305,7 +305,7 @@ class SslCertificateRevokeView(views.APIView):
 
 class ExpiringCertificatesView(views.APIView):
     """만료 예정 인증서 조회"""
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def get(self, request):
         days_threshold = int(request.query_params.get('days', 30))
@@ -318,7 +318,7 @@ class ExpiringCertificatesView(views.APIView):
 
 class CertificateAuthorityView(views.APIView):
     """CA 인증서 조회"""
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def get(self, request):
         ca = CertificateAuthority.objects.filter(is_active=True).first()
@@ -388,7 +388,7 @@ class DownloadCaCertificateView(views.APIView):
 
 class DownloadDomainCertificateView(views.APIView):
     """도메인별 SSL 인증서 다운로드"""
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get(self, request, domain):
         try:
@@ -442,7 +442,7 @@ class DownloadDomainCertificateView(views.APIView):
 
 class GenerateCertificateView(views.APIView):
     """DNS에 등록된 도메인으로 인증서 생성"""
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def _check_domain_ownership(self, user, domain):
         """도메인 소유권 확인"""
@@ -537,7 +537,7 @@ class GenerateCertificateView(views.APIView):
 class MyDnsRecordsView(generics.ListAPIView):
     """사용자가 소유한 DNS 레코드 목록 조회"""
     serializer_class = CustomDnsRecordSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_queryset(self):
         user = self.request.user
@@ -556,7 +556,7 @@ class MyDnsRecordsView(generics.ListAPIView):
 
 class DownloadSslPackageView(views.APIView):
     """원클릭 SSL 패키지 다운로드 (인증서 + 개인키 + CA + 설정파일)"""
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get(self, request, domain):
         try:

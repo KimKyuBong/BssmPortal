@@ -12,7 +12,7 @@ import time
 import requests
 from urllib.request import urlopen
 from urllib.error import URLError
-from core.permissions import SystemPermissions, IsAdminUser
+from core.permissions import IsAdminUser
 from django.core.cache import cache
 from functools import lru_cache
 import threading
@@ -265,7 +265,7 @@ health_updater = HealthCheckUpdater()
 health_updater.start()
 
 @api_view(['GET'])
-@permission_classes([SystemPermissions])
+@permission_classes([IsAdminUser])
 def system_status(request):
     """
     실시간 시스템 상태 정보를 반환하는 API (관리자 전용)
@@ -316,7 +316,7 @@ def system_status(request):
         }, status=500)
 
 @api_view(['POST'])
-@permission_classes([SystemPermissions])
+@permission_classes([IsAdminUser])
 def refresh_health_data(request):
     """헬스체크 데이터를 강제로 새로고침합니다."""
     try:
@@ -341,7 +341,7 @@ def refresh_health_data(request):
         }, status=500)
 
 @api_view(['GET'])
-@permission_classes([SystemPermissions])
+@permission_classes([IsAdminUser])
 def pihole_detailed_stats(request):
     """Pi-hole의 상세 통계만 반환합니다."""
     try:

@@ -28,22 +28,32 @@ class PermissionMatrix:
         },
         'devices': {
             'list': ['authenticated'],
-            'create': ['admin'],
+            'create': ['authenticated'],  # 일반 사용자도 기기 생성 가능
             'retrieve': ['authenticated'],
-            'update': ['admin'],
-            'destroy': ['admin'],
+            'update': ['authenticated'],  # 일반 사용자도 자신의 기기 정보 수정 가능
+            'destroy': ['authenticated'],  # 자신의 기기는 삭제 가능 (perform_destroy에서 권한 체크)
+            'my': ['authenticated'],  # 내 기기 목록 조회 권한 추가
+            'my_history': ['authenticated'],  # 내 기기 이력 조회 권한 추가
+            'user': ['admin'],  # 특정 사용자 이력 조회는 관리자만
+            'simple': ['admin'],  # 간단한 이력 목록은 관리자 대시보드용
+            'device_history': ['authenticated'],  # 특정 MAC 주소 이력 조회 (자신의 것만)
+            'user_rentals': ['authenticated'],  # 사용자 IP 대여 내역 조회
+            'user_equipment_rentals': ['authenticated'],  # 사용자 장비 대여 내역 조회
+            'blacklist_ip': ['admin'],  # IP 블랙리스트 추가는 관리자만
+            'unblacklist_ip': ['admin'],  # IP 블랙리스트 제거는 관리자만
+            'blacklisted_ips': ['admin'],  # 블랙리스트 IP 목록 조회는 관리자만
             'all': ['admin'],
             'statistics': ['admin'],
             'reassign_ip': ['admin'],
             'toggle_active': ['admin'],
-            'current_mac': ['authenticated'],
-            'register': ['authenticated'],
+            'get_current_mac': ['authenticated'],
+            'register': ['authenticated'],  # register_manual 액션용
             'by_mac': ['any'],
         },
         'rentals': {
             'equipment': {
                 'list': ['admin'],
-                'create': ['admin'],
+                'create': ['authenticated'],
                 'retrieve': ['authenticated'],
                 'update': ['admin'],
                 'destroy': ['admin'],
@@ -109,7 +119,7 @@ class PermissionMatrix:
         },
         'dns': {
             'list': ['authenticated'],
-            'create': ['admin'],
+            'create': ['authenticated'],
             'retrieve': ['authenticated'],
             'update': ['admin'],
             'destroy': ['admin'],
@@ -250,47 +260,57 @@ class IsOwnerOrAdmin(BasePermission):
         return False
 
 
-# 앱별 권한 클래스들
-class UserPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('users', action=action)
+# 기본 권한 클래스 - 앱 이름을 자동으로 감지
+class DefaultAppPermissions(RoleBasedPermission):
+    """
+    기본 권한 클래스 - 뷰의 앱 이름을 자동으로 감지하여 권한 체크
+    사용법: permission_classes = [DefaultAppPermissions()] (기본값)
+    """
+    def __init__(self, app_name=None, model_name=None, action=None):
+        super().__init__(app_name, model_name, action)
+    
+    def has_permission(self, request, view):
+        # 앱 이름이 지정되지 않은 경우 뷰에서 자동 감지
+        if not self.app_name:
+            self.app_name = self._detect_app_name(view)
+        return super().has_permission(request, view)
+    
+    def _detect_app_name(self, view):
+        """뷰에서 앱 이름을 자동으로 감지"""
+        # ViewSet의 경우
+        if hasattr(view, 'get_queryset'):
+            try:
+                queryset = view.get_queryset()
+                if queryset is not None:
+                    model = queryset.model
+                    return model._meta.app_label
+            except Exception:
+                pass  # get_queryset에서 예외 발생 시 무시하고 아래로 진행
+        # APIView의 경우 클래스 이름에서 추정
+        class_name = view.__class__.__name__.lower()
+        if 'user' in class_name:
+            return 'users'
+        elif 'device' in class_name:
+            return 'devices'
+        elif 'equipment' in class_name or 'rental' in class_name:
+            return 'rentals'
+        elif 'broadcast' in class_name:
+            return 'broadcast'
+        elif 'dns' in class_name:
+            return 'dns'
+        elif 'api' in class_name and 'security' in class_name:
+            return 'api_security'
+        elif 'system' in class_name:
+            return 'system'
+        # 기본값
+        return 'users'
 
 
-class DevicePermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('devices', action=action)
-
-
-class EquipmentPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('rentals', 'equipment', action)
-
-
-class RentalPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('rentals', 'rental', action)
-
-
-class RentalRequestPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('rentals', 'rental_request', action)
-
-
-class SystemPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('system', action=action)
-
-
-class BroadcastPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('broadcast', action=action)
-
-
-class DnsPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('dns', action=action)
-
-
-class ApiSecurityPermissions(RoleBasedPermission):
-    def __init__(self, action=None):
-        super().__init__('api_security', action=action) 
+# 범용 권한 클래스 - 명시적으로 앱 이름 지정
+class AppPermissions(RoleBasedPermission):
+    """
+    범용 권한 클래스 - 앱 이름과 액션을 파라미터로 받아 권한 체크
+    사용법: permission_classes = [AppPermissions('users', 'list')]
+    """
+    def __init__(self, app_name, model_name=None, action=None):
+        super().__init__(app_name, model_name, action) 

@@ -17,7 +17,7 @@ from .serializers import (
     TOTPVerificationSerializer, APIKeyUsageLogSerializer, SecurityPolicySerializer,
     APIKeyRegenerateSerializer, APIKeyStatsSerializer
 )
-from core.permissions import ApiSecurityPermissions, IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
+from core.permissions import IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
 
 
 # IsOwnerOrAdmin 클래스 제거 - core.permissions에서 import
@@ -26,7 +26,7 @@ from core.permissions import ApiSecurityPermissions, IsAdminUser, IsAuthenticate
 class TOTPAPIKeyViewSet(viewsets.ModelViewSet):
     """TOTP API 키 관리 뷰셋"""
     
-    permission_classes = [ApiSecurityPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -182,7 +182,7 @@ class TOTPAPIKeyViewSet(viewsets.ModelViewSet):
 class TOTPVerificationView(APIView):
     """TOTP 코드 검증 뷰"""
     
-    permission_classes = [ApiSecurityPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def post(self, request):
         serializer = TOTPVerificationSerializer(data=request.data)
@@ -226,7 +226,7 @@ class SecurityPolicyViewSet(viewsets.ModelViewSet):
     
     queryset = SecurityPolicy.objects.all()
     serializer_class = SecurityPolicySerializer
-    permission_classes = [ApiSecurityPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     @action(detail=False, methods=['get'])
     def default(self, request):
@@ -240,7 +240,7 @@ class APIKeyUsageLogViewSet(viewsets.ReadOnlyModelViewSet):
     """API 키 사용 로그 뷰셋"""
     
     serializer_class = APIKeyUsageLogSerializer
-    permission_classes = [ApiSecurityPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     
     def get_queryset(self):
         if self.request.user.is_staff:

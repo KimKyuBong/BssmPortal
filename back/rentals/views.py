@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from django.db.models import Q
 from django.http import HttpResponse
@@ -18,10 +19,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Prefetch
 from django.db import transaction
 from datetime import datetime
-from core.permissions import (
-    EquipmentPermissions, RentalPermissions, RentalRequestPermissions,
-    IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
-)
+from core.permissions import IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
 
 from .models import Equipment, Rental, RentalRequest, EquipmentMacAddress, EquipmentHistory
 from .serializers import EquipmentSerializer, RentalSerializer, RentalRequestSerializer, EquipmentMacAddressSerializer, EquipmentLiteSerializer, EquipmentHistorySerializer
@@ -69,7 +67,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     """
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
-    permission_classes = [EquipmentPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'asset_number', 
@@ -93,7 +91,7 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     """
     queryset = Equipment.objects.all()
     serializer_class = EquipmentLiteSerializer
-    permission_classes = [EquipmentPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
         'asset_number', 
@@ -157,6 +155,13 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
     def update(self, request, *args, **kwargs):
         import logging
         logger = logging.getLogger(__name__)
+        
+        # 관리자 권한 확인
+        if not request.user.is_superuser:
+            return Response(
+                {"detail": "관리자 권한이 필요합니다."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
         
         try:
             logger.info(f"장비 업데이트 요청 - ID: {kwargs.get('pk')}")
@@ -696,6 +701,10 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
         """장비 수정 시 이력 기록"""
         logger = logging.getLogger(__name__)
         
+        # 관리자 권한 확인
+        if not self.request.user.is_superuser:
+            raise ValidationError({"detail": "관리자 권한이 필요합니다."})
+        
         old_instance = Equipment.objects.get(pk=serializer.instance.pk)
         old_data = {
             'asset_number': old_instance.asset_number,
@@ -746,6 +755,10 @@ class EquipmentReadOnlyViewSet(viewsets.ReadOnlyModelViewSet):
         """장비 삭제 시 이력 기록"""
         logger = logging.getLogger(__name__)
         
+        # 관리자 권한 확인
+        if not self.request.user.is_superuser:
+            raise ValidationError({"detail": "관리자 권한이 필요합니다."})
+        
         # 삭제 전 데이터 저장
         old_data = {
             'asset_number': instance.asset_number,
@@ -782,7 +795,7 @@ class RentalViewSet(viewsets.ModelViewSet):
     """
     queryset = Rental.objects.all()
     serializer_class = RentalSerializer
-    permission_classes = [RentalPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['equipment__asset_number', 'equipment__serial_number', 'user__username']
     ordering_fields = ['rental_date', 'due_date', 'return_date', 'status']
@@ -1005,7 +1018,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
     """
     queryset = RentalRequest.objects.all()
     serializer_class = RentalRequestSerializer
-    permission_classes = [RentalRequestPermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['equipment__asset_number', 'user__username', 'reason']
     ordering_fields = ['requested_date', 'status', 'request_type']

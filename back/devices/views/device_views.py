@@ -21,13 +21,12 @@ from ..serializers import (
     DeviceSerializer, DeviceDetailSerializer, DeviceHistorySerializer
 )
 from ..utils.kea_client import KeaClient
-from core.permissions import DevicePermissions, IsAdminUser, IsAuthenticatedUser, IsOwnerOrAdmin
 
 logger = logging.getLogger(__name__)
 
 class DeviceViewSet(viewsets.ModelViewSet):
     serializer_class = DeviceSerializer
-    permission_classes = [DevicePermissions]  # 중앙화된 권한 관리 사용
+    # permission_classes 제거 - 기본 권한 클래스 사용
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -152,6 +151,10 @@ class DeviceViewSet(viewsets.ModelViewSet):
         KeaClient.register_ip_to_kea(device.mac_address, device.assigned_ip, device.device_name)
 
     def perform_update(self, serializer):
+        # 권한 확인: 관리자이거나 자신의 장치만 수정 가능
+        if not self.request.user.is_superuser and serializer.instance.user != self.request.user:
+            raise ValidationError({"detail": "자신의 장치만 수정할 수 있습니다."})
+            
         old_data = DeviceSerializer(serializer.instance).data
         device = serializer.save()
         # 이력 기록

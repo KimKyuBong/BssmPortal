@@ -70,8 +70,8 @@ export default function AdminDnsManagementPage() {
           original_domain: req.domain
         };
       });
-      setRequests(convertedRequests.filter((req: any) => req.status === '대기'));
-      setRejectedRequests(convertedRequests.filter((req: any) => req.status === '거절'));
+      setRequests(convertedRequests.filter((req: any) => req.status === 'pending'));
+      setRejectedRequests(convertedRequests.filter((req: any) => req.status === 'rejected'));
     } catch (e) {
       showNotification('신청 목록을 불러오지 못했습니다.', 'error');
     } finally {
