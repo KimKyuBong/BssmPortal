@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet, PasswordViewSet
 from devices.views import DeviceViewSet, DeviceHistoryViewSet, get_ip_rentals, get_device_rentals
 from rentals.views import EquipmentViewSet, RentalViewSet, RentalRequestViewSet
+from rentals.public_views import PublicEquipmentView, PublicEquipmentStatusView
 from users import auth, views as user_views
 
 # 일반 API 라우터 설정 (사용자용)
@@ -40,6 +41,11 @@ admin_custom_patterns = [
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # 공개 API 엔드포인트 (인증 불필요) - nginx /api/ 프록시와 호환
+    path('api/public/equipment/<str:serial_number>/', PublicEquipmentView.as_view(), name='public-equipment-detail'),
+    path('api/public/equipment/<str:serial_number>/status/', PublicEquipmentStatusView.as_view(), name='public-equipment-status'),
+    
     path('api/admin/', include(admin_router.urls)),  # 관리자 API 엔드포인트를 먼저
     path('api/admin/', include(admin_custom_patterns)),  # 관리자 커스텀 패턴
     path('api/', include(router.urls)),  # 일반 API 엔드포인트를 나중에

@@ -5,6 +5,7 @@ import { Modal, Heading, Text, Spinner, Button } from '@/components/ui/StyledCom
 interface User {
   id: number;
   username: string;
+  name?: string;
 }
 
 interface EquipmentDetail {
@@ -72,8 +73,13 @@ export default function UserRentalModal({
         <div className="flex justify-between items-center mb-6 p-4 border-b border-gray-200 dark:border-gray-700">
           <div>
             <Heading level={3} className="text-2xl mb-2">
-              {selectedUser?.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
+              {selectedUser?.name || selectedUser?.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
             </Heading>
+            {selectedUser?.name && selectedUser?.username && (
+              <Text className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                ({selectedUser.username})
+              </Text>
+            )}
             <Text className="text-lg text-gray-600 dark:text-gray-400">
               총 {rentals.length}개의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
             </Text>

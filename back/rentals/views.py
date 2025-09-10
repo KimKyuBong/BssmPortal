@@ -1238,7 +1238,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                                         'return_date': rental.return_date.isoformat(),
                                         'returned_to': request.user.username if request.user.is_staff else None
                                     },
-                                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+                                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                                 )
 
                         # 상태 변경 저장
@@ -1268,7 +1268,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
                             if auto_count and auto_count > 0:
                                 details += f" (자동 반납 {auto_count}건)"
                         if new_status == 'RENTED' and user:
-                            details += f" (대여자: {user.username})"
+                            details += f" (대여자: {f'{user.last_name} {user.first_name}' if user.last_name and user.first_name else (user.last_name or user.first_name or user.username)} ({user.username}))"
                         if reason:
                             details += f" (사유: {reason})"
                         
@@ -2044,7 +2044,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                     'due_date': rental.due_date.isoformat(),
                     'status': 'RENTED'
                 },
-                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
             )
             
         elif rental_request.request_type == 'RETURN':
@@ -2091,7 +2091,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                     'return_date': rental.return_date.isoformat(),
                     'returned_to': request.user.username if request.user.is_staff else None
                 },
-                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+                details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
             )
         
         rental_request.save()
@@ -2218,7 +2218,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                         'due_date': rental.due_date.isoformat(),
                         'status': 'RENTED'
                     },
-                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                 )
                 
             elif rental_request.request_type == 'RETURN':
@@ -2270,7 +2270,7 @@ class RentalRequestViewSet(viewsets.ModelViewSet):
                         'return_date': rental.return_date.isoformat(),
                         'returned_to': request.user.username if request.user.is_staff else None
                     },
-                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {rental.user.username}"
+                    details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 반납 from {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                 )
             
             rental_request.save()
@@ -2527,7 +2527,7 @@ class EquipmentMacAddressViewSet(viewsets.ModelViewSet):
                             'due_date': rental.due_date.isoformat(),
                             'status': 'RENTED'
                         },
-                        details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {rental.user.username}"
+                        details=f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' 대여 승인 to {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                     )
                     
                     return Response({

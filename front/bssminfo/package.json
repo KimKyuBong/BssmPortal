@@ -7,7 +7,7 @@
     "dev:local": "NODE_ENV=development NEXT_PUBLIC_API_BASE_URL=http://localhost:8000 next dev",
     "dev:server": "NODE_ENV=development NEXT_PUBLIC_API_BASE_URL=http://10.1.0.13:8000 next dev",
     "dev:custom": "NODE_ENV=development next dev",
-    "build": "NODE_ENV=production next build --no-lint",
+    "build": "next build --no-lint",
     "build:static": "NODE_ENV=production next build --no-lint",
     "start": "NODE_ENV=production next start",
     "lint": "next lint"

@@ -965,7 +965,18 @@ export default function EquipmentManagementPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">현재 대여자</label>
-                <p className="text-sm text-gray-900 dark:text-gray-100">{selectedRentalEquipment.rental?.user.name || '없음'}</p>
+                {selectedRentalEquipment.rental?.user ? (
+                  <div className="text-sm text-gray-900 dark:text-gray-100">
+                    <div className="font-medium">
+                      {selectedRentalEquipment.rental.user.name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      ({selectedRentalEquipment.rental.user.username})
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">없음</p>
+                )}
               </div>
               {selectedRentalEquipment.rental && (
                 <>
@@ -1043,7 +1054,20 @@ export default function EquipmentManagementPage() {
                           {history.action}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
-                          {history.user?.name || history.user?.username || '-'}
+                          {history.user ? (
+                            <div>
+                              <div className="font-medium">
+                                {history.user.name || history.user.username}
+                              </div>
+                              {history.user.name && history.user.username && (
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  ({history.user.username})
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            '-'
+                          )}
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
                           {history.details || '-'}

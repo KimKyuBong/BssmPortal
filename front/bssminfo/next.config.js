@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 개발 환경에서는 정적 내보내기 비활성화
+  // 프로덕션 환경에서는 정적 내보내기 활성화
   ...(process.env.NODE_ENV === 'production' && {
     output: 'export',
     images: {
@@ -13,8 +13,9 @@ const nextConfig = {
   ...(process.env.NODE_ENV === 'development' && {
     images: {
       unoptimized: true
-    }
+    },
+    trailingSlash: true
   })
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig

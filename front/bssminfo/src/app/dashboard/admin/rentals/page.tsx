@@ -236,8 +236,14 @@ export default function AdminRentalsPage() {
       key: 'user_name',
       render: (username: string, record: any) => (
         <div>
-          <div className="font-medium">{record.user.name}</div>
-          <div className="text-sm text-gray-500">{record.user.username}</div>
+          <div className="font-medium text-gray-900 dark:text-gray-100">
+            {record.user.name || record.user.username}
+          </div>
+          {record.user.name && record.user.username && (
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              ({record.user.username})
+            </div>
+          )}
         </div>
       ),
     },

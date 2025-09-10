@@ -73,7 +73,7 @@ class Command(BaseCommand):
                             'due_date': rental.due_date.isoformat() if rental.due_date else None,
                             'status': rental.status
                         },
-                        details=f"마이그레이션: Rental #{rental.id} 대여 - {rental.user.username}",
+                        details=f"마이그레이션: Rental #{rental.id} 대여 - {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})",
                         created_at=rental.rental_date
                     )
                     count += 1
@@ -95,7 +95,7 @@ class Command(BaseCommand):
                             'return_date': rental.return_date.isoformat(),
                             'returned_to': (rental.returned_to.username if rental.returned_to else None)
                         },
-                        details=f"마이그레이션: Rental #{rental.id} 반납 - {rental.user.username}",
+                        details=f"마이그레이션: Rental #{rental.id} 반납 - {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})",
                         created_at=rental.return_date
                     )
                     count += 1

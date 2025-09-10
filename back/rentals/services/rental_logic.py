@@ -50,7 +50,7 @@ def auto_return_active_rentals(
                 },
                 details=(
                     f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' "
-                    f"반납 from {rental.user.username}"
+                    f"반납 from {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                 ),
             )
 
@@ -102,7 +102,7 @@ def create_rental(
                 },
                 details=(
                     f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' "
-                    f"대여 to {user.username}"
+                    f"대여 to {f'{user.last_name} {user.first_name}' if user.last_name and user.first_name else (user.last_name or user.first_name or user.username)} ({user.username})"
                 ),
             )
 
@@ -164,7 +164,7 @@ def change_equipment_status(
                 details=(
                     f"장비 상태 변경: {new_status}"
                     + (f" (자동 반납 {auto_count}건)" if new_status == "AVAILABLE" and auto_count else "")
-                    + (f" (대여자: {getattr(renter, 'username', '')})" if new_status == "RENTED" and renter else "")
+                    + (f" (대여자: {getattr(renter, 'name', '') or getattr(renter, 'username', '')} ({getattr(renter, 'username', '')}))" if new_status == "RENTED" and renter else "")
                     + (f" (사유: {reason})" if reason else "")
                 ).strip(),
             )
@@ -211,7 +211,7 @@ def return_rental(rental: Rental, actor, record_history: bool = True) -> None:
                 },
                 details=(
                     f"장비 '{equipment.asset_number or equipment.model_name or equipment.serial_number}' "
-                    f"반납 from {rental.user.username}"
+                    f"반납 from {f'{rental.user.last_name} {rental.user.first_name}' if rental.user.last_name and rental.user.first_name else (rental.user.last_name or rental.user.first_name or rental.user.username)} ({rental.user.username})"
                 ),
             )
 

@@ -287,6 +287,56 @@ class EquipmentLiteSerializer(serializers.ModelSerializer):
         return None
 
 
+class PublicEquipmentSerializer(serializers.ModelSerializer):
+    """공개 API용 장비 정보 시리얼라이저 - 민감한 정보 제외"""
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    equipment_type_display = serializers.CharField(source='get_equipment_type_display', read_only=True)
+    
+    class Meta:
+        model = Equipment
+        fields = [
+            'id', 'asset_number', 'manufacturer', 'model_name', 'equipment_type', 
+            'equipment_type_display', 'serial_number', 'description', 'status', 
+            'status_display', 'acquisition_date', 'manufacture_year', 
+            'purchase_date', 'purchase_price', 'management_number', 'created_at'
+        ]
+
+
+class PublicRentalSerializer(serializers.ModelSerializer):
+    """공개 API용 대여 정보 시리얼라이저 - 사용자 정보 제한"""
+    user_name = serializers.SerializerMethodField()
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = Rental
+        fields = [
+            'id', 'rental_date', 'due_date', 'return_date', 'status', 
+            'status_display', 'notes', 'user_name', 'created_at'
+        ]
+    
+    def get_user_name(self, obj):
+        """사용자 이름 반환 (개인정보 보호를 위해 이름만)"""
+        user = obj.user
+        last_name = str(user.last_name or '').strip()
+        first_name = str(user.first_name or '').strip()
+        
+        if not last_name and not first_name:
+            return user.username
+        else:
+            return f"{last_name} {first_name}".strip()
+
+
+class PublicEquipmentHistorySerializer(serializers.ModelSerializer):
+    """공개 API용 장비 이력 시리얼라이저"""
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    
+    class Meta:
+        model = EquipmentHistory
+        fields = [
+            'id', 'action', 'action_display', 'details', 'created_at'
+        ]
+
+
 class RentalSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),

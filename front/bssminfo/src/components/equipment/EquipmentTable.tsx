@@ -215,7 +215,20 @@ export default function EquipmentTable({
             <BaseTableCell>{item.equipment_type_display || '-'}</BaseTableCell>
             <BaseTableCell>{item.serial_number || '-'}</BaseTableCell>
             <BaseTableCell>{getStatusBadge(item.status)}</BaseTableCell>
-            <BaseTableCell>{item.status === 'RENTED' ? (item.rental?.user.name || '') : ''}</BaseTableCell>
+            <BaseTableCell>
+              {item.status === 'RENTED' && item.rental?.user ? (
+                <div className="text-sm">
+                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                    {item.rental.user.name}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    ({item.rental.user.username})
+                  </div>
+                </div>
+              ) : (
+                <span className="text-gray-400 dark:text-gray-500">-</span>
+              )}
+            </BaseTableCell>
             <BaseTableCell>{item.manufacture_year || '-'}</BaseTableCell>
             <BaseTableCell>{formatDate(item.purchase_date)}</BaseTableCell>
             <BaseTableCell>{formatPrice(item.purchase_price)}</BaseTableCell>

@@ -5,6 +5,7 @@ import { Modal, Heading, Text, Spinner } from '@/components/ui/StyledComponents'
 interface User {
   id: number;
   username: string;
+  name?: string;
 }
 
 interface EquipmentDetail {
@@ -48,9 +49,16 @@ export default function RentalHistoryModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl">
       <div className="flex justify-between items-center mb-4">
-        <Heading level={3}>
-          {selectedUser?.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
-        </Heading>
+        <div>
+          <Heading level={3}>
+            {selectedUser?.name || selectedUser?.username}의 {modalType === 'ip' ? 'IP' : '기기'} 대여 내역
+          </Heading>
+          {selectedUser?.name && selectedUser?.username && (
+            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              ({selectedUser.username})
+            </Text>
+          )}
+        </div>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X className="h-5 w-5" />
         </button>
