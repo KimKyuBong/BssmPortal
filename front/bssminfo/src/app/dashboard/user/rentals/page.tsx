@@ -61,21 +61,30 @@ export default function RentalsPage() {
   const [returnDate, setReturnDate] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [selectedEquipmentType, setSelectedEquipmentType] = useState<string>('ALL');
+  const [searchText, setSearchText] = useState('');
 
   // 초기 데이터 로드
   useEffect(() => {
     loadEquipmentData();
   }, []);
 
-  // 장비 유형 필터링 적용
+  // 장비 유형 + 검색어 필터링 적용
   useEffect(() => {
-    if (selectedEquipmentType === 'ALL') {
-      setFilteredEquipment(equipment);
-    } else {
-      const filtered = equipment.filter(eq => eq.equipment_type === selectedEquipmentType);
-      setFilteredEquipment(filtered);
+    let filtered = equipment;
+    if (selectedEquipmentType !== 'ALL') {
+      filtered = filtered.filter(eq => eq.equipment_type === selectedEquipmentType);
     }
-  }, [equipment, selectedEquipmentType]);
+    if (searchText.trim() !== '') {
+      const lower = searchText.trim().toLowerCase();
+      filtered = filtered.filter(eq =>
+        (eq.serial_number && eq.serial_number.toLowerCase().includes(lower)) ||
+        (eq.management_number && eq.management_number.toLowerCase().includes(lower)) ||
+        (eq.model_name && eq.model_name.toLowerCase().includes(lower)) ||
+        (eq.manufacturer && eq.manufacturer.toLowerCase().includes(lower))
+      );
+    }
+    setFilteredEquipment(filtered);
+  }, [equipment, selectedEquipmentType, searchText]);
 
   // 장비 데이터 로드
   const loadEquipmentData = async () => {
@@ -212,6 +221,16 @@ export default function RentalsPage() {
             새로고침
           </button>
         </div>
+        {/* 시리얼/관리번호/모델명/제조사 검색 입력창 */}
+        <div className="mb-6">
+          <Input
+            label="시리얼번호, 관리번호, 모델명, 제조사로 검색 (시리얼번호 검색 가능)"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="예: S123456, 2023-001, MacBook, 삼성 등"
+            className="w-full"
+          />
+        </div>
 
         {/* 장비 유형별 통계 */}
         <div className="card mb-6">
@@ -292,7 +311,14 @@ export default function RentalsPage() {
                       {equipment.management_number || '미지정'}
                     </div>
                   </div>
-                  
+                  <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
+                    <div className="text-sm text-secondary mb-1">
+                      <span className="font-medium">시리얼번호</span>
+                    </div>
+                    <div className="text-sm font-semibold text-primary">
+                      {equipment.serial_number || '미지정'}
+                    </div>
+                  </div>
                   {equipment.manufacture_year && (
                     <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
                       <div className="text-sm text-secondary mb-1">

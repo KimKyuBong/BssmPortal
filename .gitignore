@@ -6,11 +6,13 @@ pihole/*
 __pycache__
 nginx/data/winpe/*
 nginx/data/ubuntu/*
+nginx/data/systemrescue/*
 backup/*
 ssl/*
 # 백업 관련
 *.sql.gz
-
+*.iso
+*.wim
 
 
 # front 관련

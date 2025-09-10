@@ -90,7 +90,6 @@ services:
       - "445:445"
     volumes:
       - ./smb/initsetup:/setup
-      - ./smb/setup:/oldsetup
       - ./smb/bssmdata:/bssmdata
     env_file:
       - .env
@@ -129,6 +128,7 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
 
+
   # dns:
   #   image: mvance/unbound:latest
   #   ports:
@@ -138,33 +138,33 @@ services:
   #     - ./dns:/opt/unbound/etc/unbound
   #   restart: unless-stopped
 
-  dns2:
-    image: pihole/pihole:latest
-    ports:
-      - "53:53/udp"
-      - "53:53/tcp"
-      - "127.0.0.1:8888:80/tcp"
-    environment:
-      TZ: 'Asia/Seoul'
-      DNSMASQ_USER: pihole
-      VIRTUAL_HOST: pihole.local
-      PROXY_LOCATION: pihole
-      ServerIP: 10.129.55.253
-      DNSMASQ_LISTENING: all
-      PIHOLE_DNSMASQ_USER: pihole
-    volumes:
-      - ./pihole/etc-pihole:/etc/pihole
-      - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
-      - ./pihole/watch_custom_list.sh:/etc/pihole/watch_custom_list.sh
-    restart: unless-stopped
-    shm_size: 512mb
-    cap_add:
-      - NET_ADMIN
-    command: >
-      sh -c "
-        chmod +x /etc/pihole/watch_custom_list.sh &&
-        nohup /etc/pihole/watch_custom_list.sh > /dev/null 2>&1 &
-        /start.sh
-      "
+  # dns2:
+  #   image: pihole/pihole:latest
+  #   ports:
+  #     - "53:53/udp"
+  #     - "53:53/tcp"
+  #     - "127.0.0.1:8888:80/tcp"
+  #   environment:
+  #     TZ: 'Asia/Seoul'
+  #     DNSMASQ_USER: pihole
+  #     VIRTUAL_HOST: pihole.local
+  #     PROXY_LOCATION: pihole
+  #     ServerIP: 10.129.55.253
+  #     DNSMASQ_LISTENING: all
+  #     PIHOLE_DNSMASQ_USER: pihole
+  #   volumes:
+  #     - ./pihole/etc-pihole:/etc/pihole
+  #     - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+  #     - ./pihole/watch_custom_list.sh:/etc/pihole/watch_custom_list.sh
+  #   restart: unless-stopped
+  #   shm_size: 512mb
+  #   cap_add:
+  #     - NET_ADMIN
+  #   command: >
+  #     sh -c "
+  #       chmod +x /etc/pihole/watch_custom_list.sh &&
+  #       nohup /etc/pihole/watch_custom_list.sh > /dev/null 2>&1 &
+  #       /start.sh
+      # "
 
   

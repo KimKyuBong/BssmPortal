@@ -56,9 +56,22 @@ class EquipmentHistorySerializer(serializers.ModelSerializer):
     def get_user(self, obj):
         if not obj.user:
             return None
+        
+        # 사용자 이름 처리
+        last_name = str(obj.user.last_name or '').strip()
+        first_name = str(obj.user.first_name or '').strip()
+        
+        # 이름이 모두 비어있는 경우 사용자 아이디 사용
+        if not last_name and not first_name:
+            full_name = obj.user.username
+        else:
+            # 성과 이름이 있는 경우에만 공백 추가
+            full_name = f"{last_name} {first_name}".strip()
+        
         return {
             'id': obj.user.id,
             'username': obj.user.username,
+            'name': full_name,
             'email': obj.user.email,
             'is_staff': obj.user.is_staff
         }
@@ -76,7 +89,8 @@ class EquipmentSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     mac_addresses = EquipmentMacAddressSerializer(many=True, required=False)
     rental = serializers.SerializerMethodField()
-    purchase_date = serializers.DateTimeField(required=False, allow_null=True)
+    purchase_date = serializers.DateField(required=False, allow_null=True)
+    acquisition_date = serializers.DateField(required=False, allow_null=True)
     manufacture_year = serializers.IntegerField(required=False, allow_null=True)
     purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
     
@@ -86,9 +100,10 @@ class EquipmentSerializer(serializers.ModelSerializer):
             'id', 'asset_number', 'manufacturer', 'model_name', 'equipment_type',
             'equipment_type_display', 'serial_number', 'mac_addresses',
             'description', 'status', 'status_display', 'acquisition_date',
-            'manufacture_year', 'purchase_date', 'rental', 'management_number', 'purchase_price'
+            'manufacture_year', 'purchase_date', 'rental', 'management_number', 'purchase_price',
+            'created_at'
         ]
-        read_only_fields = ['purchase_date', 'management_number']
+        read_only_fields = ['management_number']
     
     def get_rental(self, obj):
         if hasattr(obj, 'current_rentals') and obj.current_rentals:
@@ -119,77 +134,97 @@ class EquipmentSerializer(serializers.ModelSerializer):
         return None
     
     def create(self, validated_data):
-        # 시리얼 번호 중복 체크
-        serial_number = validated_data.get('serial_number')
-        if serial_number:
+        """장비 생성 시 날짜 필드 처리"""
+        # purchase_date 처리
+        purchase_date = validated_data.get('purchase_date')
+        if isinstance(purchase_date, str):
             try:
-                existing_equipment = Equipment.objects.get(serial_number=serial_number)
-                raise serializers.ValidationError({
-                    'serial_number': '이미 등록된 시리얼 번호입니다.',
-                    'existing_equipment': {
-                        'id': existing_equipment.id,
-                        'asset_number': existing_equipment.asset_number,
-                        'equipment_type': existing_equipment.get_equipment_type_display(),
-                        'status': existing_equipment.get_status_display(),
-                        'rental': self.get_rental(existing_equipment)
-                    }
-                })
-            except Equipment.DoesNotExist:
-                pass
-
+                from datetime import datetime
+                # YYYY-MM-DD 형식으로 파싱 (date 객체로 반환)
+                if purchase_date.strip():  # 빈 문자열이 아닌 경우에만 처리
+                    validated_data['purchase_date'] = datetime.strptime(purchase_date, '%Y-%m-%d').date()
+                else:
+                    validated_data['purchase_date'] = None
+            except (ValueError, TypeError):
+                validated_data['purchase_date'] = None
+        elif hasattr(purchase_date, 'date'):  # datetime 객체인 경우
+            validated_data['purchase_date'] = purchase_date.date()
+        
+        # acquisition_date 처리
+        acquisition_date = validated_data.get('acquisition_date')
+        if isinstance(acquisition_date, str):
+            try:
+                from datetime import datetime
+                # YYYY-MM-DD 형식으로 파싱 (date 객체로 반환)
+                if acquisition_date.strip():  # 빈 문자열이 아닌 경우에만 처리
+                    validated_data['acquisition_date'] = datetime.strptime(acquisition_date, '%Y-%m-%d').date()
+                else:
+                    validated_data['acquisition_date'] = None
+            except (ValueError, TypeError):
+                validated_data['acquisition_date'] = None
+        elif hasattr(acquisition_date, 'date'):  # datetime 객체인 경우
+            validated_data['acquisition_date'] = acquisition_date.date()
+        
+        # MAC 주소 데이터 추출
         mac_addresses_data = validated_data.pop('mac_addresses', [])
+        
+        # 장비 생성
         equipment = Equipment.objects.create(**validated_data)
         
+        # MAC 주소 생성
         for mac_data in mac_addresses_data:
             EquipmentMacAddress.objects.create(equipment=equipment, **mac_data)
         
         return equipment
-
+    
     def update(self, instance, validated_data):
-        # 시리얼 번호 중복 체크 (다른 장비와 중복되는 경우)
-        serial_number = validated_data.get('serial_number')
-        if serial_number and serial_number != instance.serial_number:
+        """장비 수정 시 날짜 필드 처리"""
+        # purchase_date 처리
+        purchase_date = validated_data.get('purchase_date')
+        if isinstance(purchase_date, str):
             try:
-                existing_equipment = Equipment.objects.get(serial_number=serial_number)
-                raise serializers.ValidationError({
-                    'serial_number': '이미 등록된 시리얼 번호입니다.',
-                    'existing_equipment': {
-                        'id': existing_equipment.id,
-                        'asset_number': existing_equipment.asset_number,
-                        'equipment_type': existing_equipment.get_equipment_type_display(),
-                        'status': existing_equipment.get_status_display(),
-                        'rental': self.get_rental(existing_equipment)
-                    }
-                })
-            except Equipment.DoesNotExist:
-                pass
-
-        # MAC 주소 업데이트
+                from datetime import datetime
+                # YYYY-MM-DD 형식으로 파싱 (date 객체로 반환)
+                if purchase_date.strip():  # 빈 문자열이 아닌 경우에만 처리
+                    validated_data['purchase_date'] = datetime.strptime(purchase_date, '%Y-%m-%d').date()
+                else:
+                    validated_data['purchase_date'] = None
+            except (ValueError, TypeError):
+                validated_data['purchase_date'] = None
+        elif hasattr(purchase_date, 'date'):  # datetime 객체인 경우
+            validated_data['purchase_date'] = purchase_date.date()
+        
+        # acquisition_date 처리
+        acquisition_date = validated_data.get('acquisition_date')
+        if isinstance(acquisition_date, str):
+            try:
+                from datetime import datetime
+                # YYYY-MM-DD 형식으로 파싱 (date 객체로 반환)
+                if acquisition_date.strip():  # 빈 문자열이 아닌 경우에만 처리
+                    validated_data['acquisition_date'] = datetime.strptime(acquisition_date, '%Y-%m-%d').date()
+                else:
+                    validated_data['acquisition_date'] = None
+            except (ValueError, TypeError):
+                validated_data['acquisition_date'] = None
+        elif hasattr(acquisition_date, 'date'):  # datetime 객체인 경우
+            validated_data['acquisition_date'] = acquisition_date.date()
+        
+        # MAC 주소 데이터 추출
         mac_addresses_data = validated_data.pop('mac_addresses', None)
         
+        # 장비 업데이트
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # MAC 주소 업데이트 (제공된 경우)
         if mac_addresses_data is not None:
             # 기존 MAC 주소 삭제
             instance.mac_addresses.all().delete()
-            # 새로운 MAC 주소 추가 (빈 배열인 경우에도 처리)
-            if isinstance(mac_addresses_data, list):
-                for mac_data in mac_addresses_data:
-                    EquipmentMacAddress.objects.create(equipment=instance, **mac_data)
-
-        # manufacture_year가 문자열로 전달된 경우 정수로 변환
-        manufacture_year = validated_data.get('manufacture_year')
-        if isinstance(manufacture_year, str) and manufacture_year:
-            try:
-                validated_data['manufacture_year'] = int(manufacture_year)
-            except ValueError:
-                raise serializers.ValidationError({
-                    'manufacture_year': '생산년도는 유효한 숫자여야 합니다.'
-                })
-
-        # 나머지 필드 업데이트
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+            # 새로운 MAC 주소 생성
+            for mac_data in mac_addresses_data:
+                EquipmentMacAddress.objects.create(equipment=instance, **mac_data)
         
-        instance.save()
         return instance
 
     def validate_purchase_date(self, value):
@@ -211,14 +246,16 @@ class EquipmentSerializer(serializers.ModelSerializer):
 class EquipmentLiteSerializer(serializers.ModelSerializer):
     """장비 정보의 간소화된 버전 (성능 최적화용)"""
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    equipment_type_display = serializers.CharField(source='get_equipment_type_display', read_only=True)
     mac_addresses = EquipmentMacAddressSerializer(many=True, read_only=True)
     rental = serializers.SerializerMethodField()
     
     class Meta:
         model = Equipment
         fields = [
-            'id', 'asset_number', 'manufacturer', 'model_name', 'serial_number', 
-            'mac_addresses', 'status', 'status_display', 'manufacture_year', 'purchase_date', 'rental'
+            'id', 'asset_number', 'manufacturer', 'model_name', 'equipment_type', 'equipment_type_display', 'serial_number', 
+            'mac_addresses', 'status', 'status_display', 'manufacture_year', 'purchase_date', 'rental', 'management_number',
+            'created_at'
         ]
     
     def get_rental(self, obj):

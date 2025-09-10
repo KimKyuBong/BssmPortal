@@ -1,0 +1,2002 @@
+[
+  {
+    "id": 376,
+    "old_number": "L-2020-15ZG995-GP70KN-001",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 375,
+    "old_number": "D-2020-15ZG995-GP70KN-001",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "DESKTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 286,
+    "old_number": "T-2021-001-01",
+    "asset_number": "M000023589",
+    "model_name": "SM-T870NZSEK00",
+    "equipment_type": "TABLET",
+    "purchase_date": "2021-02-22 15:00:00+00:00"
+  },
+  {
+    "id": 285,
+    "old_number": "M-2022-001-01",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 278,
+    "old_number": "M-2024-001-01",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 277,
+    "old_number": "M-2022-001-02",
+    "asset_number": "",
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 276,
+    "old_number": "L-2021-001-01",
+    "asset_number": "test",
+    "model_name": "750QCJ/750QCR",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2021-11-18 15:00:00+00:00"
+  },
+  {
+    "id": 272,
+    "old_number": "M-2024-001-02",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 271,
+    "old_number": "M-2024-001-03",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 270,
+    "old_number": "M-2022-001-03",
+    "asset_number": "test",
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 269,
+    "old_number": "M-2022-001-04",
+    "asset_number": "test",
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 268,
+    "old_number": "L-2023-001-01",
+    "asset_number": "",
+    "model_name": "Katana 17 B13VEK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2023-07-26 15:00:00+00:00"
+  },
+  {
+    "id": 267,
+    "old_number": "L-2022-001-01",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 266,
+    "old_number": "L-2022-001-02",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 265,
+    "old_number": "L-2022-001-03",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 264,
+    "old_number": "L-2022-001-04",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 263,
+    "old_number": "L-2022-001-05",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 262,
+    "old_number": "L-2022-001-06",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 261,
+    "old_number": "M-2022-001-05",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 260,
+    "old_number": "L-2022-001-07",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 259,
+    "old_number": "L-2022-001-08",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 258,
+    "old_number": "L-2022-001-09",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 257,
+    "old_number": "M-2022-001-06",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 256,
+    "old_number": "M-2022-001-07",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 255,
+    "old_number": "L-2022-001-10",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 254,
+    "old_number": "L-2020-001-01",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 253,
+    "old_number": "L-2020-001-02",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 252,
+    "old_number": "L-2020-002-01",
+    "asset_number": null,
+    "model_name": "750QCJ/750QCR",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-11-18 15:00:00+00:00"
+  },
+  {
+    "id": 251,
+    "old_number": "M-2022-001-08",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 250,
+    "old_number": "L-2020-001-03",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 249,
+    "old_number": "L-2022-001-11",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 248,
+    "old_number": "L-2022-001-12",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 247,
+    "old_number": "L-2023-001-02",
+    "asset_number": null,
+    "model_name": "Katana 17 B13VEK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2023-07-26 15:00:00+00:00"
+  },
+  {
+    "id": 246,
+    "old_number": "L-2022-001-13",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 245,
+    "old_number": "L-2022-001-14",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 244,
+    "old_number": "L-2022-001-15",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 243,
+    "old_number": "L-2022-001-16",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 242,
+    "old_number": "L-2022-001-17",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 241,
+    "old_number": "L-2022-001-18",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 240,
+    "old_number": "M-2022-001-09",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 239,
+    "old_number": "L-2022-001-19",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 238,
+    "old_number": "L-2020-001-04",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 237,
+    "old_number": "L-2022-001-20",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 236,
+    "old_number": "L-2020-001-05",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 235,
+    "old_number": "M-2022-001-10",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 234,
+    "old_number": "L-2024-001-01",
+    "asset_number": null,
+    "model_name": "750XGK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2024-11-25 15:00:00+00:00"
+  },
+  {
+    "id": 233,
+    "old_number": "M-2022-001-11",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 232,
+    "old_number": "L-2022-001-21",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 231,
+    "old_number": "M-2022-001-12",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 230,
+    "old_number": "L-2022-001-22",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 229,
+    "old_number": "L-2023-001-03",
+    "asset_number": null,
+    "model_name": "Katana 17 B13VEK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2023-07-26 15:00:00+00:00"
+  },
+  {
+    "id": 228,
+    "old_number": "L-2022-001-23",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 227,
+    "old_number": "L-2022-001-24",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 226,
+    "old_number": "L-2022-001-25",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 224,
+    "old_number": "L-2022-001-26",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 223,
+    "old_number": "L-2022-001-27",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 222,
+    "old_number": "L-2022-001-28",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 221,
+    "old_number": "M-2025-001-01",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 220,
+    "old_number": "L-2022-001-29",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 219,
+    "old_number": "M-2024-001-04",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 218,
+    "old_number": "L-2022-001-30",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 217,
+    "old_number": "L-2022-001-31",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 216,
+    "old_number": "L-2022-001-32",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 215,
+    "old_number": "M-2025-001-02",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 214,
+    "old_number": "M-2025-001-03",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 213,
+    "old_number": "M-2025-001-04",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 212,
+    "old_number": "M-2025-001-05",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 211,
+    "old_number": "L-2022-001-33",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 210,
+    "old_number": "L-2022-001-34",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 209,
+    "old_number": "M-2024-001-05",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 208,
+    "old_number": "M-2025-001-06",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 207,
+    "old_number": "L-2022-001-35",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 206,
+    "old_number": "L-2022-001-36",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 205,
+    "old_number": "L-2022-001-37",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 204,
+    "old_number": "M-2025-001-07",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 203,
+    "old_number": "M-2024-001-06",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 202,
+    "old_number": "M-2025-001-08",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 201,
+    "old_number": "M-2025-001-09",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 200,
+    "old_number": "M-2024-001-07",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 199,
+    "old_number": "M-2024-001-08",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 198,
+    "old_number": "M-2025-001-10",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 197,
+    "old_number": "M-2025-001-11",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 196,
+    "old_number": "M-2025-001-12",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 195,
+    "old_number": "M-2024-001-09",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 194,
+    "old_number": "M-2024-001-10",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 193,
+    "old_number": "M-2025-001-13",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 192,
+    "old_number": "M-2024-001-11",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 191,
+    "old_number": "M-2024-001-12",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 190,
+    "old_number": "M-2024-001-13",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 189,
+    "old_number": "M-2025-001-14",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 187,
+    "old_number": "M-2025-001-15",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 186,
+    "old_number": "M-2024-001-14",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 185,
+    "old_number": "M-2024-001-15",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 183,
+    "old_number": "M-2025-001-16",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 182,
+    "old_number": "L-2022-001-38",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 181,
+    "old_number": "M-2025-001-17",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 180,
+    "old_number": "M-2025-001-18",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 179,
+    "old_number": "M-2025-001-19",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 178,
+    "old_number": "M-2025-001-20",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 177,
+    "old_number": "M-2024-001-16",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 176,
+    "old_number": "L-2022-001-39",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 175,
+    "old_number": "M-2024-001-17",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 174,
+    "old_number": "M-2024-001-18",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 173,
+    "old_number": "M-2024-001-19",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 172,
+    "old_number": "M-2024-001-20",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 171,
+    "old_number": "M-2024-001-21",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 170,
+    "old_number": "M-2025-001-21",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 169,
+    "old_number": "L-2022-001-40",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 168,
+    "old_number": "M-2024-001-22",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 167,
+    "old_number": "M-2024-001-23",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 166,
+    "old_number": "L-2020-001-06",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 165,
+    "old_number": "M-2025-001-22",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 164,
+    "old_number": "M-2024-001-24",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 163,
+    "old_number": "M-2025-001-23",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 162,
+    "old_number": "M-2025-001-24",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 161,
+    "old_number": "L-2022-001-41",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 160,
+    "old_number": "M-2024-001-25",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 159,
+    "old_number": "M-2025-001-25",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 158,
+    "old_number": "M-2024-001-26",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 157,
+    "old_number": "L-2022-001-42",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 156,
+    "old_number": "M-2024-001-27",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 155,
+    "old_number": "M-2024-001-28",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 154,
+    "old_number": "M-2024-001-29",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 153,
+    "old_number": "M-2024-001-30",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 152,
+    "old_number": "M-2024-001-31",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 151,
+    "old_number": "M-2024-001-32",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 149,
+    "old_number": "L-2022-001-43",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 148,
+    "old_number": "L-2022-001-44",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 147,
+    "old_number": "M-2024-001-33",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 146,
+    "old_number": "M-2025-001-26",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 145,
+    "old_number": "L-2022-001-45",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 144,
+    "old_number": "M-2024-001-34",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 143,
+    "old_number": "M-2025-001-27",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 142,
+    "old_number": "L-2022-001-46",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 141,
+    "old_number": "M-2025-001-28",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 140,
+    "old_number": "L-2022-001-47",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 139,
+    "old_number": "M-2024-001-35",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 138,
+    "old_number": "L-2022-001-48",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 137,
+    "old_number": "M-2025-001-29",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 136,
+    "old_number": "M-2024-001-36",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 134,
+    "old_number": "M-2025-001-30",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 133,
+    "old_number": "M-2025-001-31",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 132,
+    "old_number": "M-2024-001-37",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 131,
+    "old_number": "M-2024-001-38",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 130,
+    "old_number": "M-2024-001-39",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 129,
+    "old_number": "M-2024-001-40",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 128,
+    "old_number": "M-2024-001-41",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 127,
+    "old_number": "M-2024-001-42",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 126,
+    "old_number": "M-2025-001-32",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 125,
+    "old_number": "M-2024-001-43",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 124,
+    "old_number": "L-2022-001-49",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 123,
+    "old_number": "M-2024-001-44",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 122,
+    "old_number": "M-2025-001-33",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 121,
+    "old_number": "M-2025-001-34",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 120,
+    "old_number": "L-2022-001-50",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 119,
+    "old_number": "L-2022-001-51",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 118,
+    "old_number": "M-2025-001-35",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 117,
+    "old_number": "M-2025-001-36",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 116,
+    "old_number": "L-2022-001-52",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 115,
+    "old_number": "M-2024-001-45",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 114,
+    "old_number": "M-2024-001-46",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 113,
+    "old_number": "M-2022-001-13",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 112,
+    "old_number": "L-2022-001-53",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 111,
+    "old_number": "L-2022-001-54",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 110,
+    "old_number": "M-2022-001-14",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 109,
+    "old_number": "M-2025-001-37",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 108,
+    "old_number": "M-2024-001-47",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 107,
+    "old_number": "L-2023-001-04",
+    "asset_number": null,
+    "model_name": "Katana 17 B13VEK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2023-07-26 15:00:00+00:00"
+  },
+  {
+    "id": 106,
+    "old_number": "L-2022-001-55",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 105,
+    "old_number": "L-2022-001-56",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 104,
+    "old_number": "L-2022-001-57",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 103,
+    "old_number": "L-2022-001-58",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 102,
+    "old_number": "M-2024-001-48",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 101,
+    "old_number": "L-2022-001-59",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 100,
+    "old_number": "L-2022-002-01",
+    "asset_number": null,
+    "model_name": "15U50P-KPLCL",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-24 15:00:00+00:00"
+  },
+  {
+    "id": 99,
+    "old_number": "L-2022-001-60",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 98,
+    "old_number": "L-2022-001-61",
+    "asset_number": "",
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 97,
+    "old_number": "M-2024-001-49",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 96,
+    "old_number": "M-2025-001-38",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 95,
+    "old_number": "M-2025-001-39",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 94,
+    "old_number": "M-2022-001-15",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 93,
+    "old_number": "M-2025-001-40",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 92,
+    "old_number": "M-2025-001-41",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 91,
+    "old_number": "M-2025-001-42",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 90,
+    "old_number": "M-2025-001-43",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 89,
+    "old_number": "M-2025-001-44",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 88,
+    "old_number": "M-2025-001-45",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 87,
+    "old_number": "M-2024-001-50",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 86,
+    "old_number": "M-2025-001-46",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 85,
+    "old_number": "M-2025-001-47",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 84,
+    "old_number": "M-2025-001-48",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 83,
+    "old_number": "M-2024-001-51",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 82,
+    "old_number": "M-2024-001-52",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 81,
+    "old_number": "M-2022-001-16",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 80,
+    "old_number": "M-2022-001-17",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 79,
+    "old_number": "L-2024-001-02",
+    "asset_number": null,
+    "model_name": "750XGK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2024-11-25 15:00:00+00:00"
+  },
+  {
+    "id": 78,
+    "old_number": "M-2025-001-49",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 77,
+    "old_number": "M-2025-001-50",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 76,
+    "old_number": "M-2025-001-51",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 75,
+    "old_number": "M-2022-001-18",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 74,
+    "old_number": "M-2024-001-53",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 73,
+    "old_number": "M-2024-001-54",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 72,
+    "old_number": "M-2025-001-52",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 71,
+    "old_number": "M-2025-001-53",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 70,
+    "old_number": "M-2025-001-54",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 69,
+    "old_number": "M-2025-001-55",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 68,
+    "old_number": "M-2025-001-56",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 67,
+    "old_number": "L-2022-001-62",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 66,
+    "old_number": "M-2025-001-57",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 65,
+    "old_number": "M-2024-001-55",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 64,
+    "old_number": "M-2024-001-56",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 63,
+    "old_number": "M-2024-001-57",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 62,
+    "old_number": "M-2025-001-58",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 61,
+    "old_number": "M-2025-001-59",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 60,
+    "old_number": "M-2025-001-60",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 59,
+    "old_number": "L-2022-001-63",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 58,
+    "old_number": "M-2025-001-61",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 57,
+    "old_number": "M-2025-001-62",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 56,
+    "old_number": "L-2022-001-64",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 55,
+    "old_number": "M-2025-001-63",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 54,
+    "old_number": "M-2025-001-64",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 53,
+    "old_number": "M-2024-001-58",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 52,
+    "old_number": "M-2024-001-59",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 51,
+    "old_number": "M-2024-001-60",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 50,
+    "old_number": "M-2025-001-65",
+    "asset_number": null,
+    "model_name": "Mac15,12",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2025-02-23 15:00:00+00:00"
+  },
+  {
+    "id": 49,
+    "old_number": "M-2024-001-61",
+    "asset_number": null,
+    "model_name": "MacBookAir10,1",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2024-01-02 15:00:00+00:00"
+  },
+  {
+    "id": 48,
+    "old_number": "M-2022-001-19",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 47,
+    "old_number": "L-2022-001-65",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 46,
+    "old_number": "L-2024-001-03",
+    "asset_number": "",
+    "model_name": "750XGK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2024-11-25 15:00:00+00:00"
+  },
+  {
+    "id": 45,
+    "old_number": "M-2022-001-20",
+    "asset_number": null,
+    "model_name": "MacBookPro18,3",
+    "equipment_type": "MACBOOK",
+    "purchase_date": "2022-10-17 15:00:00+00:00"
+  },
+  {
+    "id": 44,
+    "old_number": "L-2024-001-04",
+    "asset_number": null,
+    "model_name": "750XGK",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2024-11-25 15:00:00+00:00"
+  },
+  {
+    "id": 42,
+    "old_number": "L-2022-001-66",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 41,
+    "old_number": "L-2020-003-01",
+    "asset_number": null,
+    "model_name": "XPS 15 7590",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-18 15:00:00+00:00"
+  },
+  {
+    "id": 40,
+    "old_number": "L-2020-001-07",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 39,
+    "old_number": "L-2022-001-67",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 38,
+    "old_number": "L-2021-002-01",
+    "asset_number": "",
+    "model_name": "950XDB/951XDB/950XDY",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2021-09-27 15:00:00+00:00"
+  },
+  {
+    "id": 37,
+    "old_number": "L-2020-002-02",
+    "asset_number": null,
+    "model_name": "750QCJ/750QCR",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-11-18 15:00:00+00:00"
+  },
+  {
+    "id": 36,
+    "old_number": "L-2025-002",
+    "asset_number": "",
+    "model_name": "DT241",
+    "equipment_type": "DESKTOP",
+    "purchase_date": null
+  },
+  {
+    "id": 35,
+    "old_number": "L-2020-001-08",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 25,
+    "old_number": "L-2020-002-03",
+    "asset_number": null,
+    "model_name": "750QCJ/750QCR",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-11-18 15:00:00+00:00"
+  },
+  {
+    "id": 24,
+    "old_number": "L-2022-001-68",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 23,
+    "old_number": "L-2020-001-09",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 22,
+    "old_number": "L-2020-001-10",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 21,
+    "old_number": "L-2022-001-69",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  },
+  {
+    "id": 20,
+    "old_number": "L-2020-002-04",
+    "asset_number": null,
+    "model_name": "750QCJ/750QCR",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-11-18 15:00:00+00:00"
+  },
+  {
+    "id": 19,
+    "old_number": "L-2020-001-11",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 18,
+    "old_number": "L-2020-001-12",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 17,
+    "old_number": "L-2020-001-13",
+    "asset_number": null,
+    "model_name": "15ZG995-GP70KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2020-10-28 15:00:00+00:00"
+  },
+  {
+    "id": 16,
+    "old_number": "L-2025-001",
+    "asset_number": "",
+    "model_name": "HGDF Series",
+    "equipment_type": "DESKTOP",
+    "purchase_date": null
+  },
+  {
+    "id": 15,
+    "old_number": "L-2022-001-70",
+    "asset_number": null,
+    "model_name": "15UG50Q-GP75KN",
+    "equipment_type": "LAPTOP",
+    "purchase_date": "2022-12-25 15:00:00+00:00"
+  }
+]

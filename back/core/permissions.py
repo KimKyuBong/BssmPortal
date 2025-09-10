@@ -61,6 +61,8 @@ class PermissionMatrix:
                 'export_excel': ['admin'],
                 'import_excel': ['admin'],
                 'register': ['any'],
+                'register_maintenance': ['any'],  # PXE 부팅 환경에서 인증 없이 장비 등록 허용
+                'report_status': ['any'],  # 비로그인 장비 상태 보고 허용
                 'by_mac': ['any'],
                 'update_by_model': ['admin'],
                 'get_model_info': ['admin'],
@@ -167,8 +169,38 @@ class RoleBasedPermission(BasePermission):
         super().__init__()
     
     def has_permission(self, request, view):
-        # 액션 이름 결정
+        # 액션 이름 결정 - ViewSet의 action 속성을 우선 사용
         action = self.action or getattr(view, 'action', None)
+        
+        # URL resolver에서 액션 추출
+        if hasattr(request, 'resolver_match') and request.resolver_match:
+            url_name = request.resolver_match.url_name
+            if url_name and '-' in url_name:
+                # admin-equipment-register-maintenance 형태에서 마지막 부분 추출
+                parts = url_name.split('-')
+                if len(parts) >= 3 and 'register' in parts:
+                    if 'maintenance' in parts:
+                        action = 'register_maintenance'
+                    else:
+                        action = 'register'
+                elif 'report' in parts and 'status' in parts:
+                    action = 'report_status'
+                elif 'by-mac' in url_name or 'mac' in parts:
+                    action = 'by_mac'
+        
+        # URL 경로에서 직접 추출 (fallback)
+        if not action or action in ['create', 'list', 'retrieve', 'update', 'destroy']:
+            path = request.path
+            if 'register_maintenance' in path:
+                action = 'register_maintenance'
+            elif 'register' in path and 'register_maintenance' not in path:
+                action = 'register'  
+            elif 'report-status' in path or 'report_status' in path:
+                action = 'report_status'
+            elif 'by_mac' in path:
+                action = 'by_mac'
+        
+        # 커스텀 액션이 설정되지 않은 경우 HTTP 메서드로 추정
         if not action:
             # HTTP 메서드 기반으로 액션 추정
             if request.method == 'GET':

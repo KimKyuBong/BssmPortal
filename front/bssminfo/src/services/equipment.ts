@@ -17,9 +17,11 @@ export interface ImportEquipmentResponse {
 // 모델별 일괄 업데이트 인터페이스
 export interface ModelBatchUpdateData {
   model_name: string;
+  manufacturer?: string;
   manufacture_year?: number;
   purchase_date?: string;
   purchase_price?: number;
+  equipment_type?: string;
 }
 
 export interface MacAddress {
@@ -87,7 +89,7 @@ export const equipmentService = {
         params.append('equipment_type', type);
       }
       
-      const response = await api.get<PaginatedResponse<Equipment>>(`/rentals/equipment/?${params.toString()}`);
+      const response = await api.get<PaginatedResponse<Equipment>>(`/admin/equipment/?${params.toString()}`);
       
       if (response.success) {
         return {
@@ -127,7 +129,7 @@ export const equipmentService = {
   // 장비 목록 조회 (기존 함수 - 호환성 유지)
   async getAllEquipment() {
     try {
-      const response = await api.get<{count: number, next: string | null, previous: string | null, results: Equipment[]}>('/rentals/equipment/');
+      const response = await api.get<{count: number, next: string | null, previous: string | null, results: Equipment[]}>('/admin/equipment/');
       
       // 응답 데이터가 올바른 형식인지 확인
       if (response.success) {
@@ -222,7 +224,7 @@ export const equipmentService = {
 
   // 장비 상세 정보 조회
   async getEquipmentDetail(id: number) {
-    return await api.get<Equipment>(`/rentals/equipment/${id}/`);
+    return await api.get<Equipment>(`/admin/equipment/${id}/`);
   },
 
   // 장비 정보 생성 (관리자용)
@@ -239,17 +241,19 @@ export const equipmentService = {
           status: 'AVAILABLE',
           rental: null,
           asset_number: equipmentData.asset_number,
+          manufacturer: equipmentData.manufacturer,
+          model_name: equipmentData.model_name,
           equipment_type: equipmentData.equipment_type,
           serial_number: equipmentData.serial_number,
           acquisition_date: equipmentData.acquisition_date
         };
-        return await api.put<Equipment>(`/rentals/equipment/${id}/`, minimalData, {
+        return await api.put<Equipment>(`/admin/equipment/${id}/`, minimalData, {
           headers: {
             'Referer': `${window.location.origin}/dashboard/admin/equipment/`
           }
         });
       }
-      return await api.put<Equipment>(`/rentals/equipment/${id}/`, equipmentData, {
+      return await api.put<Equipment>(`/admin/equipment/${id}/`, equipmentData, {
         headers: {
           'Referer': `${window.location.origin}/dashboard/admin/equipment/`
         }
@@ -266,14 +270,19 @@ export const equipmentService = {
 
   // 장비 정보 삭제 (관리자용)
   async deleteEquipment(id: number) {
-    return await api.delete(`/rentals/equipment/${id}/`);
+    return await api.delete(`/admin/equipment/${id}/`);
   },
 
   // 장비 이력 조회
   async getEquipmentHistory(equipmentId: number) {
     try {
-      const response = await api.get<EquipmentHistory[]>(`/rentals/equipment/${equipmentId}/history/`);
-      return response;
+      console.log(`장비 이력 조회 API 호출: /admin/equipment/${equipmentId}/history/`);
+      const response = await api.get<EquipmentHistory[]>(`/admin/equipment/${equipmentId}/history/`);
+      console.log('장비 이력 조회 응답:', response);
+      return {
+        success: true,
+        data: response.data
+      };
     } catch (error) {
       console.error('장비 이력 조회 중 오류:', error);
       return {
@@ -281,6 +290,52 @@ export const equipmentService = {
         data: [] as EquipmentHistory[],
         error: {
           message: '장비 이력을 조회하는 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
+
+  // 장비 상태 변경
+  async changeEquipmentStatus(equipmentId: number, status: string, reason?: string) {
+    try {
+      const response = await api.post(`/admin/equipment/${equipmentId}/change-status/`, {
+        status,
+        reason
+      });
+      return response;
+    } catch (error) {
+      console.error('장비 상태 변경 중 오류:', error);
+      return {
+        success: false,
+        error: {
+          message: '장비 상태 변경 중 오류가 발생했습니다.'
+        }
+      };
+    }
+  },
+
+  // 여러 장비 상태 일괄 변경
+  async batchChangeEquipmentStatus(equipmentIds: number[], status: string, reason?: string, userId?: number) {
+    try {
+      const payload: any = {
+        equipment_ids: equipmentIds,
+        status,
+        reason
+      };
+      
+      // 대여중 상태일 때 사용자 ID 추가
+      if (status === 'RENTED' && userId) {
+        payload.user_id = userId;
+      }
+      
+      const response = await api.post('/admin/equipment/batch-change-status/', payload);
+      return response;
+    } catch (error) {
+      console.error('장비 일괄 상태 변경 중 오류:', error);
+      return {
+        success: false,
+        error: {
+          message: '장비 일괄 상태 변경 중 오류가 발생했습니다.'
         }
       };
     }
@@ -299,7 +354,7 @@ export const equipmentService = {
     formData.append('file', file);
 
     try {
-      return await api.post<ImportEquipmentResponse>('/rentals/equipment/import_excel/', formData, {
+      return await api.post<ImportEquipmentResponse>('/admin/equipment/import/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -320,7 +375,7 @@ export const equipmentService = {
    */
   updateByModel: async (data: ModelBatchUpdateData): Promise<ModelBatchUpdateResponse> => {
     try {
-      const response = await api.post('/rentals/equipment/update-by-model/', data);
+      const response = await api.post('/admin/equipment/update-by-model/', data);
       return response.data;
     } catch (error) {
       console.error("모델별 장비 업데이트 중 오류 발생:", error);
@@ -340,13 +395,15 @@ export const equipmentService = {
    */
   getModelInfo: async (modelName: string): Promise<ApiResponse<{
     model_name: string;
+    manufacturer?: string;
     manufacture_year?: number;
     purchase_date?: string;
     purchase_price?: number;
+    equipment_type?: string;
   }>> => {
     try {
       console.log('getModelInfo 호출:', modelName);
-      const response = await api.get(`/rentals/equipment/get-model-info/?model_name=${encodeURIComponent(modelName)}`);
+      const response = await api.get(`/admin/equipment/get-model-info/?model_name=${encodeURIComponent(modelName)}`);
       console.log('getModelInfo 응답:', response);
       return response.data;
     } catch (error) {
@@ -362,7 +419,7 @@ export const equipmentService = {
   // 장비 목록 엑셀 다운로드 (관리자용)
   async exportEquipmentToExcel(): Promise<ApiResponse<void>> {
     try {
-      const response = await api.get('/rentals/equipment/export_excel/', {
+      const response = await api.get('/admin/equipment/export-excel/', {
         responseType: 'blob'
       });
 
@@ -383,6 +440,47 @@ export const equipmentService = {
     } catch (error) {
       console.error('엑셀 다운로드 중 오류:', error);
       throw new Error('엑셀 파일 다운로드에 실패했습니다.');
+    }
+  },
+
+  // 장비 정보 엑셀 일괄 등록/업데이트 (관리자용)
+  async bulkUpdateEquipmentFromExcel(file: File): Promise<ApiResponse<{
+    success: boolean;
+    message: string;
+    results: {
+      total_rows: number;
+      created: number;
+      updated: number;
+      errors: string[];
+      created_equipment: Array<{
+        serial_number: string;
+        asset_number: string;
+        created_fields: string[];
+      }>;
+      updated_equipment: Array<{
+        serial_number: string;
+        asset_number: string;
+        updated_fields: string[];
+      }>;
+    };
+  }>> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post('/admin/equipment/bulk-update-excel/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('엑셀 업로드 중 오류:', error);
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error('엑셀 파일 업로드에 실패했습니다.');
     }
   },
 

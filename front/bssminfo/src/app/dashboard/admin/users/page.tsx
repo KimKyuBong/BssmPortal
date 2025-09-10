@@ -431,7 +431,10 @@ export default function UserManagementPage() {
   const handleCreateUserForModal = async (userData: any): Promise<void> => {
     const result = await handleCreateUser(userData);
     if (result.success) {
+      showSuccess('사용자 생성 완료', result.message);
       await fetchData(); // 데이터 새로고침
+    } else {
+      showError('사용자 생성 실패', result.message);
     }
   };
 

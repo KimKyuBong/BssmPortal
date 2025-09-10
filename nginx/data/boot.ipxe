@@ -12,37 +12,49 @@ choose --timeout 10000 --default exit selected || goto cancel
 goto ${selected}
 
 :auto_install
-echo Starting automatic installation process...
+echo ========================================
+echo           WARNING - AUTO INSTALL
+echo ========================================
+echo
 echo This will automatically install Windows on this computer
-echo.
+echo
+echo WARNING: All data on the hard disk will be ERASED!
 echo Computer will be registered to backend and set to maintenance mode
 echo Hard disk will be initialized and Windows will be installed
-echo.
-echo Press Ctrl+C to cancel (5 second timeout)
-sleep 5
-kernel http://10.250.1.1:8080/wimboot gui
-initrd -n bootx64.efi http://10.250.1.1:8080/winpe/efi/boot/bootx64.efi bootx64.efi
-initrd -n bcd http://10.250.1.1:8080/winpe/boot/bcd bcd
-initrd -n boot.sdi http://10.250.1.1:8080/winpe/boot/boot.sdi boot.sdi
-initrd -n boot.wim http://10.250.1.1:8080/winpe/sources/boot.wim boot.wim
-initrd -n auto-install.ps1 http://10.250.1.1:8080/scripts/auto-install.ps1 auto-install.ps1
-initrd -n diskpart.txt http://10.250.1.1:8080/scripts/diskpart.txt diskpart.txt
+echo
+echo Press Ctrl+C to cancel, or wait for countdown...
+echo
+echo Starting in 3 seconds...
+sleep 3
+echo Starting automatic installation process...
+kernel http://${gateway}:8080/wimboot gui
+initrd -n bootx64.efi http://${gateway}:8080/winpe/efi/boot/bootx64.efi bootx64.efi
+initrd -n bcd http://${gateway}:8080/winpe/boot/bcd bcd
+initrd -n boot.sdi http://${gateway}:8080/winpe/boot/boot.sdi boot.sdi
+initrd -n boot.wim http://${gateway}:8080/winpe/sources/boot2.wim boot.wim
 imgargs wimboot gui
 boot || goto failed
 
 :winpe
-kernel http://10.250.1.1:8080/wimboot gui
-initrd -n bootx64.efi http://10.250.1.1:8080/winpe/efi/boot/bootx64.efi bootx64.efi
-initrd -n bcd http://10.250.1.1:8080/winpe/boot/bcd bcd
-initrd -n boot.sdi http://10.250.1.1:8080/winpe/boot/boot.sdi boot.sdi
-initrd -n boot.wim http://10.250.1.1:8080/winpe/sources/boot.wim boot.wim || goto retry
+kernel http://${gateway}:8080/wimboot gui
+initrd -n bootx64.efi http://${gateway}:8080/winpe/efi/boot/bootx64.efi bootx64.efi
+initrd -n bcd http://${gateway}:8080/winpe/boot/bcd bcd
+initrd -n boot.sdi http://${gateway}:8080/winpe/boot/boot.sdi boot.sdi
+initrd -n boot.wim http://${gateway}:8080/winpe/sources/boot.wim boot.wim || goto retry
 imgargs wimboot gui
 boot || goto failed
 
 :ubuntu
-kernel http://10.250.1.1:8080/ubuntu/casper/vmlinuz
-initrd http://10.250.1.1:8080/ubuntu/casper/initrd
-imgargs vmlinuz initrd=initrd root=/dev/ram0 ramdisk_size=1500000 ip=dhcp url=http://10.250.1.1:8080/ubuntu/ubuntu.iso
+kernel http://${gateway}:8080/ubuntu/casper/vmlinuz
+initrd http://${gateway}:8080/ubuntu/casper/initrd
+initrd --name filesystem.squashfs http://${gateway}:8080/ubuntu/casper/minimal.squashfs
+imgargs vmlinuz initrd=initrd boot=casper toram live-media-path=/casper/ ip=dhcp net.ifnames=0 biosdevname=0
+boot || goto failed
+
+:sysrescue
+kernel http://${gateway}:8080/systemrescue/boot/x86_64/vmlinuz
+initrd http://${gateway}:8080/systemrescue/boot/x86_64/sysresccd.img
+imgargs vmlinuz initrd=sysresccd.img archisobasedir=systemrescue archiso_http_srv=http://${gateway}:8080/ ip=dhcp copytoram=y
 boot || goto failed
 
 :retry

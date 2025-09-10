@@ -255,6 +255,9 @@ export default function Login() {
     }
   };
 
+  // 비밀번호 입력 시 한글 등 비ASCII 문자를 자동 제거
+  const sanitizeAscii = (value: string) => value.replace(/[^\x20-\x7E]/g, '');
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
       {/* 다크모드 토글 버튼 */}
@@ -315,7 +318,7 @@ export default function Login() {
               type="password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(sanitizeAscii(e.target.value))}
               placeholder="비밀번호를 입력하세요"
               disabled={isLoading}
             />

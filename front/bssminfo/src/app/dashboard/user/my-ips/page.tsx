@@ -15,6 +15,7 @@ import DeviceRegistrationModal from '@/components/ui/DeviceRegistrationModal';
 import DeviceEditModal from '@/components/ui/DeviceEditModal';
 import { useToastContext } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/StyledComponents';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 export default function MyIpsPage() {
   const router = useRouter();
@@ -406,18 +407,39 @@ export default function MyIpsPage() {
     }
   };
 
+  // 삭제 확인 다이얼로그 상태
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    isOpen: false,
+    deviceId: null as number | null,
+    deviceName: ''
+  });
+
+  // 장치 일괄 삭제 확인 다이얼로그 상태
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState({
+    isOpen: false,
+    deviceIds: [] as number[]
+  });
+
   const handleDeleteDevice = async (deviceId: number) => {
-    // confirm 대신 토스트로 확인 메시지 표시하고 바로 삭제 처리
-    showError('기기 삭제', '정말로 이 기기를 삭제하시겠습니까?');
+    const device = devices.find(d => d.id === deviceId);
+    setDeleteConfirm({
+      isOpen: true,
+      deviceId: deviceId,
+      deviceName: device?.device_name || '알 수 없는 기기'
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.deviceId) return;
     
     try {
-      const response = await ipService.deleteIp(deviceId);
+      const response = await ipService.deleteIp(deleteConfirm.deviceId);
       if (response.success) {
         // 장치 목록에서 제거
-        setDevices(devices.filter(device => device.id !== deviceId));
+        setDevices(devices.filter(device => device.id !== deleteConfirm.deviceId));
         
         // 통계 업데이트
-        const remainingDevices = devices.filter(device => device.id !== deviceId);
+        const remainingDevices = devices.filter(device => device.id !== deleteConfirm.deviceId);
         const activeDevices = remainingDevices.filter(d => d.is_active).length;
         setStats({
           totalDevices: remainingDevices.length,
@@ -436,7 +458,21 @@ export default function MyIpsPage() {
       setError('장치 삭제 중 오류가 발생했습니다.');
       console.error('Delete device error:', err);
       showError('기기 삭제 오류', '장치 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeleteConfirm({
+        isOpen: false,
+        deviceId: null,
+        deviceName: ''
+      });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({
+      isOpen: false,
+      deviceId: null,
+      deviceName: ''
+    });
   };
 
   // 장치 일괄 활성화/비활성화 함수
@@ -484,15 +520,24 @@ export default function MyIpsPage() {
 
   // 장치 일괄 삭제 함수
   const handleBulkDeleteDevices = async (deviceIds: number[]) => {
+    setBulkDeleteConfirm({
+      isOpen: true,
+      deviceIds: deviceIds
+    });
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (bulkDeleteConfirm.deviceIds.length === 0) return;
+
     try {
       // 모든 장치에 대해 삭제 처리
-      const promises = deviceIds.map(deviceId => ipService.deleteIp(deviceId));
+      const promises = bulkDeleteConfirm.deviceIds.map(deviceId => ipService.deleteIp(deviceId));
       const results = await Promise.all(promises);
       const success = results.every((result: any) => result.success);
       
       if (success) {
         // 장치 목록에서 제거
-        const updatedDevices = devices.filter(device => !deviceIds.includes(device.id));
+        const updatedDevices = devices.filter(device => !bulkDeleteConfirm.deviceIds.includes(device.id));
         setDevices(updatedDevices);
         
         // 통계 업데이트
@@ -502,7 +547,7 @@ export default function MyIpsPage() {
           activeDevices
         });
         
-        showSuccess('일괄 작업 완료', `${deviceIds.length}개의 기기가 삭제되었습니다.`);
+        showSuccess('일괄 작업 완료', `${bulkDeleteConfirm.deviceIds.length}개의 기기가 삭제되었습니다.`);
         setSelectedDevices([]); // 선택 초기화
       } else {
         setError('일부 기기의 삭제에 실패했습니다.');
@@ -510,7 +555,19 @@ export default function MyIpsPage() {
     } catch (err) {
       setError('기기 일괄 삭제 중 오류가 발생했습니다.');
       console.error('Bulk delete device error:', err);
+    } finally {
+      setBulkDeleteConfirm({
+        isOpen: false,
+        deviceIds: []
+      });
     }
+  };
+
+  const handleBulkDeleteCancel = () => {
+    setBulkDeleteConfirm({
+      isOpen: false,
+      deviceIds: []
+    });
   };
 
   // 장치 선택 핸들러 (다중 선택 지원)
@@ -708,18 +765,12 @@ export default function MyIpsPage() {
           <BulkActionBar
             selectedCount={selectedDevices.length}
             onBulkActivate={() => {
-              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
-              showError('일괄 활성화', `선택한 ${selectedDevices.length}개의 IP를 활성화하시겠습니까?`);
               handleBulkToggleDeviceActive(selectedDevices, true);
             }}
             onBulkDeactivate={() => {
-              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
-              showError('일괄 비활성화', `선택한 ${selectedDevices.length}개의 IP를 비활성화하시겠습니까?`);
               handleBulkToggleDeviceActive(selectedDevices, false);
             }}
             onBulkDelete={() => {
-              // confirm 대신 토스트로 확인 메시지 표시하고 바로 처리
-              showError('일괄 삭제', `정말로 선택한 ${selectedDevices.length}개의 IP를 삭제하시겠습니까?`);
               handleBulkDeleteDevices(selectedDevices);
             }}
           />
@@ -938,6 +989,30 @@ export default function MyIpsPage() {
           </div>
         </div>
       )}
+
+      {/* 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="IP 기기 삭제 확인"
+        message={`정말로 '${deleteConfirm.deviceName}' IP 기기를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        cancelText="취소"
+        variant="danger"
+      />
+
+      {/* 일괄 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm.isOpen}
+        onClose={handleBulkDeleteCancel}
+        onConfirm={handleBulkDeleteConfirm}
+        title="일괄 삭제 확인"
+        message={`정말로 선택한 ${bulkDeleteConfirm.deviceIds.length}개의 IP 기기를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        cancelText="취소"
+        variant="danger"
+      />
     </div>
   );
 } 

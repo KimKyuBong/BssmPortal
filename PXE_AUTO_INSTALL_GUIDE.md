@@ -24,7 +24,7 @@
 #### 2.2 백엔드 등록
 - 수집된 정보를 백엔드(10.250.0.1)로 전송
 - 장비를 '유지보수' 상태로 등록
-- API 엔드포인트: `/api/rentals/equipment/register_maintenance/`
+- API 엔드포인트: `/api/rentals/equipment/register/` (status: 'MAINTENANCE' 설정)
 
 #### 2.3 디스크 초기화
 - diskpart 스크립트 실행
@@ -71,8 +71,8 @@ nginx/data/
 ## 백엔드 API
 
 ### 장비 등록 API (자동 설치용)
-- **URL**: `POST /api/rentals/equipment/register_maintenance/`
-- **기능**: 장비를 유지보수 상태로 등록
+- **URL**: `POST /api/rentals/equipment/register/`
+- **기능**: 장비를 유지보수 상태로 등록 (status: 'MAINTENANCE' 설정 시)
 - **인증**: 불필요 (PXE 부팅 시 자동 등록)
 
 ### 요청 예시

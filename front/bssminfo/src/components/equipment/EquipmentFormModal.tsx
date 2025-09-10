@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Modal, Button, Input, Select, DateInput, Text, Heading } from '@/components/ui/StyledComponents';
+import { Modal, Button, Input, Select, DateInput, KoreanDateInput, EnhancedDateInput, Text, Heading, UserSearch } from '@/components/ui/StyledComponents';
 import { Equipment } from '@/services/api';
+import adminService from '@/services/admin';
 
 interface EquipmentFormModalProps {
   isOpen: boolean;
@@ -36,6 +37,14 @@ export default function EquipmentFormModal({
     acquisition_date: ''
   });
 
+  // 대여 관련 상태
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [dueDate, setDueDate] = useState('');
+  const [notes, setNotes] = useState('');
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [initiallyRented, setInitiallyRented] = useState<boolean>(false);
+
   // 장비 데이터로 폼 초기화
   useEffect(() => {
     if (equipment && mode === 'edit') {
@@ -52,6 +61,39 @@ export default function EquipmentFormModal({
         purchase_price: equipment.purchase_price?.toString() || '',
         acquisition_date: equipment.acquisition_date || ''
       });
+      // 초기 상태 저장
+      const initRented = equipment.status === 'RENTED';
+      setInitiallyRented(initRented);
+      // 대여 중 장비인 경우 대여자/반납예정일 표시용 초기값 설정
+      try {
+        // equipment.rental?.user, equipment.rental?.due_date 존재 시 초기화
+        const rentalUser: any = (equipment as any)?.rental?.user;
+        const rentalDue: string | undefined = (equipment as any)?.rental?.due_date;
+        if (initRented && rentalUser?.id) {
+          setSelectedUserId(rentalUser.id);
+          // 표시용 users 배열에 현재 대여자 추가
+          const normalizedUser = {
+            ...rentalUser,
+            name: rentalUser.user_name || rentalUser.name || rentalUser.username,
+            display_name: rentalUser.user_name
+              ? `${rentalUser.user_name} (${rentalUser.username})`
+              : (rentalUser.name || rentalUser.username),
+          };
+          setUsers([normalizedUser]);
+        } else {
+          setSelectedUserId(null);
+          setUsers([]);
+        }
+        if (rentalDue) {
+          // YYYY-MM-DD 포맷 추출
+          const yyyyMmDd = rentalDue.substring(0, 10);
+          setDueDate(yyyyMmDd);
+        } else {
+          setDueDate('');
+        }
+      } catch (e) {
+        // 안전하게 무시
+      }
     } else {
       // 추가 모드일 때 폼 초기화
       setFormData({
@@ -67,6 +109,10 @@ export default function EquipmentFormModal({
         purchase_price: '',
         acquisition_date: ''
       });
+      setInitiallyRented(false);
+      setSelectedUserId(null);
+      setUsers([]);
+      setDueDate('');
     }
   }, [equipment, mode, isOpen]);
 
@@ -85,6 +131,32 @@ export default function EquipmentFormModal({
     }));
   };
 
+  // 사용자 검색
+  const handleUserSearch = async (searchTerm: string) => {
+    if (!searchTerm.trim()) return;
+    
+    try {
+      setUserSearchLoading(true);
+      const results = await adminService.searchUsers(searchTerm, 20);
+      // results는 User[] 형태로 가정. 표시 편의를 위해 display_name 필드를 구성
+      const normalized = (results || []).map((u: any) => ({
+        ...u,
+        name: u.user_name || u.username,
+        display_name: u.user_name ? `${u.user_name} (${u.username})` : u.username,
+      }));
+      setUsers(normalized);
+    } catch (error) {
+      console.error('사용자 검색 오류:', error);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
+  // 사용자 선택
+  const handleUserSelect = (userId: number | null) => {
+    setSelectedUserId(userId);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -95,11 +167,28 @@ export default function EquipmentFormModal({
     }
 
     try {
-      const submitData = {
+      const submitData: any = {
         ...formData,
         manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year) : undefined,
         purchase_price: formData.purchase_price ? parseFloat(formData.purchase_price) : undefined
       };
+
+      // 빈 값들을 제거 (백엔드에서 처리할 필요가 없는 필드들)
+      Object.keys(submitData).forEach(key => {
+        const value = (submitData as any)[key];
+        if (value === '' || value === null || value === undefined) {
+          delete (submitData as any)[key];
+        }
+      });
+
+      // 대여 정보가 있는 경우 추가
+      if (formData.status === 'RENTED' && selectedUserId) {
+        submitData.rental = {
+          user_id: selectedUserId,
+          due_date: dueDate,
+          notes: notes
+        };
+      }
 
       await onSubmit(submitData);
       onClose();
@@ -231,11 +320,12 @@ export default function EquipmentFormModal({
 
             {/* 구매일 */}
             <div>
-              <DateInput
+              <EnhancedDateInput
                 label="구매일"
                 value={formData.purchase_date}
                 onChange={(value) => handleDateChange('purchase_date', value)}
-                placeholder="구매일을 선택하세요"
+                placeholder="YYYY-MM-DD"
+                showDatePicker={true}
               />
             </div>
 
@@ -255,11 +345,12 @@ export default function EquipmentFormModal({
 
             {/* 취득일 */}
             <div>
-              <DateInput
+              <EnhancedDateInput
                 label="취득일"
                 value={formData.acquisition_date}
                 onChange={(value) => handleDateChange('acquisition_date', value)}
-                placeholder="취득일을 선택하세요"
+                placeholder="YYYY-MM-DD"
+                showDatePicker={true}
               />
             </div>
 
@@ -273,6 +364,67 @@ export default function EquipmentFormModal({
                 placeholder="장비에 대한 설명을 입력하세요"
               />
             </div>
+
+            {/* 대여 정보 (상태가 RENTED일 때만 표시) */}
+            {formData.status === 'RENTED' && (
+              initiallyRented ? (
+                // 기존에 대여 중인 장비: 대여자 정보 표시만
+                <>
+                  <div className="md:col-span-2">
+                    <Text className="text-sm text-gray-600 dark:text-gray-300">현재 대여자</Text>
+                    <div className="mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white">
+                      {(users.find(u => u.id === selectedUserId)?.display_name) || '알 수 없음'}
+                    </div>
+                  </div>
+                  {dueDate && (
+                    <div>
+                      <EnhancedDateInput
+                        label="반납 예정일"
+                        value={dueDate}
+                        onChange={() => { /* 읽기 전용 */ }}
+                        placeholder="YYYY-MM-DD"
+                        showDatePicker={false}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                // 대여 중이 아니던 장비를 대여 중으로 변경하는 경우: 대여자 검색 가능
+                <>
+                  <div className="md:col-span-2">
+                    <UserSearch
+                      users={users}
+                      selectedUserId={selectedUserId}
+                      onUserSelect={handleUserSelect}
+                      placeholder="대여자 이름, 아이디, 이메일로 검색..."
+                      loading={userSearchLoading}
+                      onSearch={handleUserSearch}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <EnhancedDateInput
+                      label="반납 예정일"
+                      value={dueDate}
+                      onChange={setDueDate}
+                      placeholder="YYYY-MM-DD"
+                      showDatePicker={true}
+                    />
+                  </div>
+
+                  <div>
+                    <Input
+                      label="대여 비고"
+                      name="notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="대여 관련 비고사항을 입력하세요"
+                    />
+                  </div>
+                </>
+              )
+            )}
           </div>
 
           {/* 버튼 */}

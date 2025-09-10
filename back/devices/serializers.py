@@ -83,6 +83,12 @@ class DeviceSerializer(serializers.ModelSerializer):
             'device_name': {'required': True},  # 장치 이름은 필수
         }
         
+    def validate(self, data):
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"DeviceSerializer validate 호출됨: 데이터={data}")
+        return data
+        
     def get_username(self, obj):
         return obj.user.username if obj.user else None
 

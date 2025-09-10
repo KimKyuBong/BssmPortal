@@ -1,0 +1,11 @@
+{
+    "status": "success",
+    "message": "유지보수 상태가 업데이트되었습니다",
+    "updated_at": "{{ current_time }}",
+    "maintenance_record": {
+        "machine_id": "{{ machine_id }}",
+        "status": "{{ status }}",
+        "progress": "100%",
+        "completion_time": "{{ current_time }}"
+    }
+} 

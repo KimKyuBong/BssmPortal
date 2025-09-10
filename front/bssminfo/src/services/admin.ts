@@ -968,6 +968,48 @@ const adminService = {
     } catch (error) {
       return handleApiError(error);
     }
+  },
+
+  /**
+   * 사용자 검색 (대여 처리를 위한 간소화된 검색)
+   * @param searchTerm 검색어
+   * @param limit 검색 결과 제한 수
+   * @returns 검색된 사용자 목록
+   */
+  searchUsers: async (searchTerm: string, limit: number = 20): Promise<User[]> => {
+    try {
+      const response = await api.get<User[]>(`/admin/users/search/?q=${encodeURIComponent(searchTerm)}&limit=${limit}`);
+      
+      if (response.success && response.data) {
+        return response.data;
+      } else {
+        console.error('사용자 검색 실패:', response.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('사용자 검색 오류:', error);
+      return [];
+    }
+  },
+
+  /**
+   * 모든 사용자 목록 조회 (페이지네이션 없이)
+   * @returns 전체 사용자 목록
+   */
+  getAllUsersSimple: async (): Promise<User[]> => {
+    try {
+      const response = await api.get<User[]>('/admin/users/all/');
+      
+      if (response.success && response.data) {
+        return response.data;
+      } else {
+        console.error('전체 사용자 목록 조회 실패:', response.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('전체 사용자 목록 조회 오류:', error);
+      return [];
+    }
   }
 };
 

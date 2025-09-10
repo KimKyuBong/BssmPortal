@@ -36,6 +36,7 @@ export default function EquipmentSearchFilter({
           onChange={onSearchTypeChange}
           label="검색 항목"
           options={[
+            { value: "all", label: "통합 검색" },
             { value: "asset_number", label: "물품번호" },
             { value: "manufacturer", label: "제조사" },
             { value: "model_name", label: "모델명" },

@@ -15,6 +15,12 @@ export default function ResetPasswordModal({ isOpen, onClose, onSubmit, username
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    // ASCII 검증 추가 (한글 포함 방지)
+    if ([...password].some(ch => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) > 126)) {
+      alert('비밀번호에는 영문/숫자/일부 특수문자만 사용할 수 있습니다. (한글 불가)');
+      setIsLoading(false);
+      return;
+    }
     try {
       await onSubmit(password);
       setPassword('');
@@ -52,7 +58,7 @@ export default function ResetPasswordModal({ isOpen, onClose, onSubmit, username
               type="password"
               id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value.replace(/[^\x20-\x7E]/g, ''))}
               placeholder="새 비밀번호를 입력하세요"
               className="flex-1"
             />

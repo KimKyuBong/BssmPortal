@@ -12,6 +12,9 @@ interface EquipmentDetail {
   name: string;
   manufacturer: string;
   model_name: string;
+  asset_number?: string;
+  management_number?: string;
+  serial_number?: string;
 }
 
 interface RentalDetail {
@@ -25,6 +28,7 @@ interface RentalDetail {
   equipment_detail?: EquipmentDetail;
   rental_date?: string;
   due_date?: string;
+  status?: string;
   status_display?: string;
 }
 
@@ -114,6 +118,8 @@ export default function UserRentalModal({
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[150px]">장비명</th>
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[120px]">제조사</th>
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[150px]">모델명</th>
+                          <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[120px]">관리번호</th>
+                          <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[120px]">일련번호</th>
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[160px]">대여일</th>
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[160px]">반납 예정일</th>
                           <th className="px-4 py-4 text-left text-sm font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wider min-w-[120px]">상태</th>
@@ -154,13 +160,19 @@ export default function UserRentalModal({
                         ) : (
                           <>
                             <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                              {rental.equipment_detail?.name || '-'}
+                              {rental.equipment_detail?.asset_number || rental.equipment_detail?.model_name || '-'}
                             </td>
                             <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">
                               {rental.equipment_detail?.manufacturer || '-'}
                             </td>
                             <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">
                               {rental.equipment_detail?.model_name || '-'}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 font-mono">
+                              {rental.equipment_detail?.management_number || '-'}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100 font-mono">
+                              {rental.equipment_detail?.serial_number || '-'}
                             </td>
                             <td className="px-4 py-4 text-sm text-gray-900 dark:text-gray-100">
                               {formatDate(rental.rental_date || '')}
@@ -169,13 +181,17 @@ export default function UserRentalModal({
                               {formatDate(rental.due_date || '')}
                             </td>
                             <td className="px-4 py-4">
-                              <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                rental.status_display === '대여중' 
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                  : rental.status_display === '반납됨'
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                              }`}>
+                              <span
+                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  rental.status === 'RENTED'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                    : rental.status === 'RETURNED'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                    : rental.status === 'OVERDUE'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                }`}
+                              >
                                 {rental.status_display || '-'}
                               </span>
                             </td>

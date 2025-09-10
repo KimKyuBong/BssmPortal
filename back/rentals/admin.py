@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Equipment, Rental, RentalRequest, EquipmentHistory
+from .models import Equipment, Rental, RentalRequest, EquipmentHistory, EquipmentModel
 
 @admin.register(Equipment)
 class EquipmentAdmin(admin.ModelAdmin):
@@ -37,3 +37,12 @@ class EquipmentHistoryAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
     readonly_fields = ('equipment', 'action', 'old_value', 'new_value', 'user', 'details', 'created_at')
     date_hierarchy = 'created_at'
+
+@admin.register(EquipmentModel)
+class EquipmentModelAdmin(admin.ModelAdmin):
+    list_display = ('equipment_type', 'year', 'model_name', 'model_number', 'created_at')
+    list_filter = ('equipment_type', 'year', 'created_at')
+    search_fields = ('model_name',)
+    ordering = ('equipment_type', 'year', 'model_number')
+    readonly_fields = ('created_at', 'updated_at')
+    list_editable = ('model_number',)

@@ -155,7 +155,7 @@ const ipService = {
    * @returns 등록된 장치 정보
    */
   registerManualIp: async (macAddress: string, deviceName: string) => {
-    return api.post<Device>('/ip/register_manual/', {
+    return api.post<Device>('/ip/register-manual/', {
       mac_address: macAddress,
       device_name: deviceName,
     });

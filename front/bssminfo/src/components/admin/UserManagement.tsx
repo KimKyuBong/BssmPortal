@@ -174,8 +174,6 @@ export default function UserManagement({
   
   // 사용자 삭제 처리 핸들러
   const handleDeleteUserClick = async (userId: number) => {
-    // confirm 대신 토스트로 확인 메시지 표시하고 바로 삭제 처리
-    showError('사용자 삭제', '정말로 이 사용자를 삭제하시겠습니까?');
     const result = await onDeleteUser(userId);
     if (result.success) {
       showSuccess('사용자 삭제 완료', result.message);

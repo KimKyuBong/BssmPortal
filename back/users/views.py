@@ -21,6 +21,7 @@ from rest_framework import filters
 from django.contrib.auth import get_user_model
 from rest_framework.pagination import PageNumberPagination
 from core.permissions import IsAdminUser, IsAuthenticatedUser
+from django.db import models
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,10 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     # permission_classes 제거 - 기본 권한 클래스 사용
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['username', 'email', 'last_name']
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name']
+    ordering_fields = ['username', 'first_name', 'last_name', 'date_joined']
+    ordering = ['username']
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -59,8 +62,25 @@ class UserViewSet(viewsets.ModelViewSet):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        """사용자 목록 조회 시 기본적으로 마스킹된 사용자명 반환"""
+        """
+        사용자 목록 조회 (검색 및 필터링 지원)
+        """
         queryset = self.filter_queryset(self.get_queryset())
+        
+        # 검색어가 있는 경우 추가 필터링
+        search = request.query_params.get('search', '')
+        if search:
+            # 이름으로 검색 (성+이름 조합)
+            queryset = queryset.filter(
+                models.Q(username__icontains=search) |
+                models.Q(email__icontains=search) |
+                models.Q(first_name__icontains=search) |
+                models.Q(last_name__icontains=search) |
+                models.Q(first_name__icontains=search, last_name__icontains=search) |
+                models.Q(last_name__icontains=search, first_name__icontains=search)
+            )
+        
+        # 페이지네이션
         page = self.paginate_queryset(queryset)
         
         # 관리자(superuser)인 경우 전체 정보 제공
@@ -84,6 +104,52 @@ class UserViewSet(viewsets.ModelViewSet):
         if page is not None:
             return self.get_paginated_response(data)
         return Response(data)
+
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """
+        사용자 검색 API (대여 처리를 위한 간소화된 검색)
+        """
+        search_term = request.query_params.get('q', '')
+        limit = int(request.query_params.get('limit', 20))
+        
+        if not search_term:
+            return Response([])
+        
+        # 검색 쿼리 구성
+        queryset = User.objects.filter(
+            models.Q(username__icontains=search_term) |
+            models.Q(email__icontains=search_term) |
+            models.Q(first_name__icontains=search_term) |
+            models.Q(last_name__icontains=search_term) |
+            models.Q(first_name__icontains=search_term, last_name__icontains=search_term) |
+            models.Q(last_name__icontains=search_term, first_name__icontains=search_term)
+        ).order_by('username')[:limit]
+        
+        # 간소화된 사용자 정보 반환
+        results = []
+        for user in queryset:
+            # 이름 조합
+            full_name = ""
+            if user.last_name and user.first_name:
+                full_name = f"{user.last_name} {user.first_name}"
+            elif user.last_name:
+                full_name = user.last_name
+            elif user.first_name:
+                full_name = user.first_name
+            else:
+                full_name = user.username
+            
+            results.append({
+                'id': user.id,
+                'username': user.username,
+                'name': full_name,
+                'email': user.email,
+                'is_staff': user.is_staff,
+                'display_name': f"{full_name} ({user.username})"
+            })
+        
+        return Response(results)
 
     @action(detail=False, methods=['get'])
     def all(self, request):
@@ -403,6 +469,12 @@ class UserViewSet(viewsets.ModelViewSet):
             return False, "비밀번호를 입력해주세요."
         if len(password) < 8:
             return False, "비밀번호는 8자 이상이어야 합니다."
+        # ASCII(공백~틸드)만 허용: 한글 등 비ASCII 문자 방지
+        try:
+            if any(ord(ch) < 32 or ord(ch) > 126 for ch in str(password)):
+                return False, "비밀번호에는 영문/숫자/일부 특수문자만 사용할 수 있습니다. (한글 불가)"
+        except Exception:
+            return False, "비밀번호 형식이 올바르지 않습니다."
         return True, None
 
     def change_user_password(self, user, new_password, is_initial=False):
@@ -481,6 +553,12 @@ class PasswordViewSet(viewsets.ViewSet):
             return False, "비밀번호를 입력해주세요."
         if len(password) < 8:
             return False, "비밀번호는 8자 이상이어야 합니다."
+        # ASCII(공백~틸드)만 허용: 한글 등 비ASCII 문자 방지
+        try:
+            if any(ord(ch) < 32 or ord(ch) > 126 for ch in str(password)):
+                return False, "비밀번호에는 영문/숫자/일부 특수문자만 사용할 수 있습니다. (한글 불가)"
+        except Exception:
+            return False, "비밀번호 형식이 올바르지 않습니다."
         return True, None
     
     def change_user_password(self, user, new_password, is_initial=False):

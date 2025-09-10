@@ -106,6 +106,8 @@ class DeviceViewSet(viewsets.ModelViewSet):
         return Response(response_data)
 
     def perform_create(self, serializer):
+        logger.info(f"perform_create 호출됨: 사용자={self.request.user.username}, 데이터={self.request.data}")
+        
         # 사용자의 현재 장치 수 확인
         user_devices = Device.objects.filter(user=self.request.user).count()
         if user_devices >= self.request.user.device_limit:
@@ -733,11 +735,23 @@ def get_ip_rentals(request):
 def get_device_rentals(request):
     """장비 대여 내역 조회"""
     user_id = request.query_params.get('user_id')
+    status_param = request.query_params.get('status')  # e.g., RENTED, RETURNED, OVERDUE
+    active_only = request.query_params.get('active')  # 'true'|'false'
+
     if user_id:
         rentals = Rental.objects.filter(user_id=user_id)
     else:
         rentals = Rental.objects.all()
-    
+
+    # 활성만 필터 (RENTED/OVERDUE)
+    if active_only and str(active_only).lower() in ['1', 'true', 'yes']:
+        rentals = rentals.filter(status__in=['RENTED', 'OVERDUE'])
+
+    # 특정 상태 필터
+    if status_param:
+        rentals = rentals.filter(status=status_param)
+
+    rentals = rentals.order_by('-created_at')
     serializer = RentalSerializer(rentals, many=True)
-    return Response(serializer.data) 
+    return Response(serializer.data)
         

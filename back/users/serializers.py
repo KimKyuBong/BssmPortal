@@ -38,12 +38,13 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'is_initial_password', 'ip_count', 'rental_count', 'user_name']
 
 class UserCreateSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(required=False, write_only=True)
+    
     class Meta:
         model = User
         fields = ['username', 'password', 'email', 'user_name', 'is_staff', 'is_superuser']
         extra_kwargs = {
-            'password': {'write_only': True},
-            'user_name': {'required': False}
+            'password': {'write_only': True}
         }
 
     def create(self, validated_data):
@@ -53,12 +54,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
             validated_data['last_name'] = user_name
         
         user = User.objects.create_user(**validated_data)
-        
-        # last_name이 저장되지 않았다면 직접 설정
-        if user_name and not user.last_name:
-            user.last_name = user_name
-            user.save(update_fields=['last_name'])
-        
         return user
 
 class ClassSerializer(serializers.ModelSerializer):

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Edit, Trash2, UserCheck, History, UserPlus } from 'lucide-react';
 import { 
   BaseTable, 
@@ -14,6 +14,7 @@ import {
   Spinner
 } from '@/components/ui/StyledComponents';
 import Tooltip from '@/components/ui/Tooltip';
+import SelectableTableRow from '@/components/ui/SelectableTableRow';
 import { Equipment } from '@/services/api';
 
 interface EquipmentTableProps {
@@ -25,6 +26,11 @@ interface EquipmentTableProps {
   onNewRental: (item: Equipment) => void;
   onHistory: (equipment: Equipment) => void;
   onStatusChange: (id: number, newStatus: 'AVAILABLE' | 'RENTED' | 'MAINTENANCE' | 'BROKEN' | 'LOST' | 'DISPOSED') => void;
+  onSelectAll?: (checked: boolean) => void;
+  onSelectEquipment?: (equipmentId: number, checked: boolean) => void;
+  selectedEquipmentIds?: number[];
+  lastSelectedIndex?: number;
+  onLastSelectedIndexChange?: (index: number) => void;
 }
 
 export default function EquipmentTable({
@@ -35,7 +41,12 @@ export default function EquipmentTable({
   onRental,
   onNewRental,
   onHistory,
-  onStatusChange
+  onStatusChange,
+  onSelectAll,
+  onSelectEquipment,
+  selectedEquipmentIds = [],
+  lastSelectedIndex,
+  onLastSelectedIndexChange
 }: EquipmentTableProps) {
 
   const getStatusBadge = (status: string) => {
@@ -67,11 +78,89 @@ export default function EquipmentTable({
     });
   };
 
+  const formatDateTime = (dateString: string | undefined) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const formatPrice = (price: string | undefined) => {
     if (!price) return '-';
     const numPrice = parseFloat(price);
     return new Intl.NumberFormat('ko-KR').format(numPrice) + '원';
   };
+
+  // 행 클릭 핸들러 (Ctrl, Shift 클릭 지원)
+  const handleRowClick = useCallback((e: React.MouseEvent, equipmentId: number, index: number) => {
+    if (!onSelectEquipment || !onLastSelectedIndexChange) return;
+
+    const isCtrlPressed = e.ctrlKey || e.metaKey;
+    const isShiftPressed = e.shiftKey;
+
+    // 시프트 클릭 시 텍스트 선택 방지
+    if (isShiftPressed) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    if (isCtrlPressed || isShiftPressed) {
+      if (isCtrlPressed) {
+        // Ctrl 클릭: 개별 토글
+        const isCurrentlySelected = selectedEquipmentIds.includes(equipmentId);
+        onSelectEquipment(equipmentId, !isCurrentlySelected);
+        onLastSelectedIndexChange(index);
+      } else if (isShiftPressed && lastSelectedIndex !== undefined && lastSelectedIndex >= 0) {
+        // Shift 클릭: 범위 선택
+        const start = Math.min(lastSelectedIndex, index);
+        const end = Math.max(lastSelectedIndex, index);
+        
+        const rangeIds = equipment.slice(start, end + 1).map(eq => eq.id);
+        
+        // 모든 범위 아이템을 선택 상태로 설정
+        rangeIds.forEach(id => {
+          onSelectEquipment(id, true);
+        });
+        
+        onLastSelectedIndexChange(index);
+      }
+    } else {
+      // 일반 클릭: 개별 토글
+      const isCurrentlySelected = selectedEquipmentIds.includes(equipmentId);
+      onSelectEquipment(equipmentId, !isCurrentlySelected);
+      onLastSelectedIndexChange(index);
+    }
+  }, [onSelectEquipment, onLastSelectedIndexChange, selectedEquipmentIds, lastSelectedIndex, equipment]);
+
+  // 키보드 단축키 지원
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+A: 전체 선택
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        if (onSelectAll) {
+          onSelectAll(true);
+        }
+      }
+      
+      // Escape: 선택 해제
+      if (e.key === 'Escape') {
+        if (onSelectAll) {
+          onSelectAll(false);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onSelectAll]);
 
   if (loading) {
     return (
@@ -93,7 +182,9 @@ export default function EquipmentTable({
     <BaseTable>
       <BaseTableHead>
         <BaseTableRow>
+          <BaseTableHeaderCell>순번</BaseTableHeaderCell>
           <BaseTableHeaderCell>물품번호</BaseTableHeaderCell>
+          <BaseTableHeaderCell>관리번호</BaseTableHeaderCell>
           <BaseTableHeaderCell>제조사</BaseTableHeaderCell>
           <BaseTableHeaderCell>모델명</BaseTableHeaderCell>
           <BaseTableHeaderCell>유형</BaseTableHeaderCell>
@@ -103,22 +194,32 @@ export default function EquipmentTable({
           <BaseTableHeaderCell>생산년도</BaseTableHeaderCell>
           <BaseTableHeaderCell>구매일</BaseTableHeaderCell>
           <BaseTableHeaderCell>구매가격</BaseTableHeaderCell>
+          <BaseTableHeaderCell>등록일시</BaseTableHeaderCell>
           <BaseTableHeaderCell>작업</BaseTableHeaderCell>
         </BaseTableRow>
       </BaseTableHead>
       <BaseTableBody>
-        {equipment.map((item) => (
-          <BaseTableRow key={item.id}>
+        {equipment.map((item, index) => (
+          <SelectableTableRow
+            key={item.id}
+            isSelected={selectedEquipmentIds.includes(item.id)}
+            onSelect={(e) => handleRowClick(e, item.id, index)}
+          >
+            <BaseTableCell className="text-center font-medium">
+              {index + 1}
+            </BaseTableCell>
             <BaseTableCell>{item.asset_number}</BaseTableCell>
+            <BaseTableCell>{item.management_number || '-'}</BaseTableCell>
             <BaseTableCell>{item.manufacturer || '-'}</BaseTableCell>
             <BaseTableCell>{item.model_name || '-'}</BaseTableCell>
             <BaseTableCell>{item.equipment_type_display || '-'}</BaseTableCell>
             <BaseTableCell>{item.serial_number || '-'}</BaseTableCell>
             <BaseTableCell>{getStatusBadge(item.status)}</BaseTableCell>
-            <BaseTableCell>{item.rental?.user.name || '-'}</BaseTableCell>
+            <BaseTableCell>{item.status === 'RENTED' ? (item.rental?.user.name || '') : ''}</BaseTableCell>
             <BaseTableCell>{item.manufacture_year || '-'}</BaseTableCell>
             <BaseTableCell>{formatDate(item.purchase_date)}</BaseTableCell>
             <BaseTableCell>{formatPrice(item.purchase_price)}</BaseTableCell>
+            <BaseTableCell>{formatDateTime(item.created_at)}</BaseTableCell>
             <BaseTableCell>
               <div className="flex items-center space-x-2">
                 <Tooltip content="장비 정보 수정">
@@ -153,7 +254,7 @@ export default function EquipmentTable({
                       className="h-8 px-2"
                     >
                       <UserPlus className="h-4 w-4" />
-                    </Button>
+                  </Button>
                   </Tooltip>
                 )}
                 
@@ -180,7 +281,7 @@ export default function EquipmentTable({
                 </Tooltip>
               </div>
             </BaseTableCell>
-          </BaseTableRow>
+          </SelectableTableRow>
         ))}
       </BaseTableBody>
     </BaseTable>

@@ -1,0 +1,12 @@
+{
+    "status": "success",
+    "message": "기기 정보가 성공적으로 등록되었습니다",
+    "machine_id": "auto-generated",
+    "registration_id": "REG-{{ timestamp }}",
+    "timestamp": "{{ current_time }}",
+    "next_steps": [
+        "디스크 포맷 진행",
+        "Windows 이미지 적용",
+        "설치 완료 후 재부팅"
+    ]
+} 

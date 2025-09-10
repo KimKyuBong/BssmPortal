@@ -21,10 +21,15 @@ assign letter=S
 # Microsoft Reserved 파티션 생성
 create partition msr size=16
 
-# Windows 파티션 생성 (나머지 공간)
-create partition primary
+# Windows 시스템 파티션 생성 (100GB)
+create partition primary size=102400
 format quick fs=ntfs label="Windows"
 assign letter=C
+
+# 데이터 파티션 생성 (나머지 공간)
+create partition primary
+format quick fs=ntfs label="Data"
+assign letter=D
 
 # 파티션 목록 확인
 list partition

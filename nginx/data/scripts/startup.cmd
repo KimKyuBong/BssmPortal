@@ -1,44 +1,38 @@
 @echo off
 echo ========================================
-echo    BSSM 자동 Windows 설치 시스템
+echo WinPE Startup Script
 echo ========================================
 echo.
-echo 네트워크 연결을 확인합니다...
 
-REM 네트워크 연결 확인
-ping -n 3 10.250.0.1 > nul
-if errorlevel 1 (
-    echo 오류: 백엔드 서버(10.250.0.1)에 연결할 수 없습니다.
-    echo 네트워크 설정을 확인하세요.
-    pause
-    exit /b 1
+echo Starting automatic installation process...
+echo.
+
+REM Check if auto_install.bat exists on USB drive
+for %%d in (A B C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
+    if exist %%d:\auto_install.bat (
+        echo Found auto_install.bat on %%d: drive
+        echo Starting automatic installation...
+        %%d:\auto_install.bat
+        goto :end
+    )
 )
 
-echo 네트워크 연결 확인 완료.
+REM If not found on USB, try network download
+echo Auto installation script not found on USB drives.
+echo Attempting to download from network...
 echo.
-echo 시스템 정보를 수집하고 백엔드에 등록합니다...
-echo.
 
-REM PowerShell 실행 정책 변경
-powershell -Command "Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Force"
-
-REM PowerShell 스크립트 실행
-powershell -File X:\auto-install.ps1
-
-REM 스크립트 실행 결과 확인
-if errorlevel 1 (
-    echo.
-    echo 오류: 자동 설치 프로세스에서 오류가 발생했습니다.
-    echo 로그 파일을 확인하세요: X:\auto-install.log
-    echo.
-    echo 30초 후 재부팅합니다...
-    timeout /t 30 /nobreak
+REM Download auto_install.bat from network
+curl -L -o "X:\auto_install.bat" "http://10.129.55.253:8080/scripts/auto_install.bat"
+if %errorlevel% equ 0 (
+    echo Downloaded auto_install.bat successfully
+    echo Starting automatic installation...
+    X:\auto_install.bat
 ) else (
-    echo.
-    echo 자동 설치 프로세스가 성공적으로 완료되었습니다.
-    echo 10초 후 재부팅합니다...
-    timeout /t 10 /nobreak
+    echo Failed to download auto_install.bat
+    echo Please check network connection or insert USB drive with auto_install.bat
+    pause
 )
 
-REM 재부팅
-shutdown /r /t 0 
+:end
+echo Startup script completed. 

@@ -58,6 +58,12 @@ export default function ChangePassword() {
       setIsLoading(false);
       return;
     }
+    // ASCII 문자만 허용 (한글 등 비ASCII 방지)
+    if ([...newPassword].some(ch => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) > 126)) {
+      setError('비밀번호에는 영문/숫자/일부 특수문자만 사용할 수 있습니다. (한글 불가)');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       let response;
@@ -210,7 +216,7 @@ export default function ChangePassword() {
               type="password"
               required
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={(e) => setNewPassword(e.target.value.replace(/[^\x20-\x7E]/g, ''))}
               className="input-field w-full"
               placeholder="새 비밀번호를 입력하세요"
               disabled={isLoading}
@@ -226,7 +232,7 @@ export default function ChangePassword() {
               type="password"
               required
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => setConfirmPassword(e.target.value.replace(/[^\x20-\x7E]/g, ''))}
               className="input-field w-full"
               placeholder="새 비밀번호를 다시 입력하세요"
               disabled={isLoading}
