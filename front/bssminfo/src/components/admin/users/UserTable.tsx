@@ -307,6 +307,14 @@ export default function UserTable({
                           <Button
                             onClick={(e) => {
                               e.stopPropagation();
+                              console.log('[DEBUG] UserTable - 편집 버튼 클릭:', {
+                                user: user,
+                                userType: userType,
+                                hasUserField: !!(user as any).user,
+                                studentId: user.id,
+                                actualUserId: (user as any).user,
+                                userName: user.user_name || user.username
+                              });
                               onEdit(user);
                             }}
                             variant="secondary"

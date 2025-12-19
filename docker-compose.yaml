@@ -128,6 +128,24 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
 
+  mcp-server:
+    build: ./mcp-server
+    container_name: bssm-mcp-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./mcp-server:/app
+    environment:
+      - DJANGO_API_URL=http://back:8000
+      - MCP_SERVER_NAME=bssm-captive-mcp
+      - MCP_SERVER_VERSION=2.0.0
+      - MCP_API_KEY=${MCP_API_KEY}
+      - MCP_USERNAME=${MCP_USERNAME:-admin}
+      - MCP_PASSWORD=${MCP_PASSWORD}
+    depends_on:
+      - back
+
 
   # dns:
   #   image: mvance/unbound:latest

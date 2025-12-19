@@ -6,9 +6,12 @@ pihole/*
 __pycache__
 nginx/data/winpe/*
 nginx/data/ubuntu/*
+nginx/data/proxmox/*
 nginx/data/systemrescue/*
 backup/*
 ssl/*
+
+.venv
 # 백업 관련
 *.sql.gz
 *.iso
@@ -57,7 +60,7 @@ venv/
 *.pfx
 *.p12
 *.der
-
+*.iso
 test_*.*
 
 tmp/

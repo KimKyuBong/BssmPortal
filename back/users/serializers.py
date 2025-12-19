@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     ip_count = serializers.SerializerMethodField()
     rental_count = serializers.SerializerMethodField()
-    user_name = serializers.SerializerMethodField()
+    user_name = serializers.CharField(required=False, allow_blank=True)
     
     def get_email(self, obj):
         """
@@ -20,22 +20,33 @@ class UserSerializer(serializers.ModelSerializer):
     def get_rental_count(self, obj):
         return obj.rentals.filter(status='RENTED').count()
 
-    def get_user_name(self, obj):
+    def to_representation(self, instance):
         """
-        first_name과 last_name을 합쳐서 user_name으로 반환
+        응답 시 user_name을 first_name과 last_name을 합쳐서 반환
         """
-        first_name = str(obj.first_name or '').strip()
-        last_name = str(obj.last_name or '').strip()
+        data = super().to_representation(instance)
+        first_name = str(instance.first_name or '').strip()
+        last_name = str(instance.last_name or '').strip()
         
         if not first_name and not last_name:
-            return obj.username
+            data['user_name'] = instance.username
+        else:
+            data['user_name'] = f"{last_name} {first_name}".strip()
             
-        return f"{last_name} {first_name}".strip()
+        return data
+
+    def update(self, instance, validated_data):
+        # user_name이 제공된 경우 last_name으로 저장
+        user_name = validated_data.pop('user_name', None)
+        if user_name is not None:
+            validated_data['last_name'] = user_name
+        
+        return super().update(instance, validated_data)
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'user_name', 'is_staff', 'is_superuser', 'is_initial_password', 'created_at', 'is_active', 'ip_count', 'rental_count', 'device_limit']
-        read_only_fields = ['created_at', 'is_initial_password', 'ip_count', 'rental_count', 'user_name']
+        read_only_fields = ['id', 'username', 'created_at', 'is_initial_password', 'ip_count', 'rental_count']
 
 class UserCreateSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(required=False, write_only=True)

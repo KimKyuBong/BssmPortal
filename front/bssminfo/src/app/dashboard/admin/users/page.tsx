@@ -602,7 +602,9 @@ export default function UserManagementPage() {
                 device_limit: selectedUserForEdit.device_limit,
                 is_initial_password: 'is_initial_password' in selectedUserForEdit ? selectedUserForEdit.is_initial_password || false : false,
                 is_active: true,
-                created_at: new Date().toISOString()
+                created_at: new Date().toISOString(),
+                // 학생의 경우 실제 User ID 전달
+                ...(('user' in selectedUserForEdit) && { user: (selectedUserForEdit as any).user })
               }}
             />
           )}

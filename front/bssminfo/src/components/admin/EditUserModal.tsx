@@ -52,7 +52,18 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
         }
       });
 
-      await onEditUser(user.id, filteredData);
+      // 학생의 경우 user.user (실제 User ID)를 사용하고, 교사의 경우 user.id를 사용
+      const targetUserId = (user as any).user ? (user as any).user : user.id;
+      console.log('[DEBUG] EditUserModal - 편집 대상 사용자:', {
+        originalUser: user,
+        hasUserField: !!(user as any).user,
+        studentId: user.id,
+        actualUserId: (user as any).user,
+        finalTargetUserId: targetUserId,
+        userName: user.user_name || user.username,
+        editData: filteredData
+      });
+      await onEditUser(targetUserId, filteredData);
     } catch (err) {
       setError('사용자 정보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       console.error('Error updating user:', err);

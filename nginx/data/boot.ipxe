@@ -1,11 +1,12 @@
 #!ipxe
 
 :start
-menu WinPE Boot Menu
-item --key x exit  Exit to Nomal Boot
+menu PXE Boot Menu
+item --key x exit  Exit to Normal Boot
 item --key w winpe Boot WinPE
 item --key a auto_install  Auto Install Windows
-item --key u ubuntu Boot Ubuntu
+item --key u ubuntu Boot Ubuntu 24.04.3 (Live)
+item --key p proxmox Boot Proxmox VE Installer
 item --key r reboot Reboot
 choose --timeout 10000 --default exit selected || goto cancel
 
@@ -45,16 +46,16 @@ imgargs wimboot gui
 boot || goto failed
 
 :ubuntu
-kernel http://${gateway}:8080/ubuntu/casper/vmlinuz
-initrd http://${gateway}:8080/ubuntu/casper/initrd
-initrd --name filesystem.squashfs http://${gateway}:8080/ubuntu/casper/minimal.squashfs
-imgargs vmlinuz initrd=initrd boot=casper toram live-media-path=/casper/ ip=dhcp net.ifnames=0 biosdevname=0
-boot || goto failed
+set ubuntu http://${gateway}:8080/ubuntu
+sanboot ${ubuntu}/ubuntu-24.04.3-desktop-amd64.iso || goto failed
 
-:sysrescue
-kernel http://${gateway}:8080/systemrescue/boot/x86_64/vmlinuz
-initrd http://${gateway}:8080/systemrescue/boot/x86_64/sysresccd.img
-imgargs vmlinuz initrd=sysresccd.img archisobasedir=systemrescue archiso_http_srv=http://${gateway}:8080/ ip=dhcp copytoram=y
+
+:proxmox
+set prox http://${gateway}:8080/proxmox
+kernel ${prox}/boot/linux26
+initrd ${prox}/boot/initrd.img
+initrd ${prox}/proxmox-ve_9.1-1.iso /proxmox.iso
+imgargs linux26 initrd=initrd.img ro ramdisk_size=8388608 rw quiet splash=silent ip=dhcp
 boot || goto failed
 
 :retry
@@ -64,6 +65,12 @@ goto winpe
 :failed
 echo Boot failed
 goto start
+
+:sysrescue
+kernel http://${gateway}:8080/systemrescue/boot/x86_64/vmlinuz
+initrd http://${gateway}:8080/systemrescue/boot/x86_64/sysresccd.img
+imgargs vmlinuz initrd=sysresccd.img archisobasedir=systemrescue archiso_http_srv=http://${gateway}:8080/ ip=dhcp copytoram=y
+boot || goto failed
 
 :reboot
 reboot
