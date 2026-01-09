@@ -35,7 +35,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./db/mysql:/var/lib/mysql  
+      - ./db/mysql:/var/lib/mysql
 
   backup:
     image: mysql:8.0
@@ -45,12 +45,12 @@ services:
       - ./backup/scripts:/scripts
     env_file:
       - .env
-    entrypoint: ["/scripts/backup.sh"]
+    entrypoint: [ "/scripts/backup.sh" ]
     depends_on:
       - db
 
   kea:
-    build: 
+    build:
       context: ./kea
       dockerfile: Dockerfile
     network_mode: "host"
@@ -78,7 +78,7 @@ services:
       SECURE: 1
       PERMISSIVE: 1
       MAXPROC: 4
-      MAPFILE: ""   
+      MAPFILE: ""
     volumes:
       - ./tftp/data:/tftpboot
     restart: unless-stopped
@@ -100,30 +100,7 @@ services:
       WORKGROUP: "WORKGROUP"
     restart: unless-stopped
     command: >
-      -p
-      -S
-      -g "security = user"
-      -g "map to guest = Bad User"
-      -g "server min protocol = SMB2"
-      -g "server max protocol = SMB3"
-      -g "client min protocol = SMB2"
-      -g "client max protocol = SMB3"
-      -g "ntlm auth = yes"
-      -g "unix charset = UTF-8"
-      -g "dos charset = CP932"
-      -g "max connections = 1000"
-      -g "deadtime = 30"
-      -g "keepalive = 60"
-      -g "log level = 3"
-      -g "multiuser = yes"
-      -g "max protocol = SMB3"
-      -g "server multi channel support = yes"
-      -g "directory mask = 0777"
-      -g "create mask = 0777"
-      -u "${SAMBA_USER};${SAMBA_PASSWORD}"
-      -s "setup;/setup;yes;yes;no;${SAMBA_USER}"
-      -s "oldsetup;/oldsetup;yes;yes;no;${SAMBA_USER}"
-      -s "BSSMShare;/bssmdata;yes;no;no;${SAMBA_USER}"
+      -p -S -g "security = user" -g "map to guest = Bad User" -g "server min protocol = SMB2" -g "server max protocol = SMB3" -g "client min protocol = SMB2" -g "client max protocol = SMB3" -g "ntlm auth = yes" -g "unix charset = UTF-8" -g "dos charset = CP932" -g "max connections = 1000" -g "deadtime = 30" -g "keepalive = 60" -g "log level = 3" -g "multiuser = yes" -g "max protocol = SMB3" -g "server multi channel support = yes" -g "directory mask = 0777" -g "create mask = 0777" -u "${SAMBA_USER};${SAMBA_PASSWORD}" -s "setup;/setup;yes;yes;no;${SAMBA_USER}" -s "oldsetup;/oldsetup;yes;yes;no;${SAMBA_USER}" -s "BSSMShare;/bssmdata;yes;no;no;${SAMBA_USER}"
     cap_add:
       - NET_ADMIN
       - SYS_ADMIN
@@ -146,43 +123,11 @@ services:
     depends_on:
       - back
 
-
-  # dns:
-  #   image: mvance/unbound:latest
-  #   ports:
-  #     - "1053:53/udp"
-  #     - "1053:53/tcp"
-  #   volumes:
-  #     - ./dns:/opt/unbound/etc/unbound
-  #   restart: unless-stopped
-
-  # dns2:
-  #   image: pihole/pihole:latest
-  #   ports:
-  #     - "53:53/udp"
-  #     - "53:53/tcp"
-  #     - "127.0.0.1:8888:80/tcp"
-  #   environment:
-  #     TZ: 'Asia/Seoul'
-  #     DNSMASQ_USER: pihole
-  #     VIRTUAL_HOST: pihole.local
-  #     PROXY_LOCATION: pihole
-  #     ServerIP: 10.129.55.253
-  #     DNSMASQ_LISTENING: all
-  #     PIHOLE_DNSMASQ_USER: pihole
-  #   volumes:
-  #     - ./pihole/etc-pihole:/etc/pihole
-  #     - ./pihole/etc-dnsmasq.d:/etc/dnsmasq.d
-  #     - ./pihole/watch_custom_list.sh:/etc/pihole/watch_custom_list.sh
-  #   restart: unless-stopped
-  #   shm_size: 512mb
-  #   cap_add:
-  #     - NET_ADMIN
-  #   command: >
-  #     sh -c "
-  #       chmod +x /etc/pihole/watch_custom_list.sh &&
-  #       nohup /etc/pihole/watch_custom_list.sh > /dev/null 2>&1 &
-  #       /start.sh
-      # "
-
-  
+  dns:
+    image: mvance/unbound:latest
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./dns:/opt/unbound/etc/unbound
+    restart: unless-stopped
