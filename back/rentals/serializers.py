@@ -104,6 +104,24 @@ class EquipmentSerializer(serializers.ModelSerializer):
             'created_at'
         ]
         read_only_fields = ['management_number']
+
+    def to_internal_value(self, data):
+        """
+        프론트에서 빈 문자열('')로 넘어오는 값들을 DRF 필드 파싱 전에 None으로 정리.
+        - DateField/DecimalField/IntegerField는 ''를 그대로 받으면 형식 오류로 is_valid() 단계에서 막힘
+        """
+        # QueryDict 등 immutable 케이스 대응
+        try:
+            mutable = data.copy()
+        except Exception:
+            mutable = dict(data)
+
+        # 빈 문자열을 None으로 치환할 필드들
+        for key in ('purchase_date', 'acquisition_date', 'manufacture_year', 'purchase_price'):
+            if key in mutable and mutable.get(key) == '':
+                mutable[key] = None
+
+        return super().to_internal_value(mutable)
     
     def get_rental(self, obj):
         if hasattr(obj, 'current_rentals') and obj.current_rentals:

@@ -275,7 +275,7 @@
                 "pools": [
                     {
                         "pool": "${KEA_NC_TEACHER_POOL}",
-                        "client-class": "teacher-unauth-clients",
+                        "client-class": "teacher-unauth-clients"
                     }
                 ],
                 "valid-lifetime": 360000
@@ -289,7 +289,7 @@
                 "pools": [
                     {
                         "pool": "${KEA_NC_STUDENT_POOL}",
-                        "client-class": "student-unauth-clients",
+                        "client-class": "student-unauth-clients"
                     }
                 ],
                 "option-data": [

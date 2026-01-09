@@ -47,6 +47,12 @@ export interface BroadcastHistory {
   audio_base64?: string;  // base64로 인코딩된 오디오 파일
 }
 
+// 방송 이력 상세 조회 응답 타입 (오디오 에러 정보 포함)
+export interface BroadcastHistoryDetail extends BroadcastHistory {
+  audio_error_type?: 'not_found' | 'server_error' | 'no_preview' | 'timeout' | 'connection_error' | 'unknown_error';
+  audio_error_detail?: string;
+}
+
 export interface DeviceMatrix {
   id: number;
   device_name: string;

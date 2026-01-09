@@ -4,8 +4,51 @@ from typing import Optional, Tuple
 
 from django.utils import timezone
 from django.db import transaction
+from django.utils.dateparse import parse_date, parse_datetime
 
 from rentals.models import Equipment, Rental, EquipmentHistory
+
+
+def _normalize_due_date(due_date):
+    """
+    due_date는 원래 DateTimeField인데, 프론트에서 'YYYY-MM-DD' 같은 문자열로 오는 경우가 있음.
+    - ISO datetime 문자열이면 datetime으로 파싱
+    - 날짜 문자열이면 해당 날짜 23:59:59(로컬 TZ)로 변환
+    - date 객체면 23:59:59로 변환
+    - naive datetime이면 현재 TZ로 aware 처리
+    """
+    if not due_date:
+        return None
+
+    tz = timezone.get_current_timezone()
+
+    # 문자열 처리
+    if isinstance(due_date, str):
+        dt = parse_datetime(due_date)
+        if dt is not None:
+            return timezone.make_aware(dt, tz) if timezone.is_naive(dt) else dt
+
+        d = parse_date(due_date)
+        if d is not None:
+            # 날짜만 온 경우: 해당 날짜의 끝(23:59:59)으로 설정
+            return timezone.make_aware(
+                timezone.datetime.combine(d, timezone.datetime.max.time().replace(microsecond=0)),
+                tz,
+            )
+
+        # 파싱 실패면 그대로 반환(상위에서 default 처리되게)
+        return None
+
+    # date 객체(단, datetime은 제외)
+    if isinstance(due_date, timezone.datetime):
+        return timezone.make_aware(due_date, tz) if timezone.is_naive(due_date) else due_date
+    if isinstance(due_date, timezone.datetime.date):
+        return timezone.make_aware(
+            timezone.datetime.combine(due_date, timezone.datetime.max.time().replace(microsecond=0)),
+            tz,
+        )
+
+    return due_date
 
 
 def auto_return_active_rentals(
@@ -73,6 +116,8 @@ def create_rental(
         # Ensure equipment marked as RENTED
         equipment.status = "RENTED"
         equipment.save()
+
+        due_date = _normalize_due_date(due_date)
 
         if not due_date:
             due_date = timezone.now() + timezone.timedelta(days=30)

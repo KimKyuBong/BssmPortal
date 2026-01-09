@@ -1,6 +1,51 @@
 import { api, ApiResponse, Equipment, PaginatedResponse } from './api';
 import dayjs from 'dayjs';
 
+// 장비 저장/수정 요청 전처리:
+// - Date/Number 계열 필드가 ''로 넘어오면 DRF에서 형식 오류가 나므로 아예 제거(미전송)한다.
+// - 일부 화면/호출 경로에서 방어 로직이 누락돼도 여기서 최종적으로 걸러준다.
+const sanitizeEquipmentPayload = (payload: Partial<Equipment> & Record<string, any>) => {
+  const cleaned: Record<string, any> = { ...payload };
+
+  // 빈 문자열은 기본적으로 제거(텍스트 필드도 '' 허용이 꼭 필요한 경우는 없고, 오히려 로그처럼 원인 됨)
+  for (const key of Object.keys(cleaned)) {
+    if (cleaned[key] === '' || cleaned[key] === undefined) {
+      delete cleaned[key];
+    }
+  }
+
+  // 날짜/숫자 필드는 특히 ''/NaN 방어
+  for (const key of ['purchase_date', 'acquisition_date', 'manufacture_year', 'purchase_price']) {
+    if (key in cleaned) {
+      const v = cleaned[key];
+      if (v === '' || v === undefined || v === null) {
+        delete cleaned[key];
+      }
+      if ((key === 'manufacture_year' || key === 'purchase_price') && typeof v === 'number' && Number.isNaN(v)) {
+        delete cleaned[key];
+      }
+    }
+  }
+
+  // 대여 정보도 빈 값 정리
+  if (cleaned.rental && typeof cleaned.rental === 'object') {
+    const rental = { ...cleaned.rental };
+    for (const k of Object.keys(rental)) {
+      if (rental[k] === '' || rental[k] === undefined) {
+        delete rental[k];
+      }
+    }
+    // user_id 같은 핵심 값이 없으면 rental 자체 제거
+    if (!('user_id' in rental) || rental.user_id == null) {
+      delete cleaned.rental;
+    } else {
+      cleaned.rental = rental;
+    }
+  }
+
+  return cleaned as Partial<Equipment>;
+};
+
 // 엑셀 가져오기 응답 타입 정의
 export interface ImportEquipmentResponse {
   success: boolean;
@@ -229,7 +274,8 @@ export const equipmentService = {
 
   // 장비 정보 생성 (관리자용)
   async createEquipment(equipmentData: Partial<Equipment>) {
-    return await api.post<Equipment>('/admin/equipment/', equipmentData);
+    const payload = sanitizeEquipmentPayload(equipmentData as any);
+    return await api.post<Equipment>('/admin/equipment/', payload);
   },
 
   // 장비 정보 수정 (관리자용)
@@ -247,13 +293,15 @@ export const equipmentService = {
           serial_number: equipmentData.serial_number,
           acquisition_date: equipmentData.acquisition_date
         };
-        return await api.put<Equipment>(`/admin/equipment/${id}/`, minimalData, {
+        const payload = sanitizeEquipmentPayload(minimalData as any);
+        return await api.put<Equipment>(`/admin/equipment/${id}/`, payload, {
           headers: {
             'Referer': `${window.location.origin}/dashboard/admin/equipment/`
           }
         });
       }
-      return await api.put<Equipment>(`/admin/equipment/${id}/`, equipmentData, {
+      const payload = sanitizeEquipmentPayload(equipmentData as any);
+      return await api.put<Equipment>(`/admin/equipment/${id}/`, payload, {
         headers: {
           'Referer': `${window.location.origin}/dashboard/admin/equipment/`
         }

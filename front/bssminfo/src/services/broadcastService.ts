@@ -5,6 +5,7 @@ import {
   AudioBroadcastRequest,
   BroadcastResponse,
   BroadcastHistory,
+  BroadcastHistoryDetail,
   DeviceMatrix,
   AudioFile,
   PreviewResponse,
@@ -104,7 +105,7 @@ export const broadcastService = {
   },
 
   // 방송 이력 상세 조회 (오디오 base64 포함)
-  async getHistoryDetail(historyId: number): Promise<{ success: boolean; history: BroadcastHistory }> {
+  async getHistoryDetail(historyId: number): Promise<{ success: boolean; history: BroadcastHistoryDetail }> {
     const response = await api.get(`${BASE_URL}/history/${historyId}/detail/`);
     return response.data;
   },

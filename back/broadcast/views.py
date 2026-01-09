@@ -516,6 +516,10 @@ class BroadcastHistoryDetailView(APIView):
             # 항상 방송서버에서 오디오 가져오기
             logger.info(f"방송 이력 {history_id}에서 방송서버로 오디오 가져오기 시도")
             
+            # 오디오 조회 결과를 담을 변수
+            audio_error_type = None
+            audio_error_detail = None
+            
             try:
                 # 방송 이력에 프리뷰가 있는지 확인
                 if history_item.preview and history_item.preview.preview_id:
@@ -526,6 +530,8 @@ class BroadcastHistoryDetailView(APIView):
                 else:
                     logger.warning(f"방송 이력 {history_id}에 프리뷰가 없음")
                     response_data['audio_base64'] = None
+                    response_data['audio_error_type'] = 'no_preview'
+                    response_data['audio_error_detail'] = '이 방송에는 프리뷰 정보가 없습니다.'
                     return Response({
                         'success': True,
                         'history': response_data,
@@ -542,12 +548,46 @@ class BroadcastHistoryDetailView(APIView):
                     audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
                     response_data['audio_base64'] = audio_base64
                     logger.info(f"방송서버에서 오디오 base64 인코딩 완료: {len(audio_base64)} characters")
-                else:
-                    logger.warning(f"방송서버에서 오디오 파일을 가져올 수 없음: {audio_response.status_code}")
+                elif audio_response.status_code == 404:
+                    # 파일을 찾을 수 없음 - 만료되었을 가능성
+                    logger.warning(f"방송서버에서 오디오 파일을 찾을 수 없음 (404): 프리뷰 ID {history_item.preview.preview_id}")
                     response_data['audio_base64'] = None
-            except Exception as e:
-                logger.error(f"방송서버에서 오디오 가져오기 실패: {e}")
+                    audio_error_type = 'not_found'
+                    audio_error_detail = '오디오 파일이 방송서버에서 만료되었거나 삭제되었습니다.'
+                elif audio_response.status_code == 500:
+                    # 방송서버 내부 오류
+                    logger.error(f"방송서버 내부 오류 (500): 프리뷰 ID {history_item.preview.preview_id}")
+                    logger.error(f"방송서버 응답 내용: {audio_response.text[:500]}")  # 처음 500자만 로깅
+                    response_data['audio_base64'] = None
+                    audio_error_type = 'server_error'
+                    audio_error_detail = '방송서버에서 오류가 발생했습니다. 오디오 파일이 만료되었을 수 있습니다.'
+                else:
+                    # 기타 오류
+                    logger.warning(f"방송서버에서 오디오 파일을 가져올 수 없음 ({audio_response.status_code}): {audio_response.text[:200]}")
+                    response_data['audio_base64'] = None
+                    audio_error_type = 'unknown_error'
+                    audio_error_detail = f'방송서버 오류 (상태 코드: {audio_response.status_code})'
+                    
+            except requests.exceptions.Timeout:
+                logger.error(f"방송서버 연결 시간 초과: 프리뷰 ID {history_item.preview.preview_id if history_item.preview else 'N/A'}")
                 response_data['audio_base64'] = None
+                audio_error_type = 'timeout'
+                audio_error_detail = '방송서버 연결 시간이 초과되었습니다.'
+            except requests.exceptions.ConnectionError:
+                logger.error(f"방송서버 연결 실패: {external_api_url if 'external_api_url' in locals() else 'N/A'}")
+                response_data['audio_base64'] = None
+                audio_error_type = 'connection_error'
+                audio_error_detail = '방송서버에 연결할 수 없습니다.'
+            except Exception as e:
+                logger.error(f"방송서버에서 오디오 가져오기 실패: {e}", exc_info=True)
+                response_data['audio_base64'] = None
+                audio_error_type = 'unknown_error'
+                audio_error_detail = str(e)
+            
+            # 에러 정보를 응답에 포함
+            if audio_error_type:
+                response_data['audio_error_type'] = audio_error_type
+                response_data['audio_error_detail'] = audio_error_detail
             
             return Response({
                 'success': True,
