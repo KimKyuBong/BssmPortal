@@ -9,6 +9,35 @@ from django.utils.dateparse import parse_date, parse_datetime
 from rentals.models import Equipment, Rental, EquipmentHistory
 
 
+def get_user_active_rental_count(user) -> int:
+    """
+    사용자의 미반납(대여중/연체) 장비 수를 반환.
+    사용자 삭제 가능 여부 검증 시 재사용.
+    """
+    if not hasattr(user, 'rentals'):
+        return 0
+    return user.rentals.filter(status__in=['RENTED', 'OVERDUE']).count()
+
+
+def get_users_active_rental_counts(user_ids) -> dict:
+    """
+    여러 사용자의 미반납 장비 수를 한 번의 쿼리로 반환.
+    반환: {user_id: count, ...} (대여가 없는 user_id는 포함되지 않음)
+    """
+    from django.db.models import Count
+    if not user_ids:
+        return {}
+    qs = (
+        Rental.objects.filter(
+            user_id__in=user_ids,
+            status__in=['RENTED', 'OVERDUE']
+        )
+        .values('user_id')
+        .annotate(cnt=Count('id'))
+    )
+    return {row['user_id']: row['cnt'] for row in qs}
+
+
 def _normalize_due_date(due_date):
     """
     due_date는 원래 DateTimeField인데, 프론트에서 'YYYY-MM-DD' 같은 문자열로 오는 경우가 있음.

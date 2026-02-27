@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import User, Class, Student
 from django.db.models import Count
+from rentals.services.rental_logic import get_user_active_rental_count
 
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
@@ -18,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.devices.filter(is_active=True).count()
 
     def get_rental_count(self, obj):
-        return obj.rentals.filter(status='RENTED').count()
+        return get_user_active_rental_count(obj)
 
     def to_representation(self, instance):
         """
@@ -68,9 +69,14 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return user
 
 class ClassSerializer(serializers.ModelSerializer):
+    student_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Class
-        fields = ['id', 'grade', 'class_number']
+        fields = ['id', 'grade', 'class_number', 'student_count']
+
+    def get_student_count(self, obj):
+        return obj.students.count()
 
 class StudentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -88,8 +94,7 @@ class StudentSerializer(serializers.ModelSerializer):
         return obj.user.devices.filter(is_active=True).count() if hasattr(obj.user, 'devices') else 0
 
     def get_rental_count(self, obj):
-        # user의 rentals 관계를 활용해 대여중인 장비 개수 반환
-        return obj.user.rentals.filter(status='RENTED').count() if hasattr(obj.user, 'rentals') else 0 
+        return get_user_active_rental_count(obj.user)
 
 class TeacherSerializer(UserSerializer):
     ip_count = serializers.SerializerMethodField()
@@ -102,4 +107,4 @@ class TeacherSerializer(UserSerializer):
         return obj.devices.filter(is_active=True).count() if hasattr(obj, 'devices') else 0
 
     def get_rental_count(self, obj):
-        return obj.rentals.filter(status='RENTED').count() if hasattr(obj, 'rentals') else 0 
+        return get_user_active_rental_count(obj)

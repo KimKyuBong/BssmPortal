@@ -80,6 +80,7 @@ export default function UserManagementPage() {
   const [deviceRentals, setDeviceRentals] = useState<RentalDetail[]>([]);
   const [loadingRentals, setLoadingRentals] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; message: string } | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // 탭 및 검색 상태
   const [activeTab, setActiveTab] = useState<TabType>('all');
@@ -122,7 +123,7 @@ export default function UserManagementPage() {
     prevPageUrl: useUsersPrevPageUrl,
   } = useUsers();
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     try {
       const [teachersData, classesData] = await Promise.all([
         userService.getTeachers(),
@@ -135,7 +136,7 @@ export default function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // 권한 체크
   useEffect(() => {
@@ -207,7 +208,13 @@ export default function UserManagementPage() {
     if (classes.length > 0) {
       fetchAllStudents();
     }
-  }, [classes]); // classes 의존성 추가
+  }, [classes, refreshTrigger]); // classes, refreshTrigger 의존성 추가
+
+  // 전체 데이터 새로고침 (교사, 학생)
+  const refreshAllData = React.useCallback(async () => {
+    await fetchData();
+    setRefreshTrigger(t => t + 1);
+  }, [fetchData]);
 
   // 검색 필터링된 데이터
   const filteredTeachers = React.useMemo(() => {
@@ -261,11 +268,11 @@ export default function UserManagementPage() {
 
     try {
       if (action === 'delete') {
-        const promises = selectedTeachers.map(id => handleDeleteUser(id));
-        await Promise.all(promises);
-        showSuccess(`${selectedTeachers.length}명의 교사가 삭제되었습니다.`);
+        const results = await Promise.all(selectedTeachers.map(id => handleDeleteUser(id)));
+        const successCount = results.filter(r => r?.success).length;
+        showSuccess(`${successCount}명의 교사가 삭제되었습니다.`);
         setSelectedTeachers([]);
-        await fetchData();
+        await refreshAllData();
       } else if (action === 'reset') {
         // 일괄 비밀번호 초기화는 개별적으로 처리
         showError('일괄 비밀번호 초기화는 지원하지 않습니다. 개별적으로 처리해주세요.');
@@ -284,11 +291,26 @@ export default function UserManagementPage() {
 
     try {
       if (action === 'delete') {
-        const promises = selectedStudents.map(id => handleDeleteUser(id));
-        await Promise.all(promises);
-        showSuccess(`${selectedStudents.length}명의 학생이 삭제되었습니다.`);
+        // 학생의 경우 실제 User ID를 찾아서 삭제
+        const deletePromises = selectedStudents.map(studentId => {
+          const student = students.find(s => s.id === studentId);
+          if (student && (student as any).user) {
+            // student.user가 실제 User ID
+            console.log('[DEBUG] 학생 일괄 삭제:', {
+              studentId,
+              actualUserId: (student as any).user,
+              username: student.username
+            });
+            return handleDeleteUser((student as any).user);
+          }
+          return Promise.resolve({ success: false, message: '사용자를 찾을 수 없습니다.' });
+        });
+        
+        const results = await Promise.all(deletePromises);
+        const successCount = results.filter((r: any) => r?.success).length;
+        showSuccess(`${successCount}명의 학생이 삭제되었습니다.`);
         setSelectedStudents([]);
-        await fetchData();
+        await refreshAllData();
       } else if (action === 'reset') {
         // 일괄 비밀번호 초기화는 개별적으로 처리
         showError('일괄 비밀번호 초기화는 지원하지 않습니다. 개별적으로 처리해주세요.');
@@ -298,6 +320,47 @@ export default function UserManagementPage() {
       showError('일괄 작업 중 오류가 발생했습니다.');
     }
   };
+
+  // 삭제 시 결과 토스트, 페이지 갱신, 반납 IP 목록 표시
+  const handleDeleteUserWithFeedback = React.useCallback(async (userId: number) => {
+    try {
+      // 삭제 전 반납될 IP 목록 조회
+      let returnedIps: string[] = [];
+      try {
+        const ipResponse = await adminService.getIpRentals(userId);
+        if (ipResponse.success && ipResponse.data && Array.isArray(ipResponse.data)) {
+          returnedIps = ipResponse.data
+            .filter((r: any) => r.assigned_ip && r.is_active !== false)
+            .map((r: any) => r.assigned_ip);
+        }
+      } catch (_) {
+        // IP 조회 실패해도 삭제는 진행
+      }
+
+      const result = await handleDeleteUser(userId);
+
+      if (result.success) {
+        const ipMessage = returnedIps.length > 0
+          ? `\n반납된 IP: ${returnedIps.join(', ')}`
+          : '';
+        showSuccess(`${result.message || '사용자가 삭제되었습니다.'}${ipMessage}`);
+        // 삭제된 사용자 대여 모달이 열려 있으면 닫기
+        if (selectedUser?.id === userId) {
+          setModalType(null);
+          setSelectedUser(null);
+          setIpRentals([]);
+          setDeviceRentals([]);
+        }
+      } else {
+        showError(result.message || '사용자 삭제에 실패했습니다.');
+        return;
+      }
+    } catch (error) {
+      showError(error instanceof Error ? error.message : '사용자 삭제 중 오류가 발생했습니다.');
+    } finally {
+      await refreshAllData();
+    }
+  }, [handleDeleteUser, refreshAllData, showSuccess, showError, selectedUser]);
 
   const handleResetPasswordClick = (id: number, username: string) => {
     console.log('[DEBUG] handleResetPasswordClick 호출:', { id, username });
@@ -331,13 +394,25 @@ export default function UserManagementPage() {
         showSuccess('사용자 정보가 성공적으로 수정되었습니다.');
         setIsEditUserModalOpen(false);
         setSelectedUserForEdit(null);
-        await fetchData();
+        await refreshAllData();
       } else {
         showError('사용자 정보 수정에 실패했습니다.');
       }
     } catch (error) {
       console.error('사용자 정보 수정 오류:', error);
       showError('사용자 정보 수정 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleChangeClass = async (studentId: number, classId: number) => {
+    try {
+      await userService.changeStudentClass(studentId, classId);
+      showSuccess('학반이 성공적으로 변경되었습니다.');
+      await refreshAllData();
+    } catch (error) {
+      console.error('학반 변경 오류:', error);
+      showError('학반 변경에 실패했습니다.');
+      throw error;
     }
   };
 
@@ -557,7 +632,7 @@ export default function UserManagementPage() {
             onDownloadTemplate={handleDownloadTemplate}
             onExportToExcel={handleExportToExcel}
             onImportUsers={handleImportUsers}
-            className="mb-8"
+            className="mb-6"
           />
 
           {/* 사용자 관리 탭 */}
@@ -574,7 +649,7 @@ export default function UserManagementPage() {
             onDeviceLimitClick={handleDeviceLimitClick}
             onResetPasswordClick={handleResetPasswordClick}
             onRentalClick={handleRentalClick}
-            onDeleteUser={handleDeleteUser}
+            onDeleteUser={handleDeleteUserWithFeedback}
             onResetPassword={handleResetPassword}
             searchTerm={searchTerm}
             searchField={searchField}
@@ -606,6 +681,9 @@ export default function UserManagementPage() {
                 // 학생의 경우 실제 User ID 전달
                 ...(('user' in selectedUserForEdit) && { user: (selectedUserForEdit as any).user })
               }}
+              classes={classes}
+              current_class={'current_class' in selectedUserForEdit ? (selectedUserForEdit as any).current_class : undefined}
+              onChangeClass={('user' in selectedUserForEdit) ? handleChangeClass : undefined}
             />
           )}
 

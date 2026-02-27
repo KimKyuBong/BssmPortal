@@ -318,19 +318,152 @@ const adminService = {
    * @param id 사용자 ID
    * @returns 삭제 결과
    */
-  deleteUser: async (id: number) => {
+  deleteUser: async (id: number): Promise<{ success: boolean; data?: any; message?: string; error?: string }> => {
     console.log(`사용자 삭제 요청 시작: ID ${id}`);
     try {
       const response = await api.delete(`/admin/users/${id}`);
       console.log(`사용자 삭제 응답 (ID ${id}):`, response);
-      return response;
-    } catch (error) {
+      // api.delete는 4xx/5xx 시 예외 대신 { success: false, message, data } 반환
+      return {
+        success: response.success,
+        data: response.data,
+        message: (response as any).message,
+        error: (response as any).message ?? (response as any).error
+      };
+    } catch (error: any) {
       console.error(`사용자 삭제 중 예외 발생 (ID ${id}):`, error);
+      const msg = error?.response?.data?.error ?? error?.response?.data?.details ?? error?.message ?? '사용자 삭제 중 오류가 발생했습니다.';
       return {
         success: false,
-        error: error instanceof Error ? error.message : '사용자 삭제 중 오류가 발생했습니다.'
+        error: msg,
+        message: msg
       };
     }
+  },
+
+  /**
+   * 학반 일괄 할당
+   * @param file 엑셀/CSV 파일 (아이디, 학년, 반 열 필수)
+   */
+  batchAssignClasses: async (file: File): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/admin/users/batch_assign_classes/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (response.success && response.data) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: (response as any).message || '학반 일괄 할당에 실패했습니다.' };
+    } catch (error: any) {
+      const errMsg = error?.response?.data?.error || error?.message || '학반 일괄 할당 중 오류가 발생했습니다.';
+      return { success: false, error: errMsg };
+    }
+  },
+
+  /**
+   * 학반 일괄 업데이트 (생성/수정/자퇴 처리)
+   * @param file 엑셀/CSV 파일 (학년, 반, 번호, 이름, E-mail 열 필수)
+   * @param initialPassword 신규 계정 생성 시 사용할 초기 비밀번호
+   */
+  batchUpdateClasses: async (
+    file: File,
+    initialPassword: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      created_count: number;
+      updated_count: number;
+      deleted_count: number;
+      error_count: number;
+      created: Array<{ row: number; username: string; email: string; name: string; class: string }>;
+      updated: Array<{ row: number; username: string; email: string; name: string; class: string }>;
+      deleted: Array<{ username: string; email: string; name: string; reason: string }>;
+      errors: Array<{ row: number; email: string; code?: string; message: string }>;
+      code?: string;
+      blocked_deletions?: Array<{
+        username: string;
+        email: string;
+        name: string;
+        rental_count: number;
+        message: string;
+      }>;
+    };
+    error?: string;
+  }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('initial_password', initialPassword);
+      const response = await api.post<any>('/admin/users/batch_update_classes/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (response.success && response.data) {
+        const backend = response.data as { success: boolean; message?: string; data?: any };
+        return {
+          success: backend.success ?? true,
+          message: backend.message,
+          data: backend.data ?? backend,
+          error: backend.success === false ? backend.message : undefined
+        };
+      }
+      const err = response as any;
+      return {
+        success: false,
+        message: err.message,
+        data: err.data,
+        error: err.message || '학반 일괄 업데이트에 실패했습니다.'
+      };
+    } catch (error: any) {
+      const errData = error?.response?.data;
+      return {
+        success: false,
+        message: errData?.message,
+        data: errData?.data,
+        error: errData?.message || error?.message || '학반 일괄 업데이트 중 오류가 발생했습니다.'
+      };
+    }
+  },
+
+  /**
+   * 학반 일괄 할당 템플릿 다운로드 (기존 형식: 아이디, 학년, 반)
+   */
+  getClassAssignTemplate: async (): Promise<Blob> => {
+    return import('xlsx').then(XLSX => {
+      const data = [
+        { '아이디': '25_01', '학년': 1, '반': 1 },
+        { '아이디': '25_02', '학년': 1, '반': 1 },
+        { '아이디': '25_03', '학년': 1, '반': 2 },
+      ];
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '학반 할당');
+      return new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+    });
+  },
+
+  /**
+   * 학반 일괄 업데이트 템플릿 다운로드 (학년, 반, 번호, 이름, E-mail)
+   * 1블록 또는 3블록 형식 지원
+   */
+  getClassUpdateTemplate: async (): Promise<Blob> => {
+    return import('xlsx').then(XLSX => {
+      const data = [
+        { '학년': 1, '반': 1, '번호': 1, '이름': '홍길동', 'E-mail': '26_01@bssm.hs.kr' },
+        { '학년': 1, '반': 1, '번호': 2, '이름': '김철수', 'E-mail': '26_02@bssm.hs.kr' },
+        { '학년': 1, '반': 2, '번호': 1, '이름': '이영희', 'E-mail': '26_03@bssm.hs.kr' },
+      ];
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '학반 업데이트');
+      return new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+    });
   },
 
   /**

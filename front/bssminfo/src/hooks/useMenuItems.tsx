@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Home, UserCog, Laptop, Settings, History, Users, Shield, BookOpen, Network, Ban, Volume2 } from 'lucide-react';
+import { Home, UserCog, Laptop, Settings, History, Users, Shield, BookOpen, Network, Ban, Volume2, GraduationCap } from 'lucide-react';
 import { User } from '@/services/auth';
 
 interface MenuItem {
@@ -77,6 +77,12 @@ const useMenuItems = (user: User | null, isActive: (href: string, pathname: stri
       icon: <Users className="mr-3 h-5 w-5" />, 
       href: '/dashboard/admin/users', 
       isActive: (pathname: string) => isActive('/dashboard/admin/users', pathname)
+    },
+    {
+      name: '학반 관리',
+      icon: <GraduationCap className="mr-3 h-5 w-5" />,
+      href: '/dashboard/admin/classes',
+      isActive: (pathname: string) => isActive('/dashboard/admin/classes', pathname)
     },
     {
       name: 'IP 관리',

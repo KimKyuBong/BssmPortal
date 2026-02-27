@@ -38,7 +38,7 @@ interface UserTableProps {
   selectedUsers: number[];
   onUserSelect: (userId: number, event: React.MouseEvent<HTMLTableRowElement>) => void;
   onEdit?: (user: UserData) => void;
-  onDelete?: (userId: number) => void;
+  onDelete?: (userId: number) => void | Promise<void>;
   onResetPassword?: (userId: number, username: string) => void;
   onRentalClick?: (user: UserData, type: 'ip' | 'device') => void;
   onDeviceLimitClick?: (user: UserData) => void;
@@ -128,7 +128,7 @@ export default function UserTable({
 
   const handleDeleteConfirm = () => {
     if (deleteConfirm.userId && onDelete) {
-      onDelete(deleteConfirm.userId);
+      return onDelete(deleteConfirm.userId);
     }
   };
 
@@ -330,7 +330,17 @@ export default function UserTable({
                           <Button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteClick(user.id, user.user_name || user.username);
+                              console.log('[DEBUG] UserTable 삭제 버튼 클릭:', {
+                                userType,
+                                userId: user.id,
+                                userUser: (user as any).user,
+                                username: user.username,
+                                fullUser: user
+                              });
+                              // 학생의 경우 user.user (User ID)를 사용하고, 교사의 경우 user.id를 사용
+                              const targetUserId = userType === 'student' && (user as any).user ? (user as any).user : user.id;
+                              console.log('[DEBUG] 삭제할 User ID:', targetUserId);
+                              handleDeleteClick(targetUserId, user.user_name || user.username);
                             }}
                             variant="danger"
                             size="sm"

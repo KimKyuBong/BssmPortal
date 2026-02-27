@@ -71,9 +71,21 @@ export const userService = {
     return response.data;
   },
 
+  // 학반 수정
+  updateClass: async (classId: number, data: { grade?: number; class_number?: number }) => {
+    const response = await api.patch(`/users/classes/${classId}/`, data);
+    if (!response.success) {
+      throw new Error((response as any).message || '학반 수정에 실패했습니다.');
+    }
+    return response.data;
+  },
+
   // 학생 학반 변경
   changeStudentClass: async (studentId: number, classId: number) => {
-    const response = await api.post(`/students/${studentId}/change_class/`, { class_id: classId });
+    const response = await api.post(`/users/students/${studentId}/change_class/`, { class_id: classId });
+    if (!response.success) {
+      throw new Error(response.message || '학반 변경에 실패했습니다.');
+    }
     return response.data;
   },
 

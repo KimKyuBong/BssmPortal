@@ -216,9 +216,10 @@ export const useUsers = () => {
           message: response.data?.message || '사용자가 성공적으로 삭제되었습니다.' 
         };
       } else {
-        const errorMsg = typeof response.error === 'string' 
-          ? response.error 
-          : response.error?.detail || '사용자 삭제에 실패했습니다.';
+        const errorMsg =
+          (response as any).message ||
+          (typeof response.error === 'string' ? response.error : (response as any).error?.detail) ||
+          '사용자 삭제에 실패했습니다.';
         setError(errorMsg);
         return { success: false, message: errorMsg };
       }

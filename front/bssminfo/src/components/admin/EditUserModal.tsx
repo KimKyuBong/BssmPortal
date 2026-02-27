@@ -3,15 +3,24 @@ import { X, User, Settings } from 'lucide-react';
 import { User as AdminUser } from '@/services/admin';
 import { Modal, Heading, Text, Input, Button } from '@/components/ui/StyledComponents';
 
+interface ClassOption {
+  id: number;
+  grade: number;
+  class_number: number;
+}
+
 interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEditUser: (userId: number, userData: Partial<AdminUser>) => Promise<void>;
   user: AdminUser | null;
+  classes?: ClassOption[];
+  current_class?: number;
+  onChangeClass?: (studentId: number, classId: number) => Promise<void>;
 }
 
-export default function EditUserModal({ isOpen, onClose, onEditUser, user }: EditUserModalProps) {
-  const [editedUser, setEditedUser] = useState<Partial<AdminUser>>({
+export default function EditUserModal({ isOpen, onClose, onEditUser, user, classes = [], current_class, onChangeClass }: EditUserModalProps) {
+  const [editedUser, setEditedUser] = useState<Partial<AdminUser> & { current_class?: number }>({
     username: '',
     email: '',
     user_name: '',
@@ -23,6 +32,8 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isStudent = !!(user as any)?.user;
+
   useEffect(() => {
     if (user) {
       setEditedUser({
@@ -32,9 +43,10 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
         is_staff: user.is_staff,
         is_superuser: user.is_superuser,
         device_limit: user.device_limit,
+        current_class: current_class ?? (user as any).current_class,
       });
     }
-  }, [user]);
+  }, [user, current_class]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +56,10 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
     setError(null);
 
     try {
-      // 공백 값 필터링
+      // 공백 값 필터링 (current_class는 Student 모델용이므로 제외)
       const filteredData: Partial<AdminUser> = {};
       Object.entries(editedUser).forEach(([key, value]) => {
+        if (key === 'current_class') return;
         if (value !== null && value !== undefined && value !== '') {
           filteredData[key as keyof AdminUser] = value as any;
         }
@@ -54,15 +67,16 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
 
       // 학생의 경우 user.user (실제 User ID)를 사용하고, 교사의 경우 user.id를 사용
       const targetUserId = (user as any).user ? (user as any).user : user.id;
-      console.log('[DEBUG] EditUserModal - 편집 대상 사용자:', {
-        originalUser: user,
-        hasUserField: !!(user as any).user,
-        studentId: user.id,
-        actualUserId: (user as any).user,
-        finalTargetUserId: targetUserId,
-        userName: user.user_name || user.username,
-        editData: filteredData
-      });
+      const studentId = user.id;
+
+      // 학생 학반 변경 (학생이고 학반이 유효하게 변경된 경우)
+      if (isStudent && onChangeClass && editedUser.current_class && editedUser.current_class > 0) {
+        const originalClass = current_class ?? (user as any).current_class;
+        if (Number(editedUser.current_class) !== Number(originalClass)) {
+          await onChangeClass(studentId, Number(editedUser.current_class));
+        }
+      }
+
       await onEditUser(targetUserId, filteredData);
     } catch (err) {
       setError('사용자 정보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
@@ -82,9 +96,10 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
         [name]: checked
       }));
     } else {
+      const numValue = (name === 'current_class' || name === 'device_limit') ? (value ? Number(value) : undefined) : value;
       setEditedUser(prev => ({
         ...prev,
-        [name]: value
+        [name]: numValue
       }));
     }
   };
@@ -151,6 +166,28 @@ export default function EditUserModal({ isOpen, onClose, onEditUser, user }: Edi
           onChange={handleInputChange}
           min="0"
         />
+
+        {isStudent && classes.length > 0 && (
+          <div>
+            <label htmlFor="current_class" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              학반
+            </label>
+            <select
+              id="current_class"
+              name="current_class"
+              value={editedUser.current_class ?? ''}
+              onChange={handleInputChange}
+              className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">선택 안 함</option>
+              {classes.map(cls => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.grade}학년 {cls.class_number}반
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         
         <div className="flex items-center space-x-4">
           <div className="flex items-center">

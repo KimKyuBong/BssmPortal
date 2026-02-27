@@ -181,20 +181,27 @@ export default function UserManagementTabs({
     }
   };
 
-  const handleStudentSelection = (userId: number, event: React.MouseEvent<HTMLTableRowElement>) => {
+  const handleStudentSelection = (studentId: number, event: React.MouseEvent<HTMLTableRowElement>) => {
     const isCtrlPressed = event.ctrlKey || event.metaKey;
     const isShiftPressed = event.shiftKey;
     
+    console.log('[DEBUG] 학생 선택:', {
+      studentId,
+      isCtrl: isCtrlPressed,
+      isShift: isShiftPressed,
+      currentSelection: selectedStudents
+    });
+    
     if (isCtrlPressed) {
       onStudentSelectionChange(
-        selectedStudents.includes(userId) 
-          ? selectedStudents.filter(id => id !== userId)
-          : [...selectedStudents, userId]
+        selectedStudents.includes(studentId) 
+          ? selectedStudents.filter(id => id !== studentId)
+          : [...selectedStudents, studentId]
       );
     } else if (isShiftPressed && selectedStudents.length > 0) {
       const lastSelected = selectedStudents[selectedStudents.length - 1];
       const lastIndex = filteredStudentsByClass.findIndex(s => s.id === lastSelected);
-      const currentIndex = filteredStudentsByClass.findIndex(s => s.id === userId);
+      const currentIndex = filteredStudentsByClass.findIndex(s => s.id === studentId);
       
       if (lastIndex !== -1 && currentIndex !== -1) {
         const startIndex = Math.min(lastIndex, currentIndex);
@@ -210,7 +217,7 @@ export default function UserManagementTabs({
         onStudentSelectionChange(newSelection);
       }
     } else {
-      onStudentSelectionChange([userId]);
+      onStudentSelectionChange([studentId]);
     }
   };
 
@@ -261,6 +268,22 @@ export default function UserManagementTabs({
 
       {activeTab === 'teachers' && (
         <div className="space-y-4 sm:space-y-6">
+          {selectedTeachers.length > 0 && (
+            <Card className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {selectedTeachers.length}명 선택됨
+                </span>
+                <Button
+                  onClick={() => onBulkTeacherAction('delete')}
+                  variant="danger"
+                  size="sm"
+                >
+                  선택 삭제
+                </Button>
+              </div>
+            </Card>
+          )}
           <Card className="mb-4 sm:mb-6">
             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <span className="text-xs sm:text-sm text-blue-800 dark:text-blue-300">
@@ -315,6 +338,22 @@ export default function UserManagementTabs({
             </div>
           </Card>
 
+          {selectedStudents.length > 0 && (
+            <Card className="mb-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  {selectedStudents.length}명 선택됨
+                </span>
+                <Button
+                  onClick={() => onBulkStudentAction('delete')}
+                  variant="danger"
+                  size="sm"
+                >
+                  선택 삭제
+                </Button>
+              </div>
+            </Card>
+          )}
           <Card className="mb-4 sm:mb-6">
             <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <span className="text-xs sm:text-sm text-blue-800 dark:text-blue-300">

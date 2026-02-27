@@ -5,7 +5,7 @@ import { Button } from './StyledComponents';
 interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   message: string;
   confirmText?: string;
@@ -23,11 +23,24 @@ export default function ConfirmDialog({
   cancelText = '취소',
   variant = 'danger'
 }: ConfirmDialogProps) {
+  const [isConfirming, setIsConfirming] = React.useState(false);
+
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
-    onConfirm();
-    onClose();
+  const handleConfirm = async () => {
+    setIsConfirming(true);
+    try {
+      const result = onConfirm();
+      if (result instanceof Promise) {
+        await result;
+      }
+      onClose();
+    } catch (error) {
+      console.error('Confirm action error:', error);
+      onClose();
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const getVariantStyles = () => {
@@ -115,6 +128,7 @@ export default function ConfirmDialog({
               onClick={onClose}
               variant="secondary"
               className="px-6 py-2.5 font-medium"
+              disabled={isConfirming}
             >
               {cancelText}
             </Button>
@@ -122,8 +136,9 @@ export default function ConfirmDialog({
               onClick={handleConfirm}
               variant={styles.confirmButtonVariant}
               className="px-6 py-2.5 font-medium"
+              disabled={isConfirming}
             >
-              {confirmText}
+              {isConfirming ? '처리 중...' : confirmText}
             </Button>
           </div>
         </div>

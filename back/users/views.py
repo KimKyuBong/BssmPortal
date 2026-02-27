@@ -22,6 +22,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.pagination import PageNumberPagination
 from core.permissions import IsAdminUser, IsAuthenticatedUser
 from django.db import models
+from rentals.services.rental_logic import get_user_active_rental_count, get_users_active_rental_counts
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,7 @@ class UserViewSet(viewsets.ModelViewSet):
         for user in users:
             # IP 대여 수와 장비 대여 수 계산
             ip_count = user.devices.filter(is_active=True).count() if hasattr(user, 'devices') else 0
-            rental_count = user.rentals.filter(status='RENTED').count() if hasattr(user, 'rentals') else 0
+            rental_count = get_user_active_rental_count(user)
             
             data.append({
                 'ID': user.id,
@@ -415,6 +416,441 @@ class UserViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': f'파일 처리 중 오류가 발생했습니다: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
+    def _parse_class_update_file(self, df):
+        """
+        학반 업데이트 파일 파싱 (3블록 또는 1블록 지원).
+        반환: [(row_num, grade, class_num, number, name, email), ...]
+        """
+        df.columns = [str(c).strip() for c in df.columns]
+        rows_out = []
+        seen_emails = set()
+
+        def extract_block(block_df, start_col, base_row):
+            """한 블록에서 (학년, 반, 번호, 이름, E-mail) 추출"""
+            result = []
+            for i, row in block_df.iterrows():
+                row_num = base_row + i + 2
+                try:
+                    grade_val = row.iloc[start_col] if start_col < len(row) else None
+                    class_val = row.iloc[start_col + 1] if start_col + 1 < len(row) else None
+                    num_val = row.iloc[start_col + 2] if start_col + 2 < len(row) else None
+                    name_val = row.iloc[start_col + 3] if start_col + 3 < len(row) else None
+                    email_val = row.iloc[start_col + 4] if start_col + 4 < len(row) else None
+                except IndexError:
+                    continue
+                if pd.isna(email_val) or str(email_val).strip() == '':
+                    continue
+                email = str(email_val).strip()
+                if not email or '@' not in email:
+                    continue
+                if email in seen_emails:
+                    continue
+                seen_emails.add(email)
+                try:
+                    grade = int(float(grade_val)) if pd.notna(grade_val) else None
+                    class_num = int(float(class_val)) if pd.notna(class_val) else None
+                    number = int(float(num_val)) if pd.notna(num_val) else None
+                except (ValueError, TypeError):
+                    continue
+                if grade is None or class_num is None:
+                    continue
+                name = str(name_val).strip() if pd.notna(name_val) else ''
+                result.append((row_num, grade, class_num, number, name, email))
+            return result
+
+        # 1블록: 학년, 반, 번호, 이름, E-mail 컬럼이 있으면 사용
+        if all(c in df.columns for c in ['학년', '반', '번호', '이름', 'E-mail']):
+            for i, row in df.iterrows():
+                email = str(row.get('E-mail', '')).strip()
+                if not email or '@' not in email:
+                    continue
+                if email in seen_emails:
+                    continue
+                seen_emails.add(email)
+                try:
+                    grade = int(float(row['학년']))
+                    class_num = int(float(row['반']))
+                    number = int(float(row['번호'])) if pd.notna(row.get('번호')) else None
+                    name = str(row.get('이름', '')).strip()
+                    rows_out.append((i + 2, grade, class_num, number, name, email))
+                except (ValueError, TypeError):
+                    continue
+            return rows_out
+
+        # 3블록: 5열씩 블록 (학년, 반, 번호, 이름, E-mail)
+        n_cols = len(df.columns)
+        for start in range(0, n_cols, 5):
+            if start + 5 > n_cols:
+                break
+            block = df.iloc[:, start:start + 5]
+            for i, row in block.iterrows():
+                try:
+                    email_val = row.iloc[4]
+                    if pd.isna(email_val) or str(email_val).strip() == '':
+                        continue
+                    email = str(email_val).strip()
+                    if '@' not in email or email in seen_emails:
+                        continue
+                    seen_emails.add(email)
+                    grade = int(float(row.iloc[0]))
+                    class_num = int(float(row.iloc[1]))
+                    number = int(float(row.iloc[2])) if pd.notna(row.iloc[2]) else None
+                    name = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else ''
+                    rows_out.append((i + 2, grade, class_num, number, name, email))
+                except (ValueError, TypeError, IndexError):
+                    continue
+        return rows_out
+
+    @action(detail=False, methods=['post'])
+    def batch_update_classes(self, request):
+        """
+        학반 일괄 업데이트 API.
+        - 업로드된 학생: 기존은 학반 업데이트, 없으면 계정 생성
+        - 누락된 학생(자퇴생): 장비 미반납 시 실패, 없으면 계정 삭제
+        - 전체 트랜잭션 처리
+        """
+        if 'file' not in request.FILES:
+            return Response({
+                'success': False,
+                'message': '파일이 제공되지 않았습니다.',
+                'data': {'code': 'NO_FILE'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        upload_file = request.FILES['file']
+        if upload_file.size == 0:
+            return Response({
+                'success': False,
+                'message': '파일이 비어있습니다.',
+                'data': {'code': 'EMPTY_FILE'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        initial_password = request.data.get('initial_password', '')
+
+        try:
+            import tempfile
+            import os
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+                for chunk in upload_file.chunks():
+                    tmp.write(chunk)
+                temp_path = tmp.name
+
+            try:
+                df = pd.read_excel(temp_path) if upload_file.name.lower().endswith(
+                    ('.xlsx', '.xls')
+                ) else pd.read_csv(temp_path, encoding='utf-8')
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'message': f'파일을 읽을 수 없습니다: {str(e)}',
+                    'data': {'code': 'PARSE_ERROR'}
+                }, status=status.HTTP_400_BAD_REQUEST)
+            finally:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+
+            if df.empty:
+                return Response({
+                    'success': False,
+                    'message': '파일에 데이터가 없습니다.',
+                    'data': {'code': 'EMPTY_DATA'}
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            parsed = self._parse_class_update_file(df)
+            if not parsed:
+                return Response({
+                    'success': False,
+                    'message': '유효한 학생 데이터를 찾을 수 없습니다. (학년, 반, 번호, 이름, E-mail 형식 확인)',
+                    'data': {'code': 'NO_VALID_ROWS'}
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            uploaded_emails = {p[5] for p in parsed}
+
+            class_cache = {}
+            for cls in Class.objects.all():
+                class_cache[(cls.grade, cls.class_number)] = cls
+
+            created = []
+            updated = []
+            deleted = []
+            errors = []
+
+            with transaction.atomic():
+                # 1. 자퇴생 후보: DB 학생 중 업로드에 없는 이메일
+                all_students = list(
+                    Student.objects.select_related('user').filter(
+                        user__email__isnull=False
+                    ).exclude(user__email='')
+                )
+                dropped = [s for s in all_students if s.user.email not in uploaded_emails]
+
+                # 2. 장비 미반납 검사 (한 번의 쿼리로 최적화)
+                dropped_user_ids = [s.user.id for s in dropped]
+                rental_counts = get_users_active_rental_counts(dropped_user_ids)
+                blocked_deletions = []
+                for s in dropped:
+                    cnt = rental_counts.get(s.user.id, 0)
+                    if cnt > 0:
+                        blocked_deletions.append({
+                            'username': s.user.username,
+                            'email': s.user.email,
+                            'name': (s.user.last_name or '') + (s.user.first_name or ''),
+                            'rental_count': cnt,
+                            'message': f'{cnt}개 장비 미반납',
+                        })
+
+                if blocked_deletions:
+                    return Response({
+                        'success': False,
+                        'message': (
+                            f"자퇴 대상 '{blocked_deletions[0]['username']}'이(가) "
+                            f"{blocked_deletions[0]['rental_count']}개 장비를 미반납 상태입니다. "
+                            "배치 작업이 취소되었습니다."
+                        ),
+                        'data': {
+                            'code': 'EQUIPMENT_NOT_RETURNED',
+                            'blocked_deletions': blocked_deletions,
+                            'message_detail': '모든 장비를 반납한 후 다시 시도해주세요.',
+                        },
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # 3. 자퇴생 계정 삭제
+                for s in dropped:
+                    deleted.append({
+                        'username': s.user.username,
+                        'email': s.user.email,
+                        'name': ((s.user.last_name or '') + (s.user.first_name or '')).strip() or s.user.username,
+                        'reason': '업로드 목록에 없음(자퇴)',
+                    })
+                    s.user.delete()
+
+                # 4. 업데이트/생성
+                for row_num, grade, class_num, number, name, email in parsed:
+                    class_obj = class_cache.get((grade, class_num))
+                    if not class_obj:
+                        errors.append({
+                            'row': row_num,
+                            'email': email,
+                            'code': 'CLASS_NOT_FOUND',
+                            'message': f'{grade}학년 {class_num}반을 찾을 수 없음',
+                        })
+                        continue
+
+                    username = email.split('@')[0] if '@' in email else email
+
+                    user = User.objects.filter(
+                        models.Q(username=username) | models.Q(email=email)
+                    ).first()
+
+                    if user:
+                        if user.is_staff:
+                            errors.append({
+                                'row': row_num,
+                                'email': email,
+                                'code': 'IS_STAFF',
+                                'message': '교사 계정은 학반 할당 대상이 아님',
+                            })
+                            continue
+
+                        student, _ = Student.objects.get_or_create(
+                            user=user,
+                            defaults={'current_class': class_obj}
+                        )
+                        if not student.current_class or student.current_class.id != class_obj.id:
+                            student.current_class = class_obj
+                            student.save()
+
+                        if user.email != email:
+                            user.email = email
+                            user.save(update_fields=['email'])
+                        if name and user.last_name != name:
+                            user.last_name = name
+                            user.save(update_fields=['last_name'])
+
+                        updated.append({
+                            'row': row_num,
+                            'username': username,
+                            'email': email,
+                            'name': name,
+                            'class': f'{grade}학년 {class_num}반',
+                        })
+                    else:
+                        if not initial_password or len(initial_password) < 8:
+                            errors.append({
+                                'row': row_num,
+                                'email': email,
+                                'code': 'PASSWORD_REQUIRED',
+                                'message': '신규 계정 생성 시 초기 비밀번호(8자 이상)가 필요합니다.',
+                            })
+                            continue
+
+                        user = User.objects.create_user(
+                            username=username,
+                            password=initial_password,
+                            email=email,
+                            last_name=name or username,
+                            is_staff=False,
+                            is_superuser=False,
+                        )
+                        Student.objects.create(user=user, current_class=class_obj)
+                        created.append({
+                            'row': row_num,
+                            'username': username,
+                            'email': email,
+                            'name': name,
+                            'class': f'{grade}학년 {class_num}반',
+                        })
+
+            summary_parts = []
+            if created:
+                summary_parts.append(f'생성 {len(created)}명')
+            if updated:
+                summary_parts.append(f'업데이트 {len(updated)}명')
+            if deleted:
+                summary_parts.append(f'삭제(자퇴) {len(deleted)}명')
+            if errors:
+                summary_parts.append(f'오류 {len(errors)}건')
+
+            return Response({
+                'success': True,
+                'message': f"처리 완료: {', '.join(summary_parts)}",
+                'data': {
+                    'created_count': len(created),
+                    'updated_count': len(updated),
+                    'deleted_count': len(deleted),
+                    'error_count': len(errors),
+                    'created': created,
+                    'updated': updated,
+                    'deleted': deleted,
+                    'errors': errors,
+                },
+            })
+
+        except Exception as e:
+            logger.exception('학반 일괄 업데이트 오류')
+            return Response({
+                'success': False,
+                'message': f'처리 중 오류가 발생했습니다: {str(e)}',
+                'data': {'code': 'INTERNAL_ERROR', 'detail': str(e)},
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def batch_assign_classes(self, request):
+        """
+        엑셀/CSV 파일로 학생 학반을 일괄 할당합니다.
+        필수 열: 아이디(또는 이메일), 학년, 반
+        """
+        if 'file' not in request.FILES:
+            return Response({'error': '파일이 제공되지 않았습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        upload_file = request.FILES['file']
+        if upload_file.size == 0:
+            return Response({'error': '파일이 비어있습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            import tempfile
+            import os
+            
+            temp_path = None
+            try:
+                suffix = '.xlsx' if upload_file.name.lower().endswith(('.xlsx', '.xls')) else '.csv'
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    for chunk in upload_file.chunks():
+                        tmp.write(chunk)
+                    temp_path = tmp.name
+                
+                if suffix == '.csv':
+                    df = pd.read_csv(temp_path, encoding='utf-8')
+                else:
+                    df = pd.read_excel(temp_path)
+                
+                if df.empty:
+                    return Response({'error': '파일에 데이터가 없습니다.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # 열 이름 정규화 (공백 제거)
+                df.columns = df.columns.str.strip()
+                
+                # 필수 열 확인 (아이디 또는 이메일, 학년, 반)
+                has_id = '아이디' in df.columns
+                has_email = '이메일' in df.columns
+                if not has_id and not has_email:
+                    return Response({
+                        'error': '필수 열 "아이디" 또는 "이메일"이 없습니다.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                if '학년' not in df.columns or '반' not in df.columns:
+                    return Response({
+                        'error': '필수 열 "학년", "반"이 없습니다.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # 학반 캐시
+                class_cache = {}
+                for cls in Class.objects.all():
+                    class_cache[(cls.grade, cls.class_number)] = cls
+                
+                updated = []
+                errors = []
+                
+                for index, row in df.iterrows():
+                    row_num = index + 2
+                    try:
+                        identifier = str(row.get('아이디', '') or row.get('이메일', '')).strip()
+                        if not identifier:
+                            errors.append({'row': row_num, 'message': '아이디/이메일이 비어있음'})
+                            continue
+                        
+                        grade = int(float(row['학년'])) if pd.notna(row['학년']) else None
+                        class_num = int(float(row['반'])) if pd.notna(row['반']) else None
+                        if grade is None or class_num is None:
+                            errors.append({'row': row_num, 'identifier': identifier, 'message': '학년/반이 유효하지 않음'})
+                            continue
+                        
+                        class_obj = class_cache.get((grade, class_num))
+                        if not class_obj:
+                            errors.append({'row': row_num, 'identifier': identifier, 'message': f'{grade}학년 {class_num}반을 찾을 수 없음'})
+                            continue
+                        
+                        user = User.objects.filter(
+                            models.Q(username=identifier) | models.Q(email=identifier)
+                        ).first()
+                        if not user:
+                            errors.append({'row': row_num, 'identifier': identifier, 'message': '사용자를 찾을 수 없음'})
+                            continue
+                        
+                        if user.is_staff:
+                            errors.append({'row': row_num, 'identifier': identifier, 'message': '교사 계정은 학반 할당 대상이 아님'})
+                            continue
+                        
+                        student, created = Student.objects.get_or_create(
+                            user=user,
+                            defaults={'current_class': class_obj}
+                        )
+                        if not created:
+                            student.current_class = class_obj
+                            student.save()
+                        
+                        updated.append({'row': row_num, 'identifier': identifier, 'class': f'{grade}학년 {class_num}반'})
+                        
+                    except Exception as e:
+                        errors.append({'row': row_num, 'message': str(e)})
+                
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            
+            return Response({
+                'success': True,
+                'updated_count': len(updated),
+                'error_count': len(errors),
+                'updated': updated[:50],
+                'errors': errors[:50],
+            })
+        
+        except Exception as e:
+            logger.exception('학반 일괄 할당 오류')
+            return Response({
+                'error': f'파일 처리 중 오류가 발생했습니다: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['get'])
     def simple(self, request):
         """간단한 사용자 목록 조회 (ID와 마스킹된 사용자명 반환)"""
@@ -452,12 +888,31 @@ class UserViewSet(viewsets.ModelViewSet):
         """사용자 삭제 후 성공 메시지 반환"""
         instance = self.get_object()
         username = instance.username
+        
+        logger.info(f"[사용자 삭제 시도] 사용자: {username} (ID: {instance.id})")
+        
+        # 대여 중인 장비가 있으면 삭제 불가 (IP는 CASCADE로 자동 삭제)
+        active_rentals = get_user_active_rental_count(instance)
+        logger.info(f"[사용자 삭제 검증] 대여 중인 장비 수: {active_rentals}")
+        
+        if active_rentals > 0:
+            error_message = f"사용자 '{username}'은(는) 현재 {active_rentals}개의 장비를 대여 중입니다."
+            logger.warning(f"[사용자 삭제 거부] {error_message}")
+            return Response({
+                'error': error_message,
+                'details': '대여 중인 장비를 모두 반납한 후 삭제할 수 있습니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
+            # IP(Device)는 CASCADE로 자동 삭제됨
+            logger.info(f"[사용자 삭제 진행] 사용자 '{username}' 삭제 시작")
             self.perform_destroy(instance)
+            logger.info(f"[사용자 삭제 완료] 사용자 '{username}' 삭제 성공")
             return Response({
                 'message': f"사용자 '{username}'이(가) 성공적으로 삭제되었습니다."
             }, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error(f"[사용자 삭제 오류] 사용자 '{username}' 삭제 중 오류: {str(e)}")
             return Response({
                 'error': f"사용자 '{username}' 삭제 중 오류가 발생했습니다.",
                 'details': str(e)

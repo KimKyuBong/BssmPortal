@@ -142,6 +142,15 @@ const handleApiError = <T>(error: AxiosError): ApiResponse<T> => {
         data: data.detail as T
       };
     }
+    if (data.error) {
+      const msg = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+      const details = data.details ? (typeof data.details === 'string' ? data.details : '') : '';
+      return {
+        success: false,
+        message: details ? `${msg}\n${details}` : msg,
+        data: data as T
+      };
+    }
     
     // 일반적인 에러 응답 처리
     return {
