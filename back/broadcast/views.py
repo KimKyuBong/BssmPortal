@@ -23,7 +23,7 @@ import json
 from datetime import datetime, timedelta
 
 from .models import DeviceMatrix, BroadcastHistory, AudioFile, BroadcastSchedule, BroadcastPreview
-from .services import BroadcastService
+from .services import BroadcastService, get_broadcast_api_headers, get_broadcast_api_url
 from .serializers import (
     DeviceMatrixSerializer, 
     BroadcastHistorySerializer, 
@@ -39,6 +39,22 @@ from .serializers import (
 from core.permissions import IsTeacherUser
 
 logger = logging.getLogger(__name__)
+
+
+def broadcast_api_request(method, url, **kwargs):
+    if not url.startswith(("http://", "https://")):
+        url = get_broadcast_api_url(url)
+    headers = get_broadcast_api_headers(kwargs.pop("headers", None))
+    return requests.request(method, url, headers=headers, **kwargs)
+
+
+def broadcast_api_get(url, **kwargs):
+    return broadcast_api_request("GET", url, **kwargs)
+
+
+def broadcast_api_post(url, **kwargs):
+    return broadcast_api_request("POST", url, **kwargs)
+
 
 def parse_target_rooms_from_formdata(target_rooms_data):
     """FormData에서 target_rooms를 안전하게 배열로 변환"""
@@ -67,7 +83,7 @@ class DeviceMatrixView(APIView):
             broadcast_server_url = "http://10.129.55.251:10200/api/device-matrix/"
             
             import requests
-            response = requests.get(broadcast_server_url, timeout=10)
+            response = broadcast_api_get(broadcast_server_url, timeout=10)
             
             if response.status_code != 200:
                 logger.error(f"방송 서버 장치 매트릭스 조회 실패: {response.status_code}")
@@ -188,7 +204,7 @@ class TextBroadcastView(APIView):
             }
             
             # 방송서버에 요청 (form-data 형식으로 전송)
-            broadcast_response = requests.post(broadcast_server_url, data=broadcast_data, timeout=30)
+            broadcast_response = broadcast_api_post(broadcast_server_url, data=broadcast_data, timeout=30)
             
             if broadcast_response.status_code != 200:
                 # 방송서버 응답 내용 로깅
@@ -246,7 +262,7 @@ class TextBroadcastView(APIView):
             audio_base64 = None
             try:
                 audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview_info.get('preview_id')}"
-                audio_response = requests.get(audio_url, timeout=30)
+                audio_response = broadcast_api_get(audio_url, timeout=30)
                 if audio_response.status_code == 200:
                     audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
                     logger.info(f"오디오 파일 base64 인코딩 완료: {len(audio_base64)} characters")
@@ -346,7 +362,7 @@ class AudioBroadcastView(APIView):
             files = {'audio_file': (audio_file.name, audio_file, 'audio/mpeg')}
             
             # 방송서버에 요청 (form-data 형식으로 전송)
-            broadcast_response = requests.post(broadcast_server_url, data=broadcast_data, files=files, timeout=30)
+            broadcast_response = broadcast_api_post(broadcast_server_url, data=broadcast_data, files=files, timeout=30)
             
             if broadcast_response.status_code != 200:
                 # 방송서버 응답 내용 로깅
@@ -539,7 +555,7 @@ class BroadcastHistoryDetailView(APIView):
                     })
                 
                 import requests
-                audio_response = requests.get(external_api_url, timeout=30)
+                audio_response = broadcast_api_get(external_api_url, timeout=30)
                 logger.info(f"방송서버 오디오 응답 상태: {audio_response.status_code}")
                 
                 if audio_response.status_code == 200:
@@ -636,7 +652,7 @@ class ReuseHistoryAudioView(APIView):
             external_api_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{history_item.preview.preview_id}"
             
             try:
-                audio_response = requests.get(external_api_url, timeout=30)
+                audio_response = broadcast_api_get(external_api_url, timeout=30)
                 
                 if audio_response.status_code != 200:
                     return Response({
@@ -661,7 +677,7 @@ class ReuseHistoryAudioView(APIView):
                     broadcast_data['target_rooms'] = ','.join(map(str, target_rooms))
 
                 # 방송서버에 요청
-                broadcast_response = requests.post(broadcast_server_url, data=broadcast_data, files=files, timeout=30)
+                broadcast_response = broadcast_api_post(broadcast_server_url, data=broadcast_data, files=files, timeout=30)
                 
                 if broadcast_response.status_code != 200:
                     return Response({
@@ -1043,7 +1059,7 @@ class PreviewApprovalView(APIView):
                     external_api_url = f"{settings.BROADCAST_API_CONFIG['BASE_URL']}/api/broadcast/preview/approve/{preview_id}"
                     
                     import requests
-                    approval_response = requests.post(external_api_url, timeout=30)
+                    approval_response = broadcast_api_post(external_api_url, timeout=30)
                     logger.info(f"외부 API 승인 요청 상태: {approval_response.status_code}")
                     
                     if approval_response.status_code == 200:
@@ -1193,7 +1209,7 @@ def preview_audio_file(request, preview_id):
             try:
                 # 방송서버에 요청해서 파일을 가져오기
                 import requests
-                response = requests.get(external_api_url, stream=True, timeout=30)
+                response = broadcast_api_get(external_api_url, stream=True, timeout=30)
                 logger.info(f"방송서버 응답 상태: {response.status_code}")
                 logger.info(f"방송서버 응답 헤더: {dict(response.headers)}")
                 
@@ -1536,7 +1552,7 @@ class PreviewDetailView(APIView):
             audio_base64 = None
             try:
                 audio_url = f"http://10.129.55.251:10200/api/broadcast/preview/audio/{preview.preview_id}"
-                audio_response = requests.get(audio_url, timeout=30)
+                audio_response = broadcast_api_get(audio_url, timeout=30)
                 if audio_response.status_code == 200:
                     audio_base64 = base64.b64encode(audio_response.content).decode('utf-8')
                     logger.info(f"프리뷰 상세 조회 - 오디오 파일 base64 인코딩 완료: {len(audio_base64)} characters")
@@ -1679,7 +1695,7 @@ def download_history_audio(request, history_id):
         try:
             # 방송서버에 요청해서 파일을 가져오기
             import requests
-            response = requests.get(external_api_url, timeout=30)
+            response = broadcast_api_get(external_api_url, timeout=30)
             logger.info(f"방송서버 응답 상태: {response.status_code}")
             logger.info(f"방송서버 응답 헤더: {dict(response.headers)}")
             

@@ -9,6 +9,21 @@ from .models import DeviceMatrix, BroadcastHistory, AudioFile
 
 logger = logging.getLogger(__name__)
 
+
+def get_broadcast_api_url(path: str) -> str:
+    base_url = settings.BROADCAST_API_CONFIG['BASE_URL'].rstrip('/')
+    normalized_path = path if path.startswith('/') else f'/{path}'
+    return f"{base_url}{normalized_path}"
+
+
+def get_broadcast_api_headers(extra_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    headers = dict(extra_headers or {})
+    api_key = settings.BROADCAST_API_CONFIG.get('API_KEY', '')
+    if api_key:
+        headers['X-API-Key'] = api_key
+    return headers
+
+
 class BroadcastAPIService:
     """FastAPI 방송 서비스와 연동하는 클래스"""
     
@@ -20,7 +35,7 @@ class BroadcastAPIService:
         
         self.session = requests.Session()
         if self.api_key:
-            self.session.headers.update({'Authorization': f'Bearer {self.api_key}'})
+            self.session.headers.update(get_broadcast_api_headers())
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict:
         """API 요청을 수행하는 내부 메서드"""
