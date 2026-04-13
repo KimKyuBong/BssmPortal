@@ -33,7 +33,7 @@ services:
     env_file:
       - .env
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - ./db/mysql:/var/lib/mysql
 
@@ -131,3 +131,13 @@ services:
     volumes:
       - ./dns:/opt/unbound/etc/unbound
     restart: unless-stopped
+
+networks:
+  default:
+    name: bssmcaptive_net
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: bssmcap0
+    ipam:
+      config:
+        - subnet: 172.30.55.0/24

@@ -56,6 +56,9 @@ const authService = {
    */
   async login(credentials: LoginRequest): Promise<AuthResponse<User>> {
     try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+
       const response = await api.post<any>('/auth/login/', credentials);
       
       // 토큰 저장 로직 추가

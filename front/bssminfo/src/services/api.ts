@@ -83,6 +83,20 @@ const normalizeUrl = (url: string): string => {
   return url;
 };
 
+const AUTH_EXCLUDED_PATHS = ['/auth/login/', '/auth/refresh/'];
+
+const isAuthExcludedUrl = (url?: string): boolean => {
+  if (!url) {
+    return false;
+  }
+
+  return AUTH_EXCLUDED_PATHS.some((path) =>
+    url === path ||
+    url.endsWith(path) ||
+    url.includes(`/api${path}`)
+  );
+};
+
 /**
  * API 응답 인터페이스
  */
@@ -190,9 +204,14 @@ axiosInstance.interceptors.request.use(
     logApiCall(config.method?.toUpperCase() || 'UNKNOWN', config.url || '', config.data);
     
     const accessToken = localStorage.getItem('access_token');
+    const isAuthExcludedRequest = isAuthExcludedUrl(config.url);
     
-    if (accessToken && config.headers) {
-      config.headers['Authorization'] = `Bearer ${accessToken}`;
+    if (config.headers) {
+      if (accessToken && !isAuthExcludedRequest) {
+        config.headers['Authorization'] = `Bearer ${accessToken}`;
+      } else {
+        delete config.headers['Authorization'];
+      }
     }
     
     console.log('요청 헤더:', JSON.stringify(config.headers, null, 2));
@@ -217,10 +236,13 @@ axiosInstance.interceptors.response.use(
     
     const originalRequest = error.config;
     
-    // 401 에러이고, 토큰 갱신 시도를 아직 하지 않았으며, 로그인 요청이 아닌 경우
+    const requestUrl = originalRequest?.url;
+    const shouldSkipRefresh = isAuthExcludedUrl(requestUrl);
+
+    // 401 에러이고, 토큰 갱신 시도를 아직 하지 않았으며, 로그인/리프레시 요청이 아닌 경우
     if (error.response?.status === 401 && 
         !originalRequest._retry && 
-        !originalRequest.url?.includes('/api/auth/login/')) {
+        !shouldSkipRefresh) {
       
       originalRequest._retry = true;
       
@@ -232,12 +254,13 @@ axiosInstance.interceptors.response.use(
         
         const refreshResponse = await axiosInstance({
           method: 'post',
-          url: '/api/auth/refresh/',
+          url: '/auth/refresh/',
           data: { refresh: refreshToken }
         });
         
         if (refreshResponse.data?.access) {
           localStorage.setItem('access_token', refreshResponse.data.access);
+          originalRequest.headers = originalRequest.headers ?? {};
           originalRequest.headers['Authorization'] = `Bearer ${refreshResponse.data.access}`;
           return axiosInstance(originalRequest);
         }
